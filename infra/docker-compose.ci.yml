@@ -38,7 +38,9 @@ services:
       retries: 20
 
   springboot:
-    build: ../backend
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
     environment:
       SPRING_PROFILES_ACTIVE: ci
     ports:
@@ -55,7 +57,9 @@ services:
       retries: 20
 
   frontend:
-    build: ../frontend
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
     ports:
       - "8081:80"
     depends_on:
