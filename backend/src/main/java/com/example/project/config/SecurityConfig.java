@@ -41,7 +41,10 @@ public class SecurityConfig {
 
         if ("test".equals(authMode)) {
             // CI/test mode: allow all requests
-            http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+            http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                .cors()
+                .and()
+                .csrf().disable();
             return http.build();
         }
 
@@ -89,6 +92,8 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.addAllowedOrigin("http://localhost:5173");
+        configuration.addAllowedOrigin("http://localhost:8081");
+        configuration.addAllowedOrigin("http://127.0.0.1:8081");
         configuration.addAllowedMethod("GET");
         configuration.addAllowedMethod("POST");
         configuration.addAllowedMethod("PUT");
