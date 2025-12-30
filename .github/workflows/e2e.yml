@@ -16,11 +16,16 @@ jobs:
 
       - name: Start Docker Compose services
         working-directory: infra
+        continue-on-error: true
         run: docker compose -f docker-compose.ci.yml up -d
 
       - name: Print LocalStack logs
         working-directory: infra
         run: docker logs infra-localstack-1 || true
+
+      - name: Debug Compose config
+        working-directory: infra
+        run: docker compose -f docker-compose.ci.yml config || true
 
       - name: Install Node dependencies
         working-directory: frontend
