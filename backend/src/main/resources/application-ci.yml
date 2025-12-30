@@ -24,3 +24,11 @@ aws:
   endpoint: http://localhost:9000
   s3:
     bucket: memo-bucket
+
+logging:
+  level:
+    root: INFO
+    com.example.project: DEBUG
+    org.springframework: INFO
+    org.springframework.web: DEBUG
+    org.hibernate: WARN
