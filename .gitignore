@@ -1,0 +1,41 @@
+# -------------------------
+# Node / Vue
+# -------------------------
+node_modules/
+dist/
+.vite/
+*.log
+
+# Playwright
+test-results/
+playwright-report/
+.playwright/
+allure-results/
+allure-report/
+
+# -------------------------
+# Java / Spring Boot
+# -------------------------
+target/
+build/
+.gradle/
+out/
+
+# LocalStack (コンテナ内なので通常不要)
+localstack/output/
+tmp/
+*.tmp
+
+# -------------------------
+# Docker
+# -------------------------
+*.pid
+
+# -------------------------
+# OS / Editor
+# -------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
