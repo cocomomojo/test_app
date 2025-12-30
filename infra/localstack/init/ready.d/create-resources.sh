@@ -6,7 +6,7 @@ echo "Create-resources ready.d script starting"
 
 # When LocalStack runs scripts in ready.d, services should already be available.
 # Still, wait a short while for AWS HTTP endpoint responsiveness.
-for i in $(seq 1 30); do
+for i in $(seq 1 180); do
   if curl -sS http://localhost:4566/health >/dev/null 2>&1; then
     break
   fi
