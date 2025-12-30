@@ -35,6 +35,11 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         boolean localMode = issuer == null || issuer.isEmpty() || issuer.contains("localstack");
 
+        if (authMode.equals("test")) {
+            http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+            return http.build();
+        }
+
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers("/public/**", "/top").permitAll()
                 .anyRequest().authenticated()
