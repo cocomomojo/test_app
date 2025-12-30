@@ -1,0 +1,5 @@
+"DESCRIPTION","DURATION IN MS","NAME","PARENT SUITE","START TIME","STATUS","STOP TIME","SUB SUITE","SUITE","TEST CLASS","TEST METHOD"
+"","1266","TODOで登録・更新・削除できること","chrome","2025-12-30","passed","2025-12-30","","todo.spec.ts","",""
+"","1616","ログインできること","chrome","2025-12-30","passed","2025-12-30","","login.spec.ts","",""
+"","1996","memoで登録・削除できること","chrome","2025-12-30","passed","2025-12-30","","memo.spec.ts","",""
+"","1057","サブメニューで TOP⇒TODO⇒memo に遷移できること","chrome","2025-12-30","passed","2025-12-30","","navigation.spec.ts","",""
