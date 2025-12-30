@@ -639,16 +639,6 @@ Cognito をローカルで完全にエミュレートするには **LocalStack P
 
 ---
 
-## 🤝 コントリビューション
-
-Pull Request は歓迎します！
-
-1. Fork する
-2. Feature ブランチを作成 (`git checkout -b feature/amazing-feature`)
-3. 変更をコミット (`git commit -m '✨ Add amazing feature'`)
-4. ブランチに Push (`git push origin feature/amazing-feature`)
-5. Pull Request を作成
-
 ---
 
 ## 📄 ライセンス
