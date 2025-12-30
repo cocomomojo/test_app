@@ -18,6 +18,10 @@ jobs:
         working-directory: infra
         run: docker compose -f docker-compose.ci.yml up -d
 
+      - name: Print LocalStack logs
+        working-directory: infra
+        run: docker logs infra-localstack-1 || true
+
       - name: Install Node dependencies
         working-directory: frontend
         run: npm ci
