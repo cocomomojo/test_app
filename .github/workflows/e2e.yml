@@ -19,9 +19,42 @@ jobs:
         #continue-on-error: true
         run: docker compose -f docker-compose.ci.yml up -d
 
-      - name: Debug Compose config
+      - name: Wait for services to be healthy
         working-directory: infra
-        run: docker compose -f docker-compose.ci.yml config || true
+        run: |
+          echo "Waiting for MySQL to be healthy..."
+          docker compose -f docker-compose.ci.yml exec -T mysql mysqladmin ping -h localhost -uroot -proot || exit 1
+          
+          echo "Waiting for Spring Boot to be healthy..."
+          for i in {1..30}; do
+            if curl -f http://localhost:8080/actuator/health > /dev/null 2>&1; then
+              echo "Spring Boot is healthy"
+              break
+            fi
+            echo "Attempt $i/30: Spring Boot not ready yet, waiting..."
+            sleep 2
+          done
+          
+          echo "Waiting for Frontend to be ready..."
+          for i in {1..30}; do
+            if curl -f http://localhost:8081 > /dev/null 2>&1; then
+              echo "Frontend is ready"
+              break
+            fi
+            echo "Attempt $i/30: Frontend not ready yet, waiting..."
+            sleep 2
+          done
+
+      - name: Check service status
+        if: failure()
+        working-directory: infra
+        run: |
+          echo "=== MySQL logs ==="
+          docker compose -f docker-compose.ci.yml logs mysql || true
+          echo -e "\n=== Spring Boot logs ==="
+          docker compose -f docker-compose.ci.yml logs springboot || true
+          echo -e "\n=== Frontend logs ==="
+          docker compose -f docker-compose.ci.yml logs frontend || true
 
       - name: Install Node dependencies
         working-directory: frontend
@@ -32,6 +65,7 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run Playwright E2E tests
+        if: success()
         working-directory: frontend
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:8081
@@ -44,7 +78,7 @@ jobs:
         if: always()
         working-directory: frontend
         run: |
-          allure generate allure-results --clean -o allure-report
+          npx allure generate allure-results --clean -o allure-report
 
       - name: Upload Allure report as artifact
         if: always()
