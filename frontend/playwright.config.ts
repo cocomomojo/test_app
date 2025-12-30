@@ -13,7 +13,7 @@ export default defineConfig({
         browserName: 'chromium',
         // use bundled Playwright Chromium for CI environments
         headless: true,
-        baseURL: 'http://localhost:8081'
+        baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5173'
       }
     }
   ],

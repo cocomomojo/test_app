@@ -16,14 +16,12 @@ spring:
 server:
   port: 8080
 
+auth:
+  mode: local
+
 aws:
-  endpoint: http://localstack:4566   # ← これを追加
   region: ap-northeast-1
+  endpoint: http://localhost:9000
 
   s3:
     bucket: memo-bucket
-    endpoint: http://localstack:4566
-
-  cognito:
-    issuer: http://localstack:4566/_aws/cognito-idp/local/userPoolId
-    audience: local-client-id
