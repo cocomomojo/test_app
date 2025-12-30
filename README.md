@@ -1,6 +1,6 @@
 # 📱 Test App
 
-> Spring Boot + React + Playwright による E2E テスト自動化アプリケーション
+> Spring Boot + Vue.js + Playwright による E2E テスト自動化アプリケーション
 
 [![E2E Tests](https://github.com/cocomomojo/test_app/actions/workflows/e2e.yml/badge.svg)](https://github.com/cocomomojo/test_app/actions/workflows/e2e.yml)
 [![GitHub Pages](https://img.shields.io/badge/Allure_Report-Live-green)](https://cocomomojo.github.io/test_app/)
@@ -42,7 +42,7 @@
 ```mermaid
 graph TB
     subgraph "🌐 ローカル開発環境"
-        FE[Frontend<br/>React + Vite<br/>Port: 5173]
+        FE[Frontend<br/>Vue.js + Vite<br/>Port: 5173]
         BE[Backend<br/>Spring Boot<br/>Port: 8080]
         DB[(MySQL<br/>Port: 3306)]
         LS[LocalStack<br/>S3 Mock<br/>Port: 9000]
@@ -86,8 +86,8 @@ test_app/
 │   ├── build.gradle         # Gradle 設定
 │   └── Dockerfile           # Docker イメージ定義
 │
-├── 📁 frontend/             # React フロントエンド
-│   ├── src/                 # React コンポーネント
+├── 📁 frontend/             # Vue.js フロントエンド
+│   ├── src/                 # Vue.js コンポーネント
 │   ├── tests/e2e/           # E2E テスト（Playwright）
 │   ├── package.json         # npm 依存関係
 │   ├── playwright.config.ts # Playwright 設定
@@ -121,10 +121,11 @@ test_app/
 ### フロントエンド
 | 技術 | バージョン | 用途 |
 |------|-----------|------|
-| ⚛️ React | 18+ | UI フレームワーク |
-| ⚡ Vite | - | ビルドツール |
-| 🎭 Playwright | - | E2E テスト |
-| 📊 Allure | - | テストレポート |
+| 🖖 Vue.js | 3.3.4+ | UI フレームワーク |
+| ⚡ Vite | 5.0+ | ビルドツール |
+| 🎨 Vuetify | 3.3.0+ | UI コンポーネント |
+| 🎭 Playwright | 1.40.0+ | E2E テスト |
+| 📊 Allure | 2.13.9+ | テストレポート |
 | 🌐 Nginx | Alpine | Web サーバー（本番） |
 
 ### インフラ
