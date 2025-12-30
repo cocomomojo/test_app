@@ -31,6 +31,10 @@ public class SecurityConfig {
     @Value("${aws.cognito.audience:}")
     private String audience;
 
+    @Value("${auth.mode:prod}")
+    private String authMode;
+
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         boolean localMode = issuer == null || issuer.isEmpty() || issuer.contains("localstack");
