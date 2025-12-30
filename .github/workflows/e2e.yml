@@ -4,19 +4,24 @@ on:
   push:
     branches: [ main ]
   pull_request:
+    branches: [ main ]
 
 permissions:
-  contents: write
-  pages: write
+  contents: read
 
 jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Pull Request からのワークフロー実行を制限
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          # Pull Request の場合、HEAD コミットをチェックアウト
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Start Docker Compose services
         working-directory: infra
@@ -136,7 +141,9 @@ jobs:
           path: frontend/allure-report
 
       - name: Deploy Allure report to GitHub Pages
-        if: success() && github.ref == 'refs/heads/main'
+        if: success() && github.ref == 'refs/heads/main' && github.event_name == 'push'
+        permissions:
+          contents: write
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
