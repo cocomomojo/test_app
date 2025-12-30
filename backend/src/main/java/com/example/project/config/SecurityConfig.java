@@ -25,7 +25,7 @@ import com.example.project.security.AudienceValidator;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    @Value("${aws.cognito.issuer}")
+    @Value("${aws.cognito.issuer:}")
     private String issuer;
 
     @Value("${aws.cognito.audience:}")
@@ -37,9 +37,10 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        boolean localMode = issuer == null || issuer.isEmpty() || issuer.contains("localstack");
+        boolean localMode = authMode != null && ("local".equals(authMode) || "test".equals(authMode));
 
-        if (authMode.equals("test")) {
+        if ("test".equals(authMode)) {
+            // CI/test mode: allow all requests
             http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
             return http.build();
         }
@@ -55,20 +56,27 @@ public class SecurityConfig {
             // allow CORS from vite dev server
             http.cors();
         } else {
-            // build JwtDecoder here to avoid auto-config enabling resource-server in local
-            NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withJwkSetUri(issuer + "/.well-known/jwks.json").build();
-            OAuth2TokenValidator<org.springframework.security.oauth2.jwt.Jwt> withIssuer = JwtValidators.createDefaultWithIssuer(issuer);
-
-            if (audience != null && !audience.isEmpty()) {
-                OAuth2TokenValidator<org.springframework.security.oauth2.jwt.Jwt> audienceValidator = new com.example.project.security.AudienceValidator(audience);
-                jwtDecoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(withIssuer, audienceValidator));
+            // Production mode: use JWT with issuer
+            if (issuer == null || issuer.isEmpty()) {
+                // If issuer not configured, fall back to local mode
+                http.addFilterBefore(new LocalAuthFilter(), UsernamePasswordAuthenticationFilter.class);
+                http.cors();
             } else {
-                jwtDecoder.setJwtValidator(withIssuer);
-            }
+                // build JwtDecoder here to avoid auto-config enabling resource-server in local
+                NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withJwkSetUri(issuer + "/.well-known/jwks.json").build();
+                OAuth2TokenValidator<org.springframework.security.oauth2.jwt.Jwt> withIssuer = JwtValidators.createDefaultWithIssuer(issuer);
 
-            http.oauth2ResourceServer(oauth -> oauth
-                    .jwt(jwt -> jwt.decoder(jwtDecoder))
-            );
+                if (audience != null && !audience.isEmpty()) {
+                    OAuth2TokenValidator<org.springframework.security.oauth2.jwt.Jwt> audienceValidator = new com.example.project.security.AudienceValidator(audience);
+                    jwtDecoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(withIssuer, audienceValidator));
+                } else {
+                    jwtDecoder.setJwtValidator(withIssuer);
+                }
+
+                http.oauth2ResourceServer(oauth -> oauth
+                        .jwt(jwt -> jwt.decoder(jwtDecoder))
+                );
+            }
         }
 
         // For API-style usage in local dev, disable CSRF to allow POST requests from tools/scripts
