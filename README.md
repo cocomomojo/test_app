@@ -370,79 +370,64 @@ npx playwright show-report
 
 ## 🔄 GitHub Actions（CI/CD）
 
+### ⚠️ ワークフロー実行方式
+
+**現在の設定：手動実行のみ**
+
+- ❌ main ブランチへの push では自動実行されません
+- ❌ Pull Request 作成時も自動実行されません
+- ✅ GitHub Actions から手動実行のみ可能
+
 ### ワークフローの概要
 
 ```mermaid
 graph TD
-    A[📝 コード Push/PR] --> B{🔀 トリガー}
-    B -->|Push to main| C[🏗️ Docker Build]
-    B -->|Pull Request| C
-    B -->|手動実行| C
+    A[🖱️ 手動実行] --> B[🏗️ Docker Build]
     
-    C --> D[⏳ サービス起動待機]
-    D --> E{✅ ヘルスチェック}
-    E -->|❌ 失敗| F[📋 ログ出力]
-    E -->|✅ 成功| G[🎭 E2E テスト実行]
+    B --> C[⏳ サービス起動待機]
+    C --> D{✅ ヘルスチェック}
+    D -->|❌ 失敗| E[📋 ログ出力]
+    D -->|✅ 成功| F[🎭 E2E テスト実行]
     
-    G -->|❌ 失敗| H[📸 スクリーンショット保存]
-    G -->|✅ 成功| I[📊 Allure レポート生成]
+    F -->|❌ 失敗| G[📸 スクリーンショット保存]
+    F -->|✅ 成功| H[📊 Allure レポート生成]
     
-    I --> J{🔍 main ブランチ?}
-    J -->|Yes| K[🚀 GitHub Pages デプロイ]
-    J -->|No| L[📦 Artifact 保存]
+    H --> I{🔍 main ブランチ?}
+    I -->|Yes| J[🚀 GitHub Pages デプロイ]
+    I -->|No| K[📦 Artifact 保存]
     
-    K --> M[✨ 完了]
-    L --> M
-    H --> M
-    F --> M
+    J --> L[✨ 完了]
+    K --> L
+    G --> L
+    E --> L
     
     style A fill:#e3f2fd
-    style G fill:#fff3e0
-    style K fill:#e8f5e9
-    style M fill:#f3e5f5
+    style F fill:#fff3e0
+    style J fill:#e8f5e9
+    style L fill:#f3e5f5
 ```
 
 ### 🎯 ワークフローの実行方法
 
-#### 1️⃣ 自動実行（Push）
-
-```bash
-# main ブランチへ直接 push
-git add .
-git commit -m "✨ 新機能追加"
-git push origin main
-```
-
-→ **自動的に E2E テストが実行され、成功すれば GitHub Pages にデプロイ**
-
-#### 2️⃣ 自動実行（Pull Request）
-
-```bash
-# 新しいブランチで作業
-git checkout -b feature/new-feature
-
-# 変更をコミット
-git add .
-git commit -m "✨ 新機能追加"
-git push origin feature/new-feature
-
-# GitHub で Pull Request を作成
-```
-
-→ **E2E テストが実行されますが、GitHub Pages へのデプロイはされません**
-
-#### 3️⃣ 手動実行
+#### 手動実行（唯一の実行方法）
 
 1. GitHub リポジトリの **Actions** タブを開く
-2. **E2E Tests with Playwright and Allure** を選択
-3. **Run workflow** ボタンをクリック
-4. ブランチを選択（main を推奨）
+2. 左側から **E2E Tests with Playwright and Allure** を選択
+3. 右上の **Run workflow** ボタンをクリック
+4. ブランチを選択
+   - **main** ブランチ: テスト成功時に GitHub Pages へデプロイ
+   - **その他のブランチ**: テストのみ実行（デプロイなし）
 5. **Run workflow** をクリック
 
 **実行権限:**
 - ✅ リポジトリオーナー
-- ✅ Collaborators（書き込み権限）
+- ✅ Collaborators（書き込み権限あり）
 - ❌ 一般の閲覧者は実行不可
+
+**実行結果の確認:**
+- Actions タブでワークフローの進行状況を確認
+- 各ステップの詳細ログを表示可能
+- テスト失敗時はスクリーンショットやビデオを Artifacts からダウンロード可能
 
 ### 📊 ワークフローのステップ
 
@@ -536,10 +521,10 @@ graph LR
     A --> C[🚫 実行制限]
     A --> D[⏱️ タイムアウト]
     
-    B --> B1[デフォルト: 読み取り専用]
-    B --> B2[デプロイ時のみ書き込み権限]
+    B --> B1[書き込み権限あり]
+    B --> B2[手動実行のみ]
     
-    C --> C1[Fork からの PR は拒否]
+    C --> C1[手動実行のみ許可]
     C --> C2[main ブランチのみデプロイ]
     
     D --> D1[30分で強制終了]
@@ -555,15 +540,15 @@ graph LR
 
 | リスク | 対策 | 状態 |
 |--------|------|:----:|
-| 外部 Fork からの悪意あるコード実行 | リポジトリ内 PR のみ許可 | ✅ |
-| シークレット情報の漏洩 | 最小権限の原則 | ✅ |
-| 不正なデプロイ | main ブランチ + push のみ | ✅ |
+| 自動実行によるリソース消費 | 手動実行のみ許可 | ✅ |
+| 不正なコードの自動実行 | push/PR での自動実行を無効化 | ✅ |
+| 不正なデプロイ | main ブランチのみデプロイ | ✅ |
 | リソースの不正使用 | タイムアウト設定（30分） | ✅ |
-| 悪意ある依存関係の追加 | Branch Protection + Review | ⚠️ |
+| 権限のない第三者による実行 | 書き込み権限必須 | ✅ |
 
 ### 推奨設定（GitHub Settings）
 
-#### Branch Protection Rules
+#### Branch Protection Rules（オプション）
 
 ```
 Settings → Branches → Add rule
@@ -572,11 +557,11 @@ Branch name pattern: main
 
 - ✅ Require a pull request before merging
 - ✅ Require approvals (1)
-- ✅ Require status checks to pass
-  - E2E Tests with Playwright and Allure
 - ✅ Require branches to be up to date before merging
 
-#### Actions 制限
+**注意:** 手動実行のみの設定のため、ステータスチェックは不要
+
+#### Actions 権限設定
 
 ```
 Settings → Actions → General
