@@ -1,11 +1,7 @@
 name: E2E Tests with Playwright and Allure
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:  # 手動実行を許可
+  workflow_dispatch:  # 手動実行のみ許可
 
 permissions:
   contents: read
@@ -14,8 +10,6 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # Pull Request からのワークフロー実行を制限
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
 
     steps:
       - name: Checkout repository
