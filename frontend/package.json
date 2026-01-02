@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "npm run test:e2e",
     "test:e2e": "playwright test",
+    "test:headless": "playwright test --headless",
+    "test:allure": "playwright test --reporter=line,allure-playwright",
     "test:e2e:report": "allure generate allure-results -o allure-report --clean && allure open allure-report"
   },
   "dependencies": {
