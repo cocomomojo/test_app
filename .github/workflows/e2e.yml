@@ -139,3 +139,8 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: frontend/allure-report
+
+      - name: Stop Docker Compose services
+        if: always()
+        working-directory: infra
+        run: docker compose -f docker-compose.ci.yml down -v
