@@ -7,7 +7,7 @@
  * node scripts/capture-manual-screenshots-node.js --type user --feature "ログイン機能"
  */
 
-const playwright = require('@playwright/test');
+const { createRequire } = require('module');
 const path = require('path');
 const fs = require('fs');
 const { exec } = require('child_process');
@@ -58,12 +58,21 @@ async function captureScreenshots() {
     // Playwright が利用可能か確認
     let playwright_;
     try {
+      // 通常の解決
       playwright_ = require('@playwright/test');
-    } catch (e) {
-      console.log('⚠️  @playwright/test が見つかりません');
-      console.log('   インストールして再度実行してください:');
-      console.log('   cd frontend && npm install @playwright/test');
-      process.exit(1);
+    } catch (e1) {
+      try {
+        // frontend/node_modules 経由で解決（devDependencies が frontend にあるケース）
+        const requireFromFrontend = createRequire(path.join(PROJECT_DIR, 'frontend', 'package.json'));
+        playwright_ = requireFromFrontend('@playwright/test');
+      } catch (e2) {
+        console.log('⚠️  @playwright/test が見つかりません');
+        console.log('   次のいずれかを実施してください:');
+        console.log('   1) リポジトリ直下で npm install @playwright/test');
+        console.log('   2) frontend 配下で npm install を実行し、NODE_PATH を設定して再実行');
+        console.log('      例: NODE_PATH="./frontend/node_modules" FRONTEND_URL="http://localhost:5173" npm run manual:generate:user -- --feature "ログイン機能"');
+        process.exit(1);
+      }
     }
 
     browser = await playwright_.chromium.launch({ headless: true });
