@@ -11,7 +11,10 @@
     "test:e2e": "playwright test",
     "test:headless": "playwright test --headless",
     "test:allure": "playwright test --reporter=line,allure-playwright",
-    "test:e2e:report": "allure generate allure-results -o allure-report --clean && allure open allure-report"
+    "test:e2e:report": "allure generate allure-results -o allure-report --clean && allure open allure-report",
+    "manual:generate": "bash ../scripts/generate-manual.sh",
+    "manual:generate:user": "bash ../scripts/generate-manual.sh --type user",
+    "manual:generate:admin": "bash ../scripts/generate-manual.sh --type admin"
   },
   "dependencies": {
     "axios": "^1.5.0",

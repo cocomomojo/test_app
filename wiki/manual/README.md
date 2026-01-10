@@ -39,11 +39,38 @@ wiki/manual/
 2. **@manual-specialist が自動アサイン**
    - Issue が作成されると自動的に `@manual-specialist` エージェントがアサインされます
 
-3. **エージェントが自動作成**
-   - アプリケーションを起動
-   - スクリーンショットを撮影
-   - テンプレートを使用してマニュアル作成
-   - PR を作成
+3. **エージェントが自動作成（Local環境）**
+   - 完全自動化スクリプトで全処理を実行
+   - PR を自動作成
+
+### 完全自動化スクリプト実行（最短・最推奨）
+
+```bash
+# セットアップ（初回のみ）
+cd /home/k-mano/test_app
+docker-compose -f infra/docker-compose.local.yml up -d  # バックエンド起動
+cd frontend && npm run dev &  # フロントエンド起動
+
+# 実行（別ターミナルで）
+./scripts/generate-manual.sh --feature "ログイン機能" --type "user"
+
+# または npm経由
+npm run manual:generate -- --feature "ログイン機能" --type "user"
+
+# 短縮コマンド
+npm run manual:generate:user -- --feature "ログイン機能"
+npm run manual:generate:admin -- --feature "システム設定"
+```
+
+完全自動化スクリプトの処理：
+- ✅ Step 1: 環境チェック（Docker、フロントエンド、バックエンド）
+- ✅ Step 2: ディレクトリ準備
+- ✅ Step 3: スクリーンショット自動撮影
+- ✅ Step 4: マニュアルコンテンツ自動生成
+- ✅ Step 5: Git操作（ブランチ作成、コミット）
+- ✅ Step 6: PR作成準備
+
+**所要時間: 約3-5分で完成！**
 
 ### 手動フロー
 
@@ -212,6 +239,7 @@ npx playwright install
 
 ## 関連ドキュメント
 
+- [自動マニュアル生成スクリプトガイド](./generate-manual-guide.md) ← **まずこれを読んでください！**
 - [Issue自動生成ガイド](../15-Issue自動生成ガイド.md)
 - [@manual-specialist エージェント](../../.github/agents/manual-specialist.md)
 - [スクリーンショット撮影スクリプト](../../scripts/capture-manual-screenshots.ts)
