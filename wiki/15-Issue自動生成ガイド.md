@@ -24,12 +24,22 @@ GitHub Actions、CLI スクリプト、カスタムコマンドを組み合わ�
 │   ├── manual.yml                     ← 操作マニュアル Issue テンプレート
 │   ├── feature.yml                    ← 機能改修 Issue テンプレート
 │   └── error-analysis.yml             ← エラー解析 Issue テンプレート
-├── prompts/
-│   └── create-issue.prompt.md         ← カスタムコマンド（4種対応）
-└── ...
+├── agents/
+│   └── manual-specialist.md           ← 操作マニュアル作成専門エージェント
+└── prompts/
+    └── create-issue.prompt.md         ← カスタムコマンド（4種対応）
 
 scripts/
-└── create-issue.js                    ← Node.js スクリプト（4種対応）
+├── create-issue.js                    ← Issue作成スクリプト（4種対応）
+├── generate-manual.sh                 ← マニュアル完全自動生成スクリプト ★NEW
+├── capture-manual-screenshots-node.js ← スクリーンショット撮影スクリプト
+└── ...
+
+wiki/manual/
+├── README.md                          ← マニュアル作成ガイド
+├── generate-manual-guide.md           ← 自動生成スクリプト詳細ガイド ★NEW
+├── templates/                         ← マニュアルテンプレート
+└── ...
 ```
 
 ---
@@ -603,6 +613,51 @@ E2E テスト作成のIssueを生成してください。
 | **推奨用途** | 定期実行・大量生成 | 開発効率化 | 対話的実行 |
 | **スケーラビリティ** | ⭐⭐⭐ | ⭐⭐ | ⭐ |
 | **対応Issueタイプ** | 4種類全て | 4種類全て | 4種類全て |
+
+---
+
+## 🚀 オプション: Local環境での完全自動化（操作マニュアル向け）
+
+操作マニュアル作成の場合のみ、**さらに高度な自動化**が可能です：
+
+### ワンコマンド完全自動化
+
+```bash
+# セットアップ（初回のみ）
+cd /home/k-mano/test_app
+docker-compose -f infra/docker-compose.local.yml up -d
+cd frontend && npm run dev &
+
+# マニュアル完全自動生成（別ターミナル）
+./scripts/generate-manual.sh --feature "ログイン機能" --type "user"
+
+# または npm 経由
+npm run manual:generate:user -- --feature "ログイン機能"
+```
+
+### 処理フロー
+
+```
+ワンコマンド実行
+    ↓
+Step 1: 環境チェック（Docker、フロントエンド、バックエンド）
+    ↓
+Step 2: ディレクトリ準備
+    ↓
+Step 3: スクリーンショット自動撮影（Playwright）
+    ↓
+Step 4: マニュアル自動生成（テンプレート + 画像埋め込み）
+    ↓
+Step 5: Git操作（ブランチ作成、コミット）
+    ↓
+Step 6: PR作成準備（PR作成コマンド表示）
+    ↓
+✅ 完了（約3-5分）
+```
+
+### 詳細ガイド
+
+詳しくは [自動マニュアル生成スクリプトガイド](../wiki/manual/generate-manual-guide.md) を参照してください。
 
 ---
 
