@@ -36,6 +36,7 @@ log_error() {
 # デフォルト値
 FEATURE_NAME=""
 MANUAL_TYPE="user"
+USE_AI="false"
 BASE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 MANUAL_DIR="$BASE_DIR/wiki/manual"
 SCREENSHOT_DIR="$MANUAL_DIR/screenshots"
@@ -57,6 +58,10 @@ while [[ $# -gt 0 ]]; do
       FRONTEND_URL="$2"
       shift 2
       ;;
+    --ai)
+      USE_AI="true"
+      shift 1
+      ;;
     *)
       log_error "不明なオプション: $1"
       exit 1
@@ -76,8 +81,7 @@ log_info "操作マニュアル自動生成ツール"
 log_info "=========================================="
 log_info "機能名: $FEATURE_NAME"
 log_info "マニュアル種別: $MANUAL_TYPE"
-log_info "フロントエンドURL: $FRONTEND_URL"
-log_info ""
+log_info "フロントエンドURL: $FRONTEND_URL"log_info "AI統合: $USE_AI"log_info ""
 
 # ========================
 # Step 1: 環境チェック
@@ -162,9 +166,30 @@ log_success "マニュアルディレクトリ作成: $MANUAL_DIR/$MANUAL_TYPE"
 log_info ""
 
 # ========================
-# Step 3: スクリーンショット撮影
+# Step 3: ページ内容解析（AI統合時のみ）
 # ========================
-log_info "【Step 3】スクリーンショット撮影"
+if [ "$USE_AI" = "true" ]; then
+  log_info "【Step 3】ページ内容解析（AI統合モード）"
+  log_info ""
+
+  PAGE_ANALYSIS_FILE="$MANUAL_DIR/${MANUAL_TYPE}-page-analysis.json"
+  
+  cd "$BASE_DIR"
+  NODE_PATH="$FRONTEND_DIR/node_modules${NODE_PATH:+:$NODE_PATH}" node "$BASE_DIR/scripts/analyze-page-content.js" --url "$FRONTEND_URL" --output "$PAGE_ANALYSIS_FILE"
+  
+  if [ -f "$PAGE_ANALYSIS_FILE" ]; then
+    log_success "ページ内容解析完了: $PAGE_ANALYSIS_FILE"
+  else
+    log_warn "ページ内容解析に失敗しました（スキップして続行）"
+  fi
+  
+  log_info ""
+fi
+
+# ========================
+# Step 4: スクリーンショット撮影
+# ========================
+log_info "【Step 4】スクリーンショット撮影"
 log_info ""
 
 # Node.js スクリプトでスクリーンショット撮影
@@ -173,11 +198,11 @@ SCREENSHOT_SCRIPT_TS="$BASE_DIR/scripts/capture-manual-screenshots.ts"
 
 if [ -f "$SCREENSHOT_SCRIPT_JS" ]; then
   cd "$BASE_DIR"
-  FRONTEND_URL="$FRONTEND_URL" node "$SCREENSHOT_SCRIPT_JS" --type "$MANUAL_TYPE" --feature "$FEATURE_NAME"
+  NODE_PATH="$FRONTEND_DIR/node_modules${NODE_PATH:+:$NODE_PATH}" FRONTEND_URL="$FRONTEND_URL" node "$SCREENSHOT_SCRIPT_JS" --type "$MANUAL_TYPE" --feature "$FEATURE_NAME"
   log_success "スクリーンショット撮影完了 (node)"
 elif [ -f "$SCREENSHOT_SCRIPT_TS" ]; then
   cd "$BASE_DIR"
-  FRONTEND_URL="$FRONTEND_URL" npx ts-node "$SCREENSHOT_SCRIPT_TS" --type "$MANUAL_TYPE" --feature "$FEATURE_NAME"
+  NODE_PATH="$FRONTEND_DIR/node_modules${NODE_PATH:+:$NODE_PATH}" FRONTEND_URL="$FRONTEND_URL" npx ts-node "$SCREENSHOT_SCRIPT_TS" --type "$MANUAL_TYPE" --feature "$FEATURE_NAME"
   log_success "スクリーンショット撮影完了 (ts-node)"
 else
   log_warn "スクリーンショット撮影スクリプトが見つかりません: $SCREENSHOT_SCRIPT_JS / $SCREENSHOT_SCRIPT_TS"
@@ -187,10 +212,30 @@ fi
 log_info ""
 
 # ========================
-# Step 4: マニュアルコンテンツ生成
+# Step 5: マニュアルコンテンツ生成
 # ========================
-log_info "【Step 4】マニュアルコンテンツ生成"
+log_info "【Step 5】マニュアルコンテンツ生成"
 log_info ""
+
+if [ "$USE_AI" = "true" ] && [ -f "$PAGE_ANALYSIS_FILE" ]; then
+  log_info "🤖 AI統合モード: プロンプト生成中..."
+  log_info ""
+  
+  cd "$BASE_DIR"
+  node "$BASE_DIR/scripts/generate-manual-with-ai.js" --feature "$FEATURE_NAME" --type "$MANUAL_TYPE" --page-data "$PAGE_ANALYSIS_FILE"
+  
+  log_info ""
+  log_warn "AI統合モードでは、上記のプロンプトを GitHub Copilot Chat に貼り付けて"
+  log_warn "マニュアルを生成し、手動で保存してください。"
+  log_info ""
+  log_info "生成後、以下のコマンドでGit操作を継続できます:"
+  log_info "  ./scripts/generate-manual.sh --feature \"$FEATURE_NAME\" --type $MANUAL_TYPE"
+  log_info ""
+  
+  exit 0
+fi
+
+# 通常モード（テンプレートベース）
 
 # テンプレート選択
 if [ "$MANUAL_TYPE" = "admin" ]; then
@@ -216,27 +261,25 @@ log_success "出力ファイル: $OUTPUT_FILE"
 # テンプレートをコピーして機能名を置換
 cp "$TEMPLATE_FILE" "$OUTPUT_FILE"
 
-# 機能名を置換
-sed -i "s/\[機能名\]/$FEATURE_NAME/g" "$OUTPUT_FILE"
-sed -i "s/\[機能名\]/$FEATURE_NAME/g" "$OUTPUT_FILE"
-sed -i "s/\[機能名\]/$FEATURE_NAME/g" "$OUTPUT_FILE"
+# 機能名を置換（角括弧は正規表現で特別扱いされるためエスケープ）
+sed -i "s|\\[機能名\\]|$FEATURE_NAME|g" "$OUTPUT_FILE"
 
 # スクリーンショットパスを置換（テンプレート内のプレースホルダーを実際のパスに）
-sed -i "s|\[feature\]|${FEATURE_SLUG}|g" "$OUTPUT_FILE"
+sed -i "s|\\[feature\\]|${FEATURE_SLUG}|g" "$OUTPUT_FILE"
 
-# 日付を挿入
+# 日付を挿入（* は正規表現の量指定子なのでエスケープして検索）
 TODAY=$(date +%Y年%m月%d日)
-sed -i "s|**作成日**: 2026年1月10日|**作成日**: $TODAY|g" "$OUTPUT_FILE"
-sed -i "s|**最終更新**: 2026年1月10日|**最終更新**: $TODAY|g" "$OUTPUT_FILE"
+sed -i "s|\\*\\*作成日\\*\\*: .*|**作成日**: $TODAY|g" "$OUTPUT_FILE"
+sed -i "s|\\*\\*最終更新\\*\\*: .*|**最終更新**: $TODAY|g" "$OUTPUT_FILE"
 
 log_success "マニュアルコンテンツ生成完了"
 
 log_info ""
 
 # ========================
-# Step 5: Git操作
+# Step 6: Git操作
 # ========================
-log_info "【Step 5】Git操作"
+log_info "【Step 6】Git操作"
 log_info ""
 
 cd "$BASE_DIR"
@@ -272,9 +315,9 @@ fi
 log_info ""
 
 # ========================
-# Step 6: PR作成準備
+# Step 7: PR作成準備
 # ========================
-log_info "【Step 6】PR作成準備"
+log_info "【Step 7】PR作成準備"
 log_info ""
 
 # PR作成コマンド表示

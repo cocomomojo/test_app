@@ -52,15 +52,25 @@ docker-compose -f infra/docker-compose.local.yml up -d  # バックエンド起�
 cd frontend && npm run dev &  # フロントエンド起動
 
 # 実行（別ターミナルで）
-./scripts/generate-manual.sh --feature "ログイン機能" --type "user" --frontend-url "http://localhost:5175"
+./scripts/generate-manual.sh --feature "ログイン機能" --type "user" --frontend-url "http://localhost:5173"
 
 # または npm経由（frontend 配下で）
-npm run manual:generate -- --feature "ログイン機能" --type "user" --frontend-url "http://localhost:5175"
+npm run manual:generate -- --feature "ログイン機能" --type "user" --frontend-url "http://localhost:5173"
 
-# 短縮コマンド（必要に応じて --frontend-url を付与）
-npm run manual:generate:user -- --feature "ログイン機能" --frontend-url "http://localhost:5175"
-npm run manual:generate:admin -- --feature "システム設定" --frontend-url "http://localhost:5175"
+# 短縮コマンド（通常モード）
+npm run manual:generate:user -- --feature "ログイン機能" --frontend-url "http://localhost:5173"
+npm run manual:generate:admin -- --feature "システム設定" --frontend-url "http://localhost:5173"
+
+# AI統合モード（高精度・推奨）
+npm run manual:generate:user:ai -- --feature "ログイン機能" --frontend-url "http://localhost:5173"
+npm run manual:generate:admin:ai -- --feature "システム設定" --frontend-url "http://localhost:5173"
 ```
+
+**AI統合モードの特徴**:
+- ✅ 実画面から情報抽出（ボタン名、入力フィールドなど）
+- ✅ プレースホルダー（〇〇）なし、具体的な説明
+- ✅ GitHub Copilot用プロンプト自動生成
+- ✅ 詳しくは [AI統合ガイド](ai-integration-guide.md) を参照
 
 完全自動化スクリプトの処理：
 - ✅ Step 1: 環境チェック（Docker、フロントエンド、バックエンド）
