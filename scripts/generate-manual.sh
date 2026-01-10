@@ -40,6 +40,7 @@ BASE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 MANUAL_DIR="$BASE_DIR/wiki/manual"
 SCREENSHOT_DIR="$MANUAL_DIR/screenshots"
 FRONTEND_DIR="$BASE_DIR/frontend"
+FRONTEND_URL="${FRONTEND_URL:-http://localhost:5173}"
 
 # 引数パース
 while [[ $# -gt 0 ]]; do
@@ -50,6 +51,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --type)
       MANUAL_TYPE="$2"
+      shift 2
+      ;;
+    --frontend-url)
+      FRONTEND_URL="$2"
       shift 2
       ;;
     *)
@@ -71,6 +76,7 @@ log_info "操作マニュアル自動生成ツール"
 log_info "=========================================="
 log_info "機能名: $FEATURE_NAME"
 log_info "マニュアル種別: $MANUAL_TYPE"
+log_info "フロントエンドURL: $FRONTEND_URL"
 log_info ""
 
 # ========================
@@ -114,7 +120,7 @@ fi
 
 # フロントエンド稼働確認
 log_info "フロントエンド稼働確認中..."
-if curl -s http://localhost:5173 > /dev/null 2>&1; then
+if curl -s "$FRONTEND_URL" > /dev/null 2>&1; then
   log_success "フロントエンド稼働中"
 else
   log_warn "フロントエンドが起動していない可能性があります"
@@ -126,7 +132,7 @@ else
   
   # 最大30秒待機
   for i in {1..30}; do
-    if curl -s http://localhost:5173 > /dev/null 2>&1; then
+    if curl -s "$FRONTEND_URL" > /dev/null 2>&1; then
       log_success "フロントエンド起動確認"
       break
     fi
@@ -162,21 +168,20 @@ log_info "【Step 3】スクリーンショット撮影"
 log_info ""
 
 # Node.js スクリプトでスクリーンショット撮影
-SCREENSHOT_SCRIPT="$BASE_DIR/scripts/capture-manual-screenshots-node.js"
+SCREENSHOT_SCRIPT_JS="$BASE_DIR/scripts/capture-manual-screenshots-node.js"
+SCREENSHOT_SCRIPT_TS="$BASE_DIR/scripts/capture-manual-screenshots.ts"
 
-if [ ! -f "$SCREENSHOT_SCRIPT" ]; then
-  log_warn "スクリーンショット撮影スクリプトが見つかりません: $SCREENSHOT_SCRIPT"
-  log_info "簡易的なスクリーンショット撮影を行います"
-  
-  # Playwright で自動撮影（Puppeteer代替）
-  cd "$FRONTEND_DIR"
-  
-  # 簡単なスクリーンショット撮影（ブラウザでアクセス可能か確認）
-  log_success "フロントエンドアクセス確認: http://localhost:5173"
-else
+if [ -f "$SCREENSHOT_SCRIPT_JS" ]; then
   cd "$BASE_DIR"
-  npx ts-node "$SCREENSHOT_SCRIPT" --type "$MANUAL_TYPE" --feature "$FEATURE_NAME"
-  log_success "スクリーンショット撮影完了"
+  FRONTEND_URL="$FRONTEND_URL" node "$SCREENSHOT_SCRIPT_JS" --type "$MANUAL_TYPE" --feature "$FEATURE_NAME"
+  log_success "スクリーンショット撮影完了 (node)"
+elif [ -f "$SCREENSHOT_SCRIPT_TS" ]; then
+  cd "$BASE_DIR"
+  FRONTEND_URL="$FRONTEND_URL" npx ts-node "$SCREENSHOT_SCRIPT_TS" --type "$MANUAL_TYPE" --feature "$FEATURE_NAME"
+  log_success "スクリーンショット撮影完了 (ts-node)"
+else
+  log_warn "スクリーンショット撮影スクリプトが見つかりません: $SCREENSHOT_SCRIPT_JS / $SCREENSHOT_SCRIPT_TS"
+  log_info "簡易的なスクリーンショット撮影をスキップします (手動で撮影してください)"
 fi
 
 log_info ""

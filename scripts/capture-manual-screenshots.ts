@@ -10,7 +10,7 @@ import fs from 'fs';
  */
 
 const SCREENSHOT_DIR = path.join(__dirname, '..', 'wiki', 'manual', 'screenshots');
-const BASE_URL = 'http://localhost:5173';
+const BASE_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 // スクリーンショット保存ディレクトリの作成
 function ensureDirectories() {

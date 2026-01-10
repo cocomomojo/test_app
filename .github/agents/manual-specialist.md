@@ -25,7 +25,7 @@ cd /home/k-mano/test_app
 docker-compose -f infra/docker-compose.local.yml up -d
 
 # フロントエンドとバックエンドが起動したことを確認
-# フロントエンド: http://localhost:5173
+# フロントエンド: 環境変数 FRONTEND_URL（例: http://localhost:5173 や http://localhost:5175）
 # バックエンド: http://localhost:8080
 ```
 
@@ -48,7 +48,7 @@ test('ログイン画面のスクリーンショット', async ({ page }) => {
 ```
 
 Playwright MCP を使う場合：
-1. `mcp_playwright_browser_navigate` でページに移動
+1. `mcp_playwright_browser_navigate` で FRONTEND_URL に移動
 2. `mcp_playwright_browser_take_screenshot` でスクリーンショット撮影
 3. `filename` パラメータで `wiki/manual/screenshots/` 配下に保存
 
