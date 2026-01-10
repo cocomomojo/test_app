@@ -1,0 +1,224 @@
+name: 自動Issue生成
+
+on:
+  schedule:
+    # 毎週月曜 09:00 UTC (18:00 JST) に実行
+    - cron: '0 9 * * 1'
+  workflow_dispatch:  # 手動トリガー
+    inputs:
+      issue_type:
+        description: 'Issueタイプを選択'
+        required: true
+        type: choice
+        options:
+          - e2e-test
+          - manual
+          - feature
+          - error-analysis
+          - all
+
+jobs:
+  create-e2e-test-issue:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.issue_type == 'e2e-test' || github.event.inputs.issue_type == 'all' || github.event_name == 'schedule'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: E2E テスト Issue を作成
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "[自動] E2E テスト作成 - $(date +%Y年%m月%d日)" \
+            --body "$(cat << 'EOF'
+          ## 背景
+          自動生成されたE2Eテスト作成タスクです。
+          
+          ## 対象機能とテストシナリオ
+          ### ログイン機能
+          - [ ] 正常系: 正しい認証情報でログイン成功
+          - [ ] 異常系: 空のユーザ名でエラー表示
+          - [ ] 異常系: 不正なパスワードでエラー表示
+          
+          ### TODO管理機能
+          - [ ] 作成: 新規TODO作成
+          - [ ] 削除: TODO削除
+          - [ ] 完了: TODO完了マーク
+          
+          ### メモ管理機能
+          - [ ] 作成: 新規メモ作成
+          - [ ] 編集: メモ編集
+          - [ ] 削除: メモ削除
+          
+          ## 受け入れ条件
+          - すべてのテストがローカルで成功すること
+          - Allureレポートが生成されること
+          - テストカバレッジが80%以上であること
+          
+          ## 実装パス
+          \`frontend/tests/e2e/\`
+          
+          ---
+          **自動生成**: GitHub Actions
+          EOF
+          )" \
+            --label "test,e2e,auto-generated" \
+            --assignee "e2e-test-specialist"
+
+  create-manual-issue:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.issue_type == 'manual' || github.event.inputs.issue_type == 'all' || github.event_name == 'schedule'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 操作マニュアル作成 Issue を作成
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "[自動] 操作マニュアル作成 - $(date +%Y年%m月%d日)" \
+            --body "$(cat << 'EOF'
+          ## 背景
+          自動生成された操作マニュアル作成タスクです。
+          
+          ## 対象機能
+          ### ユーザー向け操作マニュアル
+          - [ ] ログイン・ログアウト手順
+          - [ ] TODO管理機能の使い方
+          - [ ] メモ管理機能の使い方
+          - [ ] 設定変更手順
+          
+          ### 管理者向け操作マニュアル
+          - [ ] システム設定手順
+          - [ ] ユーザー管理手順
+          - [ ] バックアップ・リストア手順
+          
+          ## 成果物
+          - ユーザー向けマニュアル (Markdown形式)
+          - 管理者向けマニュアル (Markdown形式)
+          - スクリーンショット付き手順書
+          
+          ## 受け入れ条件
+          - 初心者でも理解できる明確な説明
+          - スクリーンショットを適切に配置
+          - 目次とリンクが正しく機能すること
+          
+          ## 実装パス
+          \`wiki/manual/\`
+          
+          ---
+          **自動生成**: GitHub Actions
+          EOF
+          )" \
+            --label "documentation,manual,auto-generated" \
+            --assignee "manual-specialist"
+
+  create-feature-issue:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.issue_type == 'feature' || github.event.inputs.issue_type == 'all' || github.event_name == 'schedule'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: アプリ機能改修 Issue を作成
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "[自動] アプリ機能改修 - $(date +%Y年%m月%d日)" \
+            --body "$(cat << 'EOF'
+          ## 背景
+          自動生成されたアプリ機能改修タスクです。
+          
+          ## 改修対象機能
+          ### UI/UX改善
+          - [ ] レスポンシブデザイン対応
+          - [ ] アクセシビリティ向上
+          - [ ] エラーメッセージの改善
+          
+          ### パフォーマンス改善
+          - [ ] ページ読み込み速度の最適化
+          - [ ] API レスポンス時間の短縮
+          - [ ] メモリ使用量の削減
+          
+          ### 新機能追加
+          - [ ] 検索機能の強化
+          - [ ] フィルタリング機能の追加
+          - [ ] エクスポート機能の実装
+          
+          ## 受け入れ条件
+          - 既存機能に影響を与えないこと
+          - すべてのテストが成功すること
+          - コードレビューを完了すること
+          - ドキュメントを更新すること
+          
+          ## 実装パス
+          - フロントエンド: \`frontend/src/\`
+          - バックエンド: \`backend/src/\`
+          
+          ---
+          **自動生成**: GitHub Actions
+          EOF
+          )" \
+            --label "enhancement,feature,auto-generated"
+
+  create-error-analysis-issue:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.issue_type == 'error-analysis' || github.event.inputs.issue_type == 'all' || github.event_name == 'schedule'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: エラー解析 Issue を作成
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "[自動] エラー解析 - $(date +%Y年%m月%d日)" \
+            --body "$(cat << 'EOF'
+          ## 背景
+          自動生成されたエラー解析タスクです。
+          
+          ## エラー解析対象
+          ### フロントエンドエラー
+          - [ ] コンソールエラーの分析
+          - [ ] ネットワークエラーの調査
+          - [ ] レンダリングエラーの特定
+          
+          ### バックエンドエラー
+          - [ ] サーバーログの分析
+          - [ ] データベースエラーの調査
+          - [ ] API エラーレスポンスの改善
+          
+          ### パフォーマンス問題
+          - [ ] メモリリークの調査
+          - [ ] 遅延処理の特定
+          - [ ] ボトルネックの分析
+          
+          ## 解析手法
+          - ログファイルの確認
+          - エラートレースの追跡
+          - パフォーマンスプロファイリング
+          - テストケースでの再現
+          
+          ## 成果物
+          - エラー分析レポート
+          - 原因特定と対策案
+          - 修正パッチまたはPR
+          
+          ## 受け入れ条件
+          - エラーの根本原因を特定すること
+          - 再現手順を明確にすること
+          - 修正案を提示すること
+          
+          ## 実装パス
+          - ログ: \`logs/\`
+          - 修正: 該当ファイル
+          
+          ---
+          **自動生成**: GitHub Actions
+          EOF
+          )" \
+            --label "bug,error-analysis,auto-generated"
