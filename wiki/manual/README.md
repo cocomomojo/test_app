@@ -52,14 +52,14 @@ docker-compose -f infra/docker-compose.local.yml up -d  # バックエンド起�
 cd frontend && npm run dev &  # フロントエンド起動
 
 # 実行（別ターミナルで）
-./scripts/generate-manual.sh --feature "ログイン機能" --type "user"
+./scripts/generate-manual.sh --feature "ログイン機能" --type "user" --frontend-url "http://localhost:5175"
 
-# または npm経由
-npm run manual:generate -- --feature "ログイン機能" --type "user"
+# または npm経由（frontend 配下で）
+npm run manual:generate -- --feature "ログイン機能" --type "user" --frontend-url "http://localhost:5175"
 
-# 短縮コマンド
-npm run manual:generate:user -- --feature "ログイン機能"
-npm run manual:generate:admin -- --feature "システム設定"
+# 短縮コマンド（必要に応じて --frontend-url を付与）
+npm run manual:generate:user -- --feature "ログイン機能" --frontend-url "http://localhost:5175"
+npm run manual:generate:admin -- --feature "システム設定" --frontend-url "http://localhost:5175"
 ```
 
 完全自動化スクリプトの処理：
@@ -71,6 +71,8 @@ npm run manual:generate:admin -- --feature "システム設定"
 - ✅ Step 6: PR作成準備
 
 **所要時間: 約3-5分で完成！**
+
+> Note: フロントエンドは Vite の都合で 5173 が使用中の場合、自動で 5175 などに切り替わることがあります。その場合は `--frontend-url` で実際のポートを指定してください。
 
 ### 手動フロー
 

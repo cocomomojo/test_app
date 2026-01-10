@@ -15,7 +15,7 @@ const util = require('util');
 
 const execPromise = util.promisify(exec);
 
-const BASE_URL = 'http://localhost:5173';
+const BASE_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const PROJECT_DIR = path.join(__dirname, '..');
 const SCREENSHOT_DIR = path.join(PROJECT_DIR, 'wiki', 'manual', 'screenshots');
 
