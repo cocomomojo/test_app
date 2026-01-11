@@ -622,6 +622,80 @@ E2E テスト作成のIssueを生成してください。
 
 ### ワンコマンド完全自動化
 
+実践例：TODO機能のユーザー向けマニュアル作成
+
+#### 完全実行フロー
+
+```
+🚀 START: GitHub Issue #1 を自動作成
+     │
+     ├─ ユーザー: node scripts/create-issue.js manual
+     │           → GitHub CLI で Issue を自動生成
+     │
+     ├─ Copilot: Issue テンプレート情報を参照
+     └─ 出力: Issue #1 作成（labels: documentation, manual; @manual-specialist アサイン予定）
+     │
+     ▼
+📋 STEP 1: ローカルマニュアル生成準備
+     │
+     ├─ ユーザー: npm run manual:generate:user:ai -- --feature "TODO機能"
+     │           → スクリーンショット + AI プロンプト生成
+     │
+     ├─ Copilot/Playwright: ページ自動分析（DOM抽出）
+     └─ 出力: 
+         - wiki/manual/user-page-analysis.json
+         - wiki/manual/screenshots/user/01-login.png
+         - wiki/manual/screenshots/user/02-dashboard.png
+         - wiki/manual/screenshots/user/03-menu.png
+         - wiki/manual/prompt-todo--.txt
+     │
+     ▼
+🤖 STEP 2: AI による高精度マニュアル生成
+     │
+     ├─ ユーザー: prompt ファイルをコピー
+     │           → Copilot Chat に貼り付け
+     │
+     ├─ Copilot Chat: プロンプト処理
+     │              → Markdown マニュアルを生成
+     │                （概要、前提条件、基本操作 6ステップ、詳細機能、トラブルシューティング、FAQ）
+     │
+     └─ 出力: Markdown マニュアル（ユーザーが保存）
+     │
+     ▼
+💾 STEP 3: ローカルファイル保存
+     │
+     ├─ ユーザー: Copilot 出力を保存
+     │           → wiki/manual/user-manual-TODO機能.md
+     │
+     └─ 出力: マニュアルファイル完成
+     │
+     ▼
+🔀 STEP 4: Git 操作とPR作成
+     │
+     ├─ ユーザー: git checkout -b feature/todo-manual-1
+     │           git add wiki/manual/user-manual-TODO機能.md
+     │           git add wiki/manual/screenshots/user/
+     │           git commit -m "docs: TODO機能のユーザー向けマニュアル作成（#1）"
+     │           gh pr create --title "..." --body "Closes #1 ..."
+     │
+     └─ GitHub: PR #2 作成（自動クローズ設定）
+     │
+     ▼
+✅ COMPLETE: Issue #1 が PR マージ時に自動クローズ
+```
+
+#### 役割分担の詳細
+
+| フェーズ | ユーザー | Copilot | アウトプット |
+|---------|---------|---------|-----------|
+| **Issue 作成** | スクリプト実行 | Issue テンプレート参照 | Issue #1 |
+| **スクショ + プロンプト** | npm コマンド実行 | DOM 分析・プロンプト生成 | PNG 3枚 + TXT |
+| **マニュアル作成** | Prompt コピ・ペースト | Chat でマニュアル生成 | Markdown |
+| **ファイル保存** | ファイル保存・配置 | — | wiki/manual/ |
+| **Git/PR** | ブランチ・コミット・PR | — | PR #2 |
+
+#### セットアップ
+
 ```bash
 # セットアップ（初回のみ）
 cd /home/k-mano/test_app
@@ -633,6 +707,9 @@ cd frontend && npm run dev &
 
 # または npm 経由
 npm run manual:generate:user -- --feature "ログイン機能"
+
+# AI モード
+npm run manual:generate:user:ai -- --feature "ログイン機能"
 ```
 
 ### 処理フロー
