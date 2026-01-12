@@ -1,0 +1,61 @@
+{
+  "feature": "ログイン機能",
+  "manualType": "user",
+  "steps": [
+    {
+      "stepNumber": 1,
+      "filename": "01-login-initial.png",
+      "description": "ログイン画面（初期状態）",
+      "actions": [
+        {
+          "type": "navigate",
+          "target": "http://localhost:5173",
+          "description": "ログイン画面に移動"
+        }
+      ]
+    },
+    {
+      "stepNumber": 2,
+      "filename": "02-login-with-userid.png",
+      "description": "ユーザーID入力後",
+      "actions": [
+        {
+          "type": "fill",
+          "target": "最初の入力フィールド",
+          "value": "testuser",
+          "description": "ユーザーIDを入力"
+        }
+      ]
+    },
+    {
+      "stepNumber": 3,
+      "filename": "03-login-with-password.png",
+      "description": "パスワード入力後",
+      "actions": [
+        {
+          "type": "fill",
+          "target": "パスワード入力フィールド",
+          "value": "Test1234!",
+          "description": "パスワードを入力"
+        }
+      ]
+    },
+    {
+      "stepNumber": 4,
+      "filename": "04-login-success.png",
+      "description": "ログイン成功後",
+      "actions": [
+        {
+          "type": "click",
+          "target": "「ログイン」ボタン",
+          "description": "ログインボタンをクリック"
+        },
+        {
+          "type": "wait",
+          "duration": 2000,
+          "description": "ログイン処理待機"
+        }
+      ]
+    }
+  ]
+}
