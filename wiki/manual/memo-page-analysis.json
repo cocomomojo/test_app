@@ -1,0 +1,79 @@
+{
+  "title": "Test App",
+  "url": "http://localhost:5173/login",
+  "headings": [],
+  "buttons": [
+    {
+      "text": "トップ",
+      "type": "",
+      "ariaLabel": ""
+    },
+    {
+      "text": "TODO",
+      "type": "",
+      "ariaLabel": ""
+    },
+    {
+      "text": "メモ",
+      "type": "",
+      "ariaLabel": ""
+    },
+    {
+      "text": "ログアウト",
+      "type": "",
+      "ariaLabel": ""
+    },
+    {
+      "text": "ログイン",
+      "type": "button",
+      "ariaLabel": ""
+    }
+  ],
+  "inputs": [
+    {
+      "label": "",
+      "type": "text",
+      "name": ""
+    },
+    {
+      "label": "",
+      "type": "text",
+      "name": ""
+    },
+    {
+      "label": "",
+      "type": "text",
+      "name": ""
+    },
+    {
+      "label": "",
+      "type": "password",
+      "name": ""
+    }
+  ],
+  "links": [
+    {
+      "text": "トップ",
+      "href": "/top"
+    },
+    {
+      "text": "TODO",
+      "href": "/todo"
+    },
+    {
+      "text": "メモ",
+      "href": "/memo"
+    },
+    {
+      "text": "ログアウト",
+      "href": "/login"
+    }
+  ],
+  "textContent": [
+    "ユーザ名ユーザ名パスワードパスワード"
+  ],
+  "icons": [
+    "mdi-menu",
+    "mdi-login"
+  ]
+}
