@@ -92,27 +92,75 @@ async function captureScreenshots() {
       // 1. ログイン画面
       console.log('   1. ログイン画面');
       await page.goto(BASE_URL, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(1000); // 画面安定を待つ
       await page.screenshot({
         path: path.join(SCREENSHOT_DIR, manualType, '01-login.png'),
         fullPage: true,
       });
       console.log('      ✅ 撮影完了: 01-login.png');
 
-      // 2. TODO管理画面（ダッシュボード想定）
-      console.log('   2. ダッシュボード/メインページ');
-      // 実際にはログイン処理が必要ですが、画面が表示されていれば撮影
+      // ログイン処理を実行
+      console.log('   🔐 ログイン処理中...');
+      try {
+        // ユーザー名とパスワードの入力フィールドを探して入力
+        const usernameInput = await page.locator('input[type="text"]').first();
+        const passwordInput = await page.locator('input[type="password"]').first();
+        
+        if (usernameInput && passwordInput) {
+          await usernameInput.fill('testuser');
+          await passwordInput.fill('Test1234!'); // 正しいパスワード
+          
+          // ログインボタンをクリック
+          const loginButton = await page.locator('button:has-text("ログイン")').first();
+          if (loginButton) {
+            await loginButton.click();
+            // ページ遷移を待つ
+            await page.waitForURL(/\/(top|todo|dashboard)/, { timeout: 5000 }).catch(() => {
+              console.log('      ⚠️  ページ遷移を検出できませんでした（/topへのナビゲーションを待機）');
+            });
+            await page.waitForTimeout(2000); // 画面描画を待つ
+            console.log('      ✅ ログイン成功');
+          }
+        }
+      } catch (error) {
+        console.log(`      ⚠️  ログイン処理をスキップ: ${error.message}`);
+      }
+
+      // 2. TODO管理画面（ダッシュボード）
+      console.log('   2. ダッシュボード/TODOページ');
+      try {
+        // TODOページに遷移
+        const todoLink = await page.locator('a:has-text("TODO"), button:has-text("TODO")').first();
+        if (todoLink) {
+          await todoLink.click();
+          await page.waitForTimeout(1500);
+        }
+      } catch (error) {
+        console.log(`      ⚠️  TODOページへの遷移をスキップ: ${error.message}`);
+      }
+      
       await page.screenshot({
         path: path.join(SCREENSHOT_DIR, manualType, '02-dashboard.png'),
         fullPage: true,
       });
       console.log('      ✅ 撮影完了: 02-dashboard.png');
 
-      // 3. ナビゲーション例
-      console.log('   3. メニュー/ナビゲーション');
-      // スクロールしてメニュー部分を撮影
+      // 3. メモページ
+      console.log('   3. メモページ/その他機能');
+      try {
+        // メモページに遷移
+        const memoLink = await page.locator('a:has-text("メモ"), button:has-text("メモ")').first();
+        if (memoLink) {
+          await memoLink.click();
+          await page.waitForTimeout(1500);
+        }
+      } catch (error) {
+        console.log(`      ⚠️  メモページへの遷移をスキップ: ${error.message}`);
+      }
+      
       await page.screenshot({
         path: path.join(SCREENSHOT_DIR, manualType, '03-menu.png'),
-        fullPage: false,
+        fullPage: true,
       });
       console.log('      ✅ 撮影完了: 03-menu.png');
 
