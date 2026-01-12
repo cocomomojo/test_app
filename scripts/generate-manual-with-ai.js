@@ -28,6 +28,7 @@ const args = process.argv.slice(2);
 let featureName = '';
 let manualType = 'user';
 let pageDataFile = '';
+let savePromptPath = '';
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--feature' && i + 1 < args.length) {
@@ -38,6 +39,9 @@ for (let i = 0; i < args.length; i++) {
     i++;
   } else if (args[i] === '--page-data' && i + 1 < args.length) {
     pageDataFile = args[i + 1];
+    i++;
+  } else if (args[i] === '--save-prompt' && i + 1 < args.length) {
+    savePromptPath = args[i + 1];
     i++;
   }
 }
@@ -70,6 +74,21 @@ async function generateManualWithAI() {
     // AI用プロンプト生成
     const prompt = generatePrompt(featureName, manualType, pageData);
     
+    // 保存オプションが指定されていれば、プロンプトをファイル保存
+    if (savePromptPath) {
+      const outPath = path.isAbsolute(savePromptPath)
+        ? savePromptPath
+        : path.join(PROJECT_DIR, savePromptPath);
+      const outDir = path.dirname(outPath);
+      if (!fs.existsSync(outDir)) {
+        fs.mkdirSync(outDir, { recursive: true });
+      }
+      fs.writeFileSync(outPath, prompt, 'utf-8');
+      console.log(`📝 プロンプトを保存しました: ${outPath}`);
+      console.log('  → このファイルを開いて、そのまま Copilot Chat に貼り付けてください');
+      console.log('');
+    }
+
     console.log('');
     console.log('📝 AIプロンプト生成完了');
     console.log('');
@@ -88,8 +107,10 @@ async function generateManualWithAI() {
     console.log('');
     console.log('3. または、以下のコマンドでプロンプトをファイルに保存:');
     const promptFile = path.join(PROJECT_DIR, 'wiki', 'manual', `prompt-${featureSlug}.txt`);
-    fs.writeFileSync(promptFile, prompt, 'utf-8');
-    console.log(`   ✅ プロンプトを保存: ${promptFile}`);
+    if (!savePromptPath) {
+      fs.writeFileSync(promptFile, prompt, 'utf-8');
+      console.log(`   ✅ プロンプトを保存: ${promptFile}`);
+    }
     console.log('');
 
   } catch (error) {
