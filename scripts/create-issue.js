@@ -185,12 +185,15 @@ async function createIssue(type) {
     
     const title = `[自動] ${config.title} - ${date}`;
     const body = config.bodyTemplate(date);
+    // バッククォート、ダブルクォート、$をエスケープ
+    const bodyEscaped = body
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"')
+      .replace(/\$/g, '\\$')
+      .replace(/`/g, '\\`');
     const labels = config.labels.join(',');
 
-    let command = `gh issue create \
-      --title "${title}" \
-      --body "${body}" \
-      --label "${labels}"`;
+    let command = `gh issue create --title "${title}" --body "${bodyEscaped}" --label "${labels}"`;
 
     if (config.assignee) {
       command += ` --assignee "${config.assignee}"`;
@@ -203,8 +206,40 @@ async function createIssue(type) {
     console.log(stdout);
 
   } catch (error) {
-    console.error('❌ エラーが発生しました:', error.message);
-    process.exit(1);
+    // アサイン失敗の場合、アサイン無しで再実行
+    if (error.message.includes('Could not resolve to a User') && config.assignee) {
+      console.warn(`⚠️  ユーザー '${config.assignee}' が見つかりません。アサイン無しで Issue を作成します。`);
+      
+      try {
+        const date = new Date().toLocaleDateString('ja-JP', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        });
+        
+        const title = `[自動] ${config.title} - ${date}`;
+        const body = config.bodyTemplate(date);
+        const bodyEscaped = body
+          .replace(/\\/g, '\\\\')
+          .replace(/"/g, '\\"')
+          .replace(/\$/g, '\\$')
+          .replace(/`/g, '\\`');
+        const labels = config.labels.join(',');
+        
+        const command = `gh issue create --title "${title}" --body "${bodyEscaped}" --label "${labels}"`;
+        
+        const { stdout } = await execPromise(command);
+        console.log(`✅ Issue を作成しました:`);
+        console.log(stdout);
+        console.log(`\n📌 注意: Issue を手動で @${config.assignee} にアサインしてください。`);
+      } catch (retryError) {
+        console.error('❌ エラーが発生しました:', retryError.message);
+        process.exit(1);
+      }
+    } else {
+      console.error('❌ エラーが発生しました:', error.message);
+      process.exit(1);
+    }
   }
 }
 
