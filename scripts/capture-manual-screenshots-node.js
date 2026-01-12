@@ -1,76 +1,106 @@
 #!/usr/bin/env node
 
 /**
- * マニュアル作成用スクリーンショット自動撮影スクリプト
+ * マニュアル作成用スクリーンショット自動撮影スクリプト（AI提案ベース）
+ * 
+ * AI が提案したJSON形式の撮影計画に基づいて、
+ * 動的にスクリーンショットを撮影します。
  * 
  * 使用方法:
- * node scripts/capture-manual-screenshots-node.js --type user --feature "ログイン機能"
+ * node scripts/capture-manual-screenshots-node.js \
+ *   --screenshot-steps wiki/manual/screenshot-steps-login--.json
  */
 
 const { createRequire } = require('module');
 const path = require('path');
 const fs = require('fs');
-const { exec } = require('child_process');
-const util = require('util');
 
-const execPromise = util.promisify(exec);
-
-const BASE_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const PROJECT_DIR = path.join(__dirname, '..');
 const SCREENSHOT_DIR = path.join(PROJECT_DIR, 'wiki', 'manual', 'screenshots');
+const BASE_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 // パラメータ解析
 const args = process.argv.slice(2);
-let manualType = 'user';
-let featureName = '';
+let screenshotStepsFile = '';
 
 for (let i = 0; i < args.length; i++) {
-  if (args[i] === '--type' && i + 1 < args.length) {
-    manualType = args[i + 1];
-    i++;
-  } else if (args[i] === '--feature' && i + 1 < args.length) {
-    featureName = args[i + 1];
+  if (args[i] === '--screenshot-steps' && i + 1 < args.length) {
+    screenshotStepsFile = args[i + 1];
     i++;
   }
 }
 
-console.log(`📸 スクリーンショット撮影開始`);
-console.log(`   タイプ: ${manualType}`);
-console.log(`   機能: ${featureName}`);
+if (!screenshotStepsFile) {
+  console.error('❌ エラー: --screenshot-steps を指定してください');
+  console.error('');
+  console.error('使用方法:');
+  console.error('  node scripts/capture-manual-screenshots-node.js \\');
+  console.error('    --screenshot-steps path/to/screenshot-steps.json');
+  console.error('');
+  console.error('撮影計画JSONの取得方法:');
+  console.error('  1. node scripts/analyze-page-content.js --url "http://localhost:5173" --output wiki/manual/page-analysis.json');
+  console.error('  2. node scripts/generate-screenshot-steps.js --feature "機能名" --type user --page-data wiki/manual/page-analysis.json');
+  console.error('  3. AIが提案したJSONを保存');
+  process.exit(1);
+}
+
+console.log(`📸 AI提案ベース スクリーンショット撮影開始`);
+console.log(`   撮影計画: ${screenshotStepsFile}`);
 console.log('');
 
-// ディレクトリ作成
-async function ensureDirectories() {
-  const dir = path.join(SCREENSHOT_DIR, manualType);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-    console.log(`✅ ディレクトリ作成: ${dir}`);
-  }
-}
-
-// スクリーンショット撮影
-async function captureScreenshots() {
+// メイン処理
+async function main() {
   let browser;
-  
+  let page;
+
   try {
-    await ensureDirectories();
-    
-    // Playwright が利用可能か確認
+    // 撮影計画ファイル読み込み
+    const stepsPath = path.isAbsolute(screenshotStepsFile)
+      ? screenshotStepsFile
+      : path.join(PROJECT_DIR, screenshotStepsFile);
+
+    if (!fs.existsSync(stepsPath)) {
+      console.error(`❌ 撮影計画ファイルが見つかりません: ${stepsPath}`);
+      process.exit(1);
+    }
+
+    let stepsData;
+    try {
+      stepsData = JSON.parse(fs.readFileSync(stepsPath, 'utf-8'));
+      console.log(`✅ 撮影計画を読み込み: ${path.basename(stepsPath)}`);
+    } catch (parseError) {
+      console.error(`❌ JSON形式が無効です: ${parseError.message}`);
+      process.exit(1);
+    }
+
+    if (!stepsData.feature || !Array.isArray(stepsData.steps)) {
+      console.error('❌ 撮影計画ファイルの形式が無効です');
+      console.error('   必須項目: feature (string), steps (array)');
+      process.exit(1);
+    }
+
+    console.log(`   機能: ${stepsData.feature}`);
+    console.log(`   ステップ数: ${stepsData.steps.length}`);
+    console.log('');
+
+    // ディレクトリ準備
+    const manualType = stepsData.manualType || 'user';
+    const screenshotOutputDir = path.join(SCREENSHOT_DIR, manualType);
+    if (!fs.existsSync(screenshotOutputDir)) {
+      fs.mkdirSync(screenshotOutputDir, { recursive: true });
+    }
+
+    // Playwright起動
     let playwright_;
     try {
-      // 通常の解決
       playwright_ = require('@playwright/test');
     } catch (e1) {
       try {
-        // frontend/node_modules 経由で解決（devDependencies が frontend にあるケース）
         const requireFromFrontend = createRequire(path.join(PROJECT_DIR, 'frontend', 'package.json'));
         playwright_ = requireFromFrontend('@playwright/test');
       } catch (e2) {
-        console.log('⚠️  @playwright/test が見つかりません');
-        console.log('   次のいずれかを実施してください:');
-        console.log('   1) リポジトリ直下で npm install @playwright/test');
-        console.log('   2) frontend 配下で npm install を実行し、NODE_PATH を設定して再実行');
-        console.log('      例: NODE_PATH="./frontend/node_modules" FRONTEND_URL="http://localhost:5173" npm run manual:generate:user -- --feature "ログイン機能"');
+        console.error('❌ @playwright/test が見つかりません');
+        console.error('   frontend 配下で npm install を実行してください');
         process.exit(1);
       }
     }
@@ -79,128 +109,50 @@ async function captureScreenshots() {
     const context = await browser.newContext({
       viewport: { width: 1920, height: 1080 },
     });
-    const page = await context.newPage();
+    page = await context.newPage();
 
     console.log('🌐 ブラウザ起動完了');
     console.log('');
+    console.log('📸 スクリーンショット撮影中...');
+    console.log('');
 
-    // ===== ユーザー向けスクリーンショット =====
-    if (manualType === 'user') {
-      console.log('📸 ユーザー向けスクリーンショット撮影中...');
-      console.log('');
+    // 各ステップを順序に実行
+    for (const step of stepsData.steps) {
+      console.log(`   Step ${step.stepNumber}: ${step.description}`);
 
-      // 1. ログイン画面
-      console.log('   1. ログイン画面');
-      await page.goto(BASE_URL, { waitUntil: 'networkidle' });
-      await page.waitForTimeout(1000); // 画面安定を待つ
-      await page.screenshot({
-        path: path.join(SCREENSHOT_DIR, manualType, '01-login.png'),
-        fullPage: true,
-      });
-      console.log('      ✅ 撮影完了: 01-login.png');
-
-      // ログイン処理を実行
-      console.log('   🔐 ログイン処理中...');
       try {
-        // ユーザー名とパスワードの入力フィールドを探して入力
-        const usernameInput = await page.locator('input[type="text"]').first();
-        const passwordInput = await page.locator('input[type="password"]').first();
-        
-        if (usernameInput && passwordInput) {
-          await usernameInput.fill('testuser');
-          await passwordInput.fill('Test1234!'); // 正しいパスワード
-          
-          // ログインボタンをクリック
-          const loginButton = await page.locator('button:has-text("ログイン")').first();
-          if (loginButton) {
-            await loginButton.click();
-            // ページ遷移を待つ
-            await page.waitForURL(/\/(top|todo|dashboard)/, { timeout: 5000 }).catch(() => {
-              console.log('      ⚠️  ページ遷移を検出できませんでした（/topへのナビゲーションを待機）');
-            });
-            await page.waitForTimeout(2000); // 画面描画を待つ
-            console.log('      ✅ ログイン成功');
+        // アクション実行
+        if (Array.isArray(step.actions)) {
+          for (const action of step.actions) {
+            await executeAction(page, action);
           }
         }
-      } catch (error) {
-        console.log(`      ⚠️  ログイン処理をスキップ: ${error.message}`);
-      }
 
-      // 2. TODO管理画面（ダッシュボード）
-      console.log('   2. ダッシュボード/TODOページ');
-      try {
-        // TODOページに遷移
-        const todoLink = await page.locator('a:has-text("TODO"), button:has-text("TODO")').first();
-        if (todoLink) {
-          await todoLink.click();
-          await page.waitForTimeout(1500);
+        // スクリーンショット撮影
+        if (step.filename) {
+          const screenshotPath = path.join(screenshotOutputDir, step.filename);
+          await page.screenshot({
+            path: screenshotPath,
+            fullPage: true,
+          });
+          console.log(`      ✅ 撮影完了: ${step.filename}`);
         }
-      } catch (error) {
-        console.log(`      ⚠️  TODOページへの遷移をスキップ: ${error.message}`);
+
+      } catch (stepError) {
+        console.error(`      ❌ ステップ実行エラー: ${stepError.message}`);
+        console.error(`         スキップして続行...`);
       }
-      
-      await page.screenshot({
-        path: path.join(SCREENSHOT_DIR, manualType, '02-dashboard.png'),
-        fullPage: true,
-      });
-      console.log('      ✅ 撮影完了: 02-dashboard.png');
-
-      // 3. メモページ
-      console.log('   3. メモページ/その他機能');
-      try {
-        // メモページに遷移
-        const memoLink = await page.locator('a:has-text("メモ"), button:has-text("メモ")').first();
-        if (memoLink) {
-          await memoLink.click();
-          await page.waitForTimeout(1500);
-        }
-      } catch (error) {
-        console.log(`      ⚠️  メモページへの遷移をスキップ: ${error.message}`);
-      }
-      
-      await page.screenshot({
-        path: path.join(SCREENSHOT_DIR, manualType, '03-menu.png'),
-        fullPage: true,
-      });
-      console.log('      ✅ 撮影完了: 03-menu.png');
-
-      console.log('');
-      console.log('✅ ユーザー向けスクリーンショット撮影完了');
-    }
-    // ===== 管理者向けスクリーンショット =====
-    else if (manualType === 'admin') {
-      console.log('📸 管理者向けスクリーンショット撮影中...');
-      console.log('');
-
-      // 1. ダッシュボード
-      console.log('   1. ダッシュボード');
-      await page.goto(BASE_URL, { waitUntil: 'networkidle' });
-      await page.screenshot({
-        path: path.join(SCREENSHOT_DIR, manualType, '01-dashboard.png'),
-        fullPage: true,
-      });
-      console.log('      ✅ 撮影完了: 01-dashboard.png');
-
-      // 2. 設定画面
-      console.log('   2. 設定画面');
-      await page.screenshot({
-        path: path.join(SCREENSHOT_DIR, manualType, '02-settings.png'),
-        fullPage: true,
-      });
-      console.log('      ✅ 撮影完了: 02-settings.png');
-
-      console.log('');
-      console.log('✅ 管理者向けスクリーンショット撮影完了');
     }
 
     await browser.close();
 
     console.log('');
-    console.log(`✅ スクリーンショット保存先: ${path.join(SCREENSHOT_DIR, manualType)}`);
+    console.log('✅ スクリーンショット撮影完了');
+    console.log(`📁 保存先: ${screenshotOutputDir}`);
     console.log('');
 
   } catch (error) {
-    console.error('❌ エラーが発生しました:', error.message);
+    console.error('❌ 予期しないエラーが発生しました:', error.message);
     if (browser) {
       await browser.close();
     }
@@ -208,5 +160,71 @@ async function captureScreenshots() {
   }
 }
 
+/**
+ * アクションを実行
+ * @param {Page} page - Playwrightのページオブジェクト
+ * @param {Object} action - 実行するアクション
+ */
+async function executeAction(page, action) {
+  switch (action.type) {
+    case 'navigate':
+      await page.goto(action.target || BASE_URL, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(1000);
+      break;
+
+    case 'fill':
+      // ターゲットがセレクタの場合と説明テキストの場合に対応
+      let fillLocator;
+      if (action.target.startsWith('.') || action.target.startsWith('#') || action.target.startsWith('[')) {
+        // CSSセレクタの場合
+        fillLocator = page.locator(action.target).first();
+      } else if (action.target.includes('入力フィールド')) {
+        // 説明から推測: 「最初の入力フィールド」など
+        const match = action.target.match(/(\d+)番目|最初|最後/);
+        if (action.target.includes('パスワード')) {
+          fillLocator = page.locator('input[type="password"]').first();
+        } else {
+          fillLocator = page.locator('input[type="text"]').first();
+        }
+      } else if (action.target.includes('パスワード')) {
+        fillLocator = page.locator('input[type="password"]').first();
+      } else {
+        // デフォルト：テキスト入力フィールド
+        fillLocator = page.locator('input[type="text"]').first();
+      }
+
+      await fillLocator.fill(action.value || '');
+      await page.waitForTimeout(500);
+      break;
+
+    case 'click':
+      // ターゲットがボタンテキストの場合
+      let clickLocator;
+      if (action.target.startsWith('.') || action.target.startsWith('#') || action.target.startsWith('[')) {
+        clickLocator = page.locator(action.target).first();
+      } else {
+        // ボタンテキストから検索
+        const buttonText = action.target.replace(/「|」/g, '');
+        clickLocator = page.locator(`button:has-text("${buttonText}"), [role="button"]:has-text("${buttonText}")`).first();
+      }
+
+      await clickLocator.click();
+      await page.waitForTimeout(1000);
+      break;
+
+    case 'wait':
+      await page.waitForTimeout(action.duration || 1000);
+      break;
+
+    case 'navigate_to_path':
+      await page.goto(`${BASE_URL}${action.target}`, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(1000);
+      break;
+
+    default:
+      console.warn(`      ⚠️  未知のアクションタイプ: ${action.type}`);
+  }
+}
+
 // 実行
-captureScreenshots();
+main();
