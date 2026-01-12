@@ -627,18 +627,20 @@ E2E テスト作成のIssueを生成してください。
 #### 完全実行フロー
 
 ```
-🚀 START: GitHub Issue #1 を自動作成
+🚀 START: GitHub Issue を自動作成
      │
-     ├─ ユーザー: node scripts/create-issue.js manual
-     │           → GitHub CLI で Issue を自動生成
-     │
-     ├─ Copilot: Issue テンプレート情報を参照
-     └─ 出力: Issue #1 作成（labels: documentation, manual; @manual-specialist アサイン予定）
+     ├─ 【方法A】Copilot Chat でカスタムコマンド（推奨）
+     │   @create-issue → 操作マニュアル作成のIssueを生成してください。
+     │   ↓
+     ├─ 【方法B】CLI スクリプト直接実行
+     │   node scripts/create-issue.js manual
+     │   ↓
+     └─ 出力: Issue #N 作成（labels: documentation, manual; @manual-specialist アサイン予定）
      │
      ▼
 📋 STEP 1: ローカルマニュアル生成準備
      │
-     ├─ ユーザー: npm run manual:generate:user:ai -- --feature "TODO機能"
+     ├─ ユーザー: npm run manual:generate:user:ai -- --feature "ログイン機能"
      │           → スクリーンショット + AI プロンプト生成
      │
      ├─ Copilot/Playwright: ページ自動分析（DOM抽出）
@@ -647,17 +649,17 @@ E2E テスト作成のIssueを生成してください。
          - wiki/manual/screenshots/user/01-login.png
          - wiki/manual/screenshots/user/02-dashboard.png
          - wiki/manual/screenshots/user/03-menu.png
-         - wiki/manual/prompt-todo--.txt
+         - wiki/manual/prompt-login--.txt
      │
      ▼
 🤖 STEP 2: AI による高精度マニュアル生成
      │
-     ├─ ユーザー: prompt ファイルをコピー
-     │           → Copilot Chat に貼り付け
+     ├─ ユーザー: 【方法A】@file:wiki/manual/prompt-login--.txt でドラッグ&ドロップ
+     │            または
+     │            【方法B】ファイルをコピーして Copilot Chat に貼り付け
      │
      ├─ Copilot Chat: プロンプト処理
      │              → Markdown マニュアルを生成
-     │                （概要、前提条件、基本操作 6ステップ、詳細機能、トラブルシューティング、FAQ）
      │
      └─ 出力: Markdown マニュアル（ユーザーが保存）
      │
@@ -665,34 +667,37 @@ E2E テスト作成のIssueを生成してください。
 💾 STEP 3: ローカルファイル保存
      │
      ├─ ユーザー: Copilot 出力を保存
-     │           → wiki/manual/user-manual-TODO機能.md
+     │           → wiki/manual/user-manual-ログイン機能.md
      │
      └─ 出力: マニュアルファイル完成
      │
      ▼
 🔀 STEP 4: Git 操作とPR作成
      │
-     ├─ ユーザー: git checkout -b feature/todo-manual-1
-     │           git add wiki/manual/user-manual-TODO機能.md
+     ├─ ユーザー: git checkout -b feature/login-manual-1
+     │           git add wiki/manual/user-manual-ログイン機能.md
      │           git add wiki/manual/screenshots/user/
-     │           git commit -m "docs: TODO機能のユーザー向けマニュアル作成（#1）"
-     │           gh pr create --title "..." --body "Closes #1 ..."
+     │           git commit -m "docs: ログイン機能のユーザー向けマニュアル作成"
+     │           ↑ Issue 番号は GitHub UI で確認してから PR 作成時に指定
      │
-     └─ GitHub: PR #2 作成（自動クローズ設定）
+     │           gh pr create --body "Closes #N"
+     │                                    ↑ N = 作成した Issue 番号
+     │
+     └─ GitHub: PR 作成（Closes #N で Issue に自動紐付け・マージ時クローズ）
      │
      ▼
-✅ COMPLETE: Issue #1 が PR マージ時に自動クローズ
+✅ COMPLETE: Issue が PR マージ時に自動クローズ
 ```
 
 #### 役割分担の詳細
 
 | フェーズ | ユーザー | Copilot | アウトプット |
 |---------|---------|---------|-----------|
-| **Issue 作成** | スクリプト実行 | Issue テンプレート参照 | Issue #1 |
+| **Issue 作成** | @create-issue (Chat)<br>または<br>node scripts/create-issue.js | Issue テンプレート参照 | Issue #N |
 | **スクショ + プロンプト** | npm コマンド実行 | DOM 分析・プロンプト生成 | PNG 3枚 + TXT |
-| **マニュアル作成** | Prompt コピ・ペースト | Chat でマニュアル生成 | Markdown |
+| **マニュアル作成** | Prompt ファイル参照<br>（@file: または ドラッグ&ドロップ） | Chat でマニュアル生成 | Markdown |
 | **ファイル保存** | ファイル保存・配置 | — | wiki/manual/ |
-| **Git/PR** | ブランチ・コミット・PR | — | PR #2 |
+| **Git/PR** | ブランチ・コミット・PR<br>（Closes #N で自動紐付け） | — | PR（自動クローズ） |
 
 #### セットアップ
 
@@ -702,14 +707,48 @@ cd /home/k-mano/test_app
 docker-compose -f infra/docker-compose.local.yml up -d
 cd frontend && npm run dev &
 
-# マニュアル完全自動生成（別ターミナル）
-./scripts/generate-manual.sh --feature "ログイン機能" --type "user"
+# ===== ステップ1: Issue 作成 =====
+# 方法A: Copilot Chat でカスタムコマンド（推奨）
+# @create-issue → 操作マニュアル作成のIssueを生成してください。
 
-# または npm 経由
-npm run manual:generate:user -- --feature "ログイン機能"
+# 方法B: CLI スクリプト直接実行
+node scripts/create-issue.js manual
+# → Issue #N が作成される（N 番号をメモ）
 
-# AI モード
-npm run manual:generate:user:ai -- --feature "ログイン機能"
+# ===== ステップ2: マニュアル生成（別ターミナル）=====
+cd frontend && npm run manual:generate:user:ai -- --feature "ログイン機能"
+# → wiki/manual/prompt-login--.txt が生成
+
+# ===== ステップ3: Copilot Chat でマニュアル作成 =====
+# 方法A: @file でファイル参照（推奨）
+# @file:wiki/manual/prompt-login--.txt の内容を実行してください
+
+# 方法B: ドラッグ&ドロップ
+# wiki/manual/prompt-login--.txt をチャット入力欄に D&D
+
+# 方法C: 手動コピー
+# cat wiki/manual/prompt-login--.txt でコピーして Copilot Chat に貼り付け
+
+# ===== ステップ4: Git/PR ワークフロー =====
+git checkout -b feature/login-manual-1
+git add wiki/manual/ scripts/
+git commit -m "docs: ログイン機能のユーザー向けマニュアル作成"
+
+# 最新 Issue 番号を確認（方法A）
+gh issue list --label manual --state open --limit 5
+
+# または GitHub UI で Issue 番号を確認してから PR 作成
+gh pr create --title "docs: ログイン機能のマニュアル作成" --body "Closes #N"
+#                                                            ↑ N を置き換え（例: #5）
+```
+
+**💡 Tips: Issue 番号が不明な場合**
+```bash
+# 最新の manual ラベル Issue を確認
+gh issue list --label manual --state open | head -1
+
+# または最新作成のIssue
+gh issue list --state open | grep "docs\|manual" | head -1
 ```
 
 ### 処理フロー
