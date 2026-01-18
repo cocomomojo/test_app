@@ -1,9 +1,9 @@
 <template>
   <v-container class="d-flex justify-center pa-6">
-    <v-card class="pa-6" max-width="480">
+    <v-card class="pa-6" max-width="600">
       <v-card-title>ログイン</v-card-title>
       <v-card-text>
-        <v-text-field v-model="username" label="ユーザ名" outlined dense />
+        <v-text-field v-model="username" label="ユーザ名" outlined dense class="mb-4" />
         <v-text-field v-model="password" label="パスワード" type="password" outlined dense />
       </v-card-text>
       <v-card-actions>
