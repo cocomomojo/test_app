@@ -24,21 +24,23 @@ GitHub Actions、CLI スクリプト、カスタムコマンドを組み合わ�
 │   ├── manual.yml                     ← 操作マニュアル Issue テンプレート
 │   ├── feature.yml                    ← 機能改修 Issue テンプレート
 │   └── error-analysis.yml             ← エラー解析 Issue テンプレート
-├── agents/
-│   └── manual-specialist.md           ← 操作マニュアル作成専門エージェント
 └── prompts/
     └── create-issue.prompt.md         ← カスタムコマンド（4種対応）
 
 scripts/
 ├── create-issue.js                    ← Issue作成スクリプト（4種対応）
-├── generate-manual.sh                 ← マニュアル完全自動生成スクリプト ★NEW
-├── capture-manual-screenshots-node.js ← スクリーンショット撮影スクリプト
-└── ...
+├── analyze-page-content.js            ← ページ分析スクリプト（DOM抽出）
+├── generate-screenshot-steps.js       ← AI用スクリーンショット計画プロンプト生成 ★NEW
+├── generate-manual-with-ai.js         ← AI用マニュアル生成プロンプト生成 ★NEW
+└── capture-manual-screenshots-node.js ← Playwright スクリーンショット撮影（AI計画ベース）
 
 wiki/manual/
-├── README.md                          ← マニュアル作成ガイド
-├── generate-manual-guide.md           ← 自動生成スクリプト詳細ガイド ★NEW
-├── templates/                         ← マニュアルテンプレート
+├── user-manual-ログイン機能.md        ← 実装済みマニュアル（実例）
+├── user-manual-メモ機能.md            ← 実装済みマニュアル（実例） ★NEW
+├── screenshot-steps-memo.json         ← AI生成の撮影計画（実例） ★NEW
+├── prompt-screenshot-steps-*.txt      ← AI用撮影計画プロンプト（自動保存）
+├── prompt-manual-*.txt                ← AI用マニュアル生成プロンプト（自動保存）
+├── screenshots/user/                  ← 撮影済みスクリーンショット（PNG）
 └── ...
 ```
 
@@ -829,7 +831,173 @@ node scripts/create-issue.js error-analysis
 
 ---
 
-## 💡 ベストプラクティス
+## � 方法4: AI駆動のマニュアル自動生成（実装済み）
+
+### 概要
+
+**新しいワークフロー**として、以下を実装しました：
+1. **ページ分析**: Playwright で実DOMを抽出（DOM構造をJSON化）
+2. **AI計画**: 撮影計画・マニュアル生成用プロンプトを自動生成＆保存
+3. **自動撮影**: Playwright で AI計画に基づきスクリーンショット撮影
+4. **自動生成**: Copilot Chat で Markdown マニュアル生成
+
+### メリット
+
+- ✅ プロンプトがファイル保存されるため、Copilot Chat へのコピペが簡単
+- ✅ スクリーンショット撮影が自動化（JSON計画ベース）
+- ✅ マニュアル生成が大幅に高速化
+- ✅ 複数回の修正に対応（JSON を微調整して撮影再実行可能）
+
+### 実装済み機能
+
+#### 1. `generate-screenshot-steps.js`
+**目的**: AI用スクリーンショット撮影計画プロンプトを生成
+
+```bash
+NODE_PATH="./frontend/node_modules" node scripts/generate-screenshot-steps.js \
+  --feature "メモ機能" \
+  --type user \
+  --page-data wiki/manual/memo-page-analysis.json \
+  --save-prompt wiki/manual/prompt-screenshot-steps-メモ機能.txt
+```
+
+**出力**:
+- `wiki/manual/prompt-screenshot-steps-【feature】.txt`: AI用プロンプト（ファイル保存）
+- 端末にも表示（確認用）
+
+**`--save-prompt` オプション**: プロンプトをファイルに自動保存。Copilot Chat へのコピペが簡単に。
+
+#### 2. `capture-manual-screenshots-node.js`
+**目的**: AI が生成した JSON計画に基づいてスクリーンショットを自動撮影
+
+```bash
+NODE_PATH="./frontend/node_modules" node scripts/capture-manual-screenshots-node.js \
+  --screenshot-steps wiki/manual/screenshot-steps-memo.json
+```
+
+**入力**: `screenshot-steps-【feature】.json`（AI提案の JSON計画）
+```json
+{
+  "feature": "メモ機能",
+  "steps": [
+    {
+      "stepNumber": 1,
+      "filename": "01-memo-login-initial.png",
+      "description": "ログイン画面（初期状態）",
+      "actions": [
+        { "type": "navigate", "target": "http://localhost:5173", ... }
+      ]
+    },
+    ...
+  ]
+}
+```
+
+**出力**: `wiki/manual/screenshots/user/*.png`（複数枚のスクリーンショット）
+
+**特徴**:
+- `actions` 配列で各ステップを制御（navigate, fill, click, wait, navigate_to_path）
+- ボタンテキストやセレクタを指定可能
+- JSON 微調整でクリックタイムアウト等に対応
+
+#### 3. `generate-manual-with-ai.js`
+**目的**: AI用マニュアル生成プロンプトを生成
+
+```bash
+NODE_PATH="./frontend/node_modules" node scripts/generate-manual-with-ai.js \
+  --feature "メモ機能" \
+  --type user \
+  --page-data wiki/manual/memo-page-analysis.json \
+  --save-prompt wiki/manual/prompt-manual-メモ機能.txt
+```
+
+**出力**:
+- `wiki/manual/prompt-manual-【feature】.txt`: AI用プロンプト（ファイル保存）
+- Copilot Chat に貼り付けて Markdown 生成
+
+### 実例: メモ機能マニュアル（Issue #7, PR #8）
+
+| ステップ | 実行内容 | 出力 |
+|---------|--------|------|
+| 1 | Issue #7 作成 | GitHub Issue #7 |
+| 2 | ページ分析 | `wiki/manual/memo-page-analysis.json` |
+| 3 | 撮影計画プロンプト生成＆保存 | `wiki/manual/prompt-screenshot-steps-メモ機能.txt` |
+| 3-AI | Copilot Chat で JSON計画を生成 | `wiki/manual/screenshot-steps-memo.json` |
+| 4 | Playwright でスクリーンショット撮影 | `wiki/manual/screenshots/user/*.png`（7枚成功） |
+| 5 | マニュアル生成プロンプト生成＆保存 | `wiki/manual/prompt-manual-メモ機能.txt` |
+| 5-AI | Copilot Chat でMarkdown生成 | `wiki/manual/user-manual-メモ機能.md` |
+| 6-7 | コミット＆PR作成＆マージ | PR #8 → main マージ → Issue #7 自動クローズ |
+
+**成果物**:
+- `wiki/manual/user-manual-メモ機能.md`: メモ機能ユーザー向けマニュアル
+- `wiki/manual/screenshot-steps-memo.json`: AI生成の撮影計画
+- `wiki/manual/screenshots/user/01-07/*.png`: 撮影済みスクリーンショット（7枚）
+
+### ワークフロー
+
+```
+🚀 START: GitHub Issue を作成
+   │
+   ├─ gh issue create
+   └─ 出力: Issue #7
+   │
+   ▼
+📊 ページ分析
+   │
+   ├─ node scripts/analyze-page-content.js
+   └─ 出力: memo-page-analysis.json（DOM構造）
+   │
+   ▼
+📝 撮影計画プロンプト生成
+   │
+   ├─ node scripts/generate-screenshot-steps.js --save-prompt
+   └─ 出力: prompt-screenshot-steps-メモ機能.txt
+   │
+   ▼
+🤖 Copilot Chat で JSON計画を生成
+   │
+   ├─ @file:prompt-screenshot-steps-メモ機能.txt をドラッグ＆ドロップ
+   ├─ 「JSON を返してください」と依頼
+   └─ 出力: JSON計画（手動保存 → screenshot-steps-memo.json）
+   │
+   ▼
+📸 自動スクリーンショット撮影
+   │
+   ├─ node scripts/capture-manual-screenshots-node.js --screenshot-steps
+   └─ 出力: *.png（複数枚）
+   │
+   ▼
+📝 マニュアル生成プロンプト生成
+   │
+   ├─ node scripts/generate-manual-with-ai.js --save-prompt
+   └─ 出力: prompt-manual-メモ機能.txt
+   │
+   ▼
+🤖 Copilot Chat で Markdown マニュアル生成
+   │
+   ├─ @file:prompt-manual-メモ機能.txt をドラッグ＆ドロップ
+   ├─ 「Markdown を返してください」と依頼
+   └─ 手動保存 → user-manual-メモ機能.md
+   │
+   ▼
+🔀 Git コミット＆PR
+   │
+   ├─ git add wiki/manual/
+   ├─ git commit -m "docs: メモ機能の操作マニュアル..."
+   ├─ git commit -m "Closes #7"
+   └─ gh pr create
+   │
+   ▼
+✅ PR マージ → Issue #7 自動クローズ
+```
+
+### 使用手順（最小限）
+
+参照: [Todo.md のワークフロー](../Todo.md#操作マニュアル作成ワークフロー確立済み)
+
+---
+
+## �💡 ベストプラクティス
 
 ### Issue テンプレートの設計
 
@@ -982,6 +1150,8 @@ node scripts/create-issue.js error-analysis
 - [GitHub Copilot カスタムコマンド vs カスタムエージェント比較](./12-カスタムコマンドVSカスタムエージェント比較.md)
 - [E2E テスト自動生成ガイド](./13-E2Eテスト自動生成ガイド.md)
 - [E2E テスト専門エージェントガイド](./14-E2Eテスト専門エージェントガイド.md)
+- [**操作マニュアル作成ワークフロー** (Todo.md)](../Todo.md#操作マニュアル作成ワークフロー確立済み)
+- [メモ機能マニュアル実例](../wiki/manual/user-manual-メモ機能.md) ← Issue #7, PR #8
 
 ---
 
@@ -1000,13 +1170,15 @@ node scripts/create-issue.js error-analysis
 | タイプ | 自動アサイン | 主な用途 | 頻度 |
 |--------|-------------|---------|------|
 | **E2Eテスト** | ✅ @e2e-test-specialist | テスト自動化 | 週次 |
-| **操作マニュアル** | ✅ @manual-specialist | ドキュメント整備 | 月次 |
+| **操作マニュアル** | 月次 |
 | **機能改修** | ❌ 手動 | 機能強化・改善 | 随時 |
 | **エラー解析** | ❌ 手動 | バグ修正・調査 | 随時 |
 
 このガイドに従うことで、GitHub Issue から実装までのワークフローが効率化され、開発生産性が向上します。
 
+特に **操作マニュアル作成** については、AI駆動の新ワークフロー（方法4）により、従来の手作業を大幅に削減できます。詳しくは [方法4](#-方法4-ai駆動のマニュアル自動生成実装済み) と [Todo.md のワークフロー](../Todo.md#操作マニュアル作成ワークフロー確立済み) を参照してください。
+
 ---
 
 **作成日**: 2026年1月  
-**最終更新**: 2026年1月10日
+**最終更新**: 2026年1月12日（AI駆動マニュアル生成方法4を追加）
