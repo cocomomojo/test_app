@@ -76,7 +76,7 @@ git --version             # Git
 ### 2. リポジトリのセットアップ
 
 ```bash
-cd /home/k-mano/test_app
+cd /home/comojo/test_app
 
 # Docker環境起動
 docker-compose -f infra/docker-compose.local.yml up -d
@@ -89,7 +89,7 @@ npm install
 ### 3. スクリプト権限設定
 
 ```bash
-cd /home/k-mano/test_app
+cd /home/comojo/test_app
 chmod +x scripts/generate-manual.sh
 ```
 
@@ -127,7 +127,7 @@ npm run manual:generate -- --feature "ログイン機能" --type "user"
 ℹ️  ==========================================
 ℹ️  機能名: ログイン機能
 ℹ️  マニュアル種別: user
-ℹ️  
+ℹ️
 ℹ️  【Step 1】環境チェック
 ...
 ✅ 環境チェック完了

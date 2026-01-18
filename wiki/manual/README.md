@@ -32,7 +32,7 @@ wiki/manual/
    ```bash
    # Node.jsスクリプトで生成
    node scripts/create-issue.js manual
-   
+
    # または GitHub Actions で自動生成（毎週月曜日）
    ```
 
@@ -47,7 +47,7 @@ wiki/manual/
 
 ```bash
 # セットアップ（初回のみ）
-cd /home/k-mano/test_app
+cd /home/comojo/test_app
 docker-compose -f infra/docker-compose.local.yml up -d  # バックエンド起動
 cd frontend && npm run dev &  # フロントエンド起動
 
@@ -90,7 +90,7 @@ npm run manual:generate:admin:ai -- --feature "システム設定" --frontend-ur
 
 ```bash
 # Docker環境を起動
-cd /home/k-mano/test_app
+cd /home/comojo/test_app
 docker-compose -f infra/docker-compose.local.yml up -d
 
 # 起動確認
@@ -114,7 +114,7 @@ wiki/manual/screenshots/user/01-login.png
 
 ```bash
 # スクリーンショット一括撮影
-cd /home/k-mano/test_app/frontend
+cd /home/comojo/test_app/frontend
 npx ts-node ../scripts/capture-manual-screenshots.ts
 ```
 
@@ -258,5 +258,5 @@ npx playwright install
 
 ---
 
-**作成日**: 2026年1月10日  
+**作成日**: 2026年1月10日
 **最終更新**: 2026年1月10日
