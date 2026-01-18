@@ -18,7 +18,7 @@
 ### 1. AI統合モードでマニュアル生成
 
 ```bash
-cd /home/k-mano/test_app/frontend
+cd /home/comojo/test_app/frontend
 
 # AI統合モード（--ai オプション付き）
 npm run manual:generate:user -- --feature "ログイン機能" --frontend-url "http://localhost:5173" --ai
@@ -106,7 +106,7 @@ wiki/manual/user/02-login-feature-ai-generated.md
 - 生成してほしいマニュアル構成
 - 注意事項（プレースホルダー禁止、具体性重視）
 
-出力: 
+出力:
 - ターミナルに表示
 - `wiki/manual/prompt-[feature].txt` に保存
 
@@ -655,9 +655,9 @@ npm run manual:generate:user:ai -- \
 
 AI統合モードを使うことで、以下のメリットがあります:
 
-✅ **時間削減**: 手動記入が不要、数分でマニュアル生成  
-✅ **高品質**: プレースホルダーなし、実画面に基づいた説明  
-✅ **一貫性**: テンプレート構造に従った統一フォーマット  
+✅ **時間削減**: 手動記入が不要、数分でマニュアル生成
+✅ **高品質**: プレースホルダーなし、実画面に基づいた説明
+✅ **一貫性**: テンプレート構造に従った統一フォーマット
 ✅ **保守性**: 画面変更時も再実行で自動更新
 
 ぜひAI統合モードをご活用ください！
