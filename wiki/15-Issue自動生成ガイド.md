@@ -416,7 +416,7 @@ const ISSUE_TYPES = {
 
 async function createIssue(type) {
   const config = ISSUE_TYPES[type];
-  
+
   if (!config) {
     console.error(`❌ 不明なIssueタイプです: ${type}`);
     console.error(`利用可能なタイプ: ${Object.keys(ISSUE_TYPES).join(', ')}`);
@@ -440,7 +440,7 @@ async function createIssue(type) {
 
     console.log(`📝 ${config.title}のIssue を作成中...`);
     const { stdout } = await execPromise(command);
-    
+
     console.log(`✅ Issue を作成しました:`);
     console.log(stdout);
 
@@ -646,7 +646,7 @@ E2E テスト作成のIssueを生成してください。
      │           → スクリーンショット + AI プロンプト生成
      │
      ├─ Copilot/Playwright: ページ自動分析（DOM抽出）
-     └─ 出力: 
+     └─ 出力:
          - wiki/manual/user-page-analysis.json
          - wiki/manual/screenshots/user/01-login.png
          - wiki/manual/screenshots/user/02-dashboard.png
@@ -705,7 +705,7 @@ E2E テスト作成のIssueを生成してください。
 
 ```bash
 # セットアップ（初回のみ）
-cd /home/k-mano/test_app
+cd /home/comojo/test_app
 docker-compose -f infra/docker-compose.local.yml up -d
 cd frontend && npm run dev &
 
@@ -1180,5 +1180,5 @@ NODE_PATH="./frontend/node_modules" node scripts/generate-manual-with-ai.js \
 
 ---
 
-**作成日**: 2026年1月  
+**作成日**: 2026年1月
 **最終更新**: 2026年1月12日（AI駆動マニュアル生成方法4を追加）
