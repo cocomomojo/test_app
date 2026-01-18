@@ -86,7 +86,7 @@ mcp_playwright_browser_take_screenshot({...})
 ```javascript
 // Copilotがファイル作成ツールを使用
 create_file({
-  filePath: "/home/k-mano/test_app/wiki/manual/user/02-login-feature.md",
+  filePath: "/home/comojo/test_app/wiki/manual/user/02-login-feature.md",
   content: [生成されたMarkdown]
 })
 ```

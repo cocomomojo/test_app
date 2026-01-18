@@ -16,7 +16,7 @@
 
 ```bash
 # 1. フロントエンド起動（別ターミナル）
-cd /home/k-mano/test_app/frontend
+cd /home/comojo/test_app/frontend
 npm run dev
 
 # 2. マニュアル生成実行
@@ -416,7 +416,7 @@ jobs:
   generate-manual:
     if: contains(github.event.issue.labels.*.name, 'manual')
     runs-on: ubuntu-latest
-    
+
     steps:
       # 1. サービス起動（Docker Compose）
       - name: Start Services
@@ -424,18 +424,18 @@ jobs:
           docker-compose -f infra/docker-compose.ci.yml up -d
           cd frontend && npm install && npm run build
           npx serve -s dist -l 5173 &
-      
+
       # 2. Playwright環境構築
       - name: Setup Playwright
         run: cd frontend && npx playwright install --with-deps
-      
+
       # 3. マニュアル生成（通常モード）
       - name: Generate Manual
         run: |
           npm run manual:generate:user -- \
             --feature "ログイン機能" \
             --frontend-url "http://localhost:5173"
-      
+
       # 4. PR自動作成
       - name: Create PR
         run: |
@@ -552,5 +552,5 @@ GitHub Copilot APIが一般公開されれば、プロンプト送信からマ�
 
 ---
 
-**更新日**: 2026年1月10日  
+**更新日**: 2026年1月10日
 **バージョン**: 1.0

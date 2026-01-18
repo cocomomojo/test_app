@@ -21,7 +21,7 @@ Issue の内容を確認し、以下を把握する：
 
 ```bash
 # Docker環境を起動
-cd /home/k-mano/test_app
+cd /home/comojo/test_app
 docker-compose -f infra/docker-compose.local.yml up -d
 
 # フロントエンドとバックエンドが起動したことを確認
@@ -40,9 +40,9 @@ import { test } from '@playwright/test';
 
 test('ログイン画面のスクリーンショット', async ({ page }) => {
   await page.goto('http://localhost:5173');
-  await page.screenshot({ 
+  await page.screenshot({
     path: 'wiki/manual/screenshots/01-login.png',
-    fullPage: true 
+    fullPage: true
   });
 });
 ```
@@ -238,6 +238,6 @@ A: 以下を確認してください...
 
 ---
 
-**エージェント種別**: ドキュメント作成専門  
-**主な使用ツール**: Playwright MCP, Docker, Markdown  
+**エージェント種別**: ドキュメント作成専門
+**主な使用ツール**: Playwright MCP, Docker, Markdown
 **成果物**: 操作マニュアル (Markdown + スクリーンショット)
