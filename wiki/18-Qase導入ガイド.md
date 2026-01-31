@@ -338,14 +338,14 @@ describe('LoginForm', () => {
 ```groovy
 dependencies {
     // 既存の依存関係
-    
+
     // 🆕 Qase JUnit5 Reporter
     testImplementation 'io.qase:qase-junit5-reporter:4.0.0'
 }
 
 test {
     useJUnitPlatform()
-    
+
     // Qase設定
     systemProperty 'QASE_API_TOKEN', System.getenv('QASE_API_TOKEN')
     systemProperty 'QASE_PROJECT_CODE', 'WAT'
@@ -415,20 +415,20 @@ jobs:
     defaults:
       run:
         working-directory: frontend
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Run Vitest with Qase
         run: npm run test:unit
         env:
@@ -442,17 +442,17 @@ jobs:
     defaults:
       run:
         working-directory: backend
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
           cache: 'gradle'
-      
+
       - name: Run JUnit with Qase
         run: ./gradlew test
         env:
@@ -464,33 +464,33 @@ jobs:
   e2e-test:
     runs-on: ubuntu-latest
     needs: [frontend-unit-test, backend-unit-test]
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      
+
       - name: Install Playwright
         run: |
           cd frontend
           npm ci
           npx playwright install --with-deps
-      
+
       - name: Start application
         run: |
           docker-compose -f infra/docker-compose.local.yml up -d
           sleep 30
-      
+
       - name: Run Playwright with Qase
         run: |
           cd frontend
           npx playwright test
         env:
           QASE_REPORT: 1
-      
+
       - name: Stop application
         if: always()
         run: docker-compose -f infra/docker-compose.local.yml down
@@ -640,5 +640,5 @@ QASE_LOGGING=true QASE_REPORT=1 npx playwright test
 ---
 
 > 🎉 **これでQaseの導入は完了です！**
-> 
+>
 > まずは手動テストケースを数件作成し、その後自動テストとの連携を進めていきましょう。
