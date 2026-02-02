@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * 🎨 WikiのMermaid図をPNG画像として生成するスクリプト
- * 
+ *
  * 使用方法:
  * npm install -g @mermaid-js/mermaid-cli
  * node scripts/generate-diagrams.js
@@ -19,14 +19,14 @@ flowchart TD
     A[🤔 テスト管理ツールが必要] --> B{💰 予算はある？}
     B -->|Yes| C{👥 チーム規模は？}
     B -->|No| D{💻 技術者のみ？}
-    
+
     C -->|大規模 20+| E[TestRail<br/>📊 エンタープライズ]
     C -->|中規模 5-20| F[Qase 有料<br/>⚡ バランス重視]
     C -->|小規模 5-| G[Qase 無料<br/>🚀 スタートアップ]
-    
+
     D -->|Yes| H[GitHub Repository<br/>+ Test Dashboard<br/>🏆 最強無料]
     D -->|No| I[Notion Database<br/>👥 全員参加型]
-    
+
     H --> J[🥇 2026年最適解]
     E --> K[🏢 企業向け]
     F --> L[📈 成長対応]
@@ -42,22 +42,22 @@ flowchart TD
     C --> D[🧪 Playwright E2E]
     C --> E[⚙️ JUnit Backend]
     C --> F[⚡ Vitest Frontend]
-    
+
     D --> G[📄 結果ファイル生成]
     E --> G
     F --> G
-    
+
     G --> H[🔗 Qase Reporter]
     H --> I[☁️ Qase Platform]
     I --> J[📊 レポート更新]
     J --> K[📧 チーム通知]
-    
+
     subgraph "🌐 GitHub Repository"
         A1[Source Code]
         A2[Test Cases]
         A3[CI/CD Config]
     end
-    
+
     subgraph "☁️ Qase Cloud"
         I1[Test Cases]
         I2[Test Results]
@@ -75,21 +75,21 @@ flowchart LR
     D --> E[🗃️ Database]
     D --> F[🔗 GitHub API]
     F --> G[🏗️ GitHub Repo]
-    
+
     subgraph "🎨 フロントエンド"
         B1[📊 Dashboard]
         B2[🎯 Test Manager]
         B3[📈 Analytics]
         B4[🔍 Test Runner]
     end
-    
+
     subgraph "⚙️ バックエンド"
         D1[🔗 GitHub Sync]
         D2[📊 Analytics Engine]
         D3[📈 Report Generator]
         D4[📦 WebSocket]
     end
-    
+
     subgraph "🗃️ データストア"
         E1[Test Cases]
         E2[Test Runs]
@@ -133,18 +133,18 @@ Object.entries(diagrams).forEach(([name, diagram]) => {
     // 一時的なmermaidファイルを作成
     const tempFile = path.join(outputDir, `${name}.mmd`);
     const outputFile = path.join(outputDir, `${name}.png`);
-    
+
     fs.writeFileSync(tempFile, diagram.trim());
-    
+
     // Mermaid CLIで画像生成
     console.log(`🎨 生成中: ${name}.png`);
     execSync(`mmdc -i "${tempFile}" -o "${outputFile}" -t neutral -b white --width 1200 --height 800`, {
       stdio: 'inherit'
     });
-    
+
     // 一時ファイル削除
     fs.unlinkSync(tempFile);
-    
+
     console.log(`✅ 完成: ${outputFile}`);
   } catch (error) {
     console.error(`❌ エラー (${name}):`, error.message);

@@ -190,39 +190,431 @@ Suite内 → ＋ Create case
 
 ---
 
-## 🔌 Step 4: 自動テスト連携
+## 🤖 Step 5: 包括的自動テスト連携
 
-### 🔗 システム連携フロー
+### 🎯 自動テスト連携の全体像
 
 ```mermaid
-flowchart TD
-    A[💻 開発者 Push] --> B[🚀 GitHub Actions トリガー]
-    B --> C[🗺️ テスト実行]
-    C --> D[🧪 Playwright E2E]
-    C --> E[⚙️ JUnit Backend]
-    C --> F[⚡ Vitest Frontend]
+flowchart TB
+    A[💻 開発者 Push] --> B[🚀 GitHub Actions]
+    B --> C[🧪 E2E Tests]
+    B --> D[⚙️ Backend Tests]
+    B --> E[⚡ Frontend Tests]
+    B --> F[🔍 SonarQube]
 
-    D --> G[📄 結果ファイル生成]
-    E --> G
-    F --> G
+    C --> C1[Playwright + Qase Reporter]
+    C --> C2[CodeceptJS + Qase Plugin]
+    D --> D1[JUnit + Qase Reporter]
+    E --> E1[Jest/Vitest + Qase Reporter]
+    F --> F1[SonarQube-mcp Auto Fix]
 
-    G --> H[🔗 Qase Reporter]
-    H --> I[☁️ Qase Platform]
-    I --> J[📊 レポート更新]
-    J --> K[📧 チーム通知]
+    C1 --> G[📄 結果送信]
+    C2 --> G
+    D1 --> G
+    E1 --> G
+    F1 --> G
 
-    subgraph "🌐 GitHub Repository"
-        A1[Source Code]
-        A2[Test Cases]
-        A3[CI/CD Config]
-    end
+    G --> H[☁️ Qase Platform]
+    H --> I[📊 レポート更新]
+    H --> J[📧 Slack 通知]
+    H --> K[🐛 欠陥管理]
+```
 
-    subgraph "☁️ Qase Cloud"
-        I1[Test Cases]
-        I2[Test Results]
-        I3[Reports]
-        I4[Analytics]
-    end
+### 🔧 1. Playwright + Qase Reporter 連携
+
+#### インストール
+
+```bash
+# Playwright Qase Reporterをインストール
+npm install -D playwright-qase-reporter
+```
+
+#### 詳細設定
+
+```typescript
+// playwright.config.ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  reporter: [
+    ['list'],
+    ['html', { outputFolder: 'playwright-report' }],
+    ['playwright-qase-reporter', {
+      apiToken: process.env.QASE_API_TOKEN,
+      projectCode: 'WAT',
+      runComplete: true,
+      basePath: 'https://api.qase.io/v1',
+      logging: true,
+      uploadAttachments: true,
+
+      // 🎆 高度な設定
+      screenshotsUpload: true,  // スクリーンショット自動アップロード
+      videoUpload: true,        // ビデオ自動アップロード
+      testRun: {
+        title: `E2E Tests - ${new Date().toISOString().split('T')[0]}`,
+        description: 'Automated E2E test execution via GitHub Actions'
+      }
+    }]
+  ],
+
+  // スクリーンショット・ビデオ設定
+  use: {
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+    trace: 'retain-on-failure'
+  }
+});
+```
+
+#### テストケースへのQase ID紐づけ
+
+```typescript
+// tests/auth/login.spec.ts
+import { test, expect } from '@playwright/test';
+
+// 🎨 シングルID紐づけ
+test('WAT-1 正常なログイン @QaseID=1', async ({ page }) => {
+  await page.goto('/login');
+  await page.fill('[data-testid="email"]', 'valid@example.com');
+  await page.fill('[data-testid="password"]', 'ValidPass123!');
+
+  // 📸 スクリーンショット付きアサーション
+  await expect(page.locator('[data-testid="login-button"]')).toBeVisible();
+  await page.click('[data-testid="login-button"]');
+
+  await expect(page).toHaveURL('/dashboard');
+  await expect(page.locator('h1')).toContainText('ダッシュボード');
+});
+
+// 🔢 複数ID紐づけ (組み合わせテスト)
+test('WAT-2,WAT-3 バリデーションエラー表示 @QaseID=2,3', async ({ page }) => {
+  await page.goto('/login');
+
+  // 空のフィールドテスト
+  await page.click('[data-testid="login-button"]');
+  await expect(page.locator('.error-message')).toContainText('メールアドレスを入力してください');
+
+  // 無効なメールテスト
+  await page.fill('[data-testid="email"]', 'invalid-email');
+  await page.click('[data-testid="login-button"]');
+  await expect(page.locator('.error-message')).toContainText('有効なメールアドレスを入力してください');
+});
+```
+
+### 🤖 2. CodeceptJS + Qase Plugin 連携
+
+```bash
+# CodeceptJS Qase Pluginインストール
+npm install -D codeceptjs-qase
+```
+
+```javascript
+// codecept.conf.js
+exports.config = {
+  tests: './tests/**/*_test.js',
+  helpers: {
+    Playwright: {
+      url: 'http://localhost:3000',
+      browser: 'chromium'
+    }
+  },
+
+  plugins: {
+    qase: {
+      enabled: true,
+      require: 'codeceptjs-qase',
+      apiToken: process.env.QASE_API_TOKEN,
+      projectCode: 'WAT',
+      runName: `CodeceptJS Run - ${new Date().toLocaleDateString()}`
+    }
+  }
+};
+```
+
+```javascript
+// tests/login_test.js
+Feature('ログイン機能');
+
+// Qase IDをタグで指定
+Scenario('正常ログイン @QaseID:4', ({ I }) => {
+  I.amOnPage('/login');
+  I.fillField('email', 'test@example.com');
+  I.fillField('password', 'password123');
+  I.click('ログイン');
+  I.see('ダッシュボード');
+});
+```
+
+### ⚙️ 3. JUnit + Qase Reporter (バックエンド)
+
+#### Maven 設定
+
+```xml
+<!-- pom.xml -->
+<dependency>
+    <groupId>io.qase</groupId>
+    <artifactId>qase-junit5</artifactId>
+    <version>3.2.0</version>
+    <scope>test</scope>
+</dependency>
+
+<plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-surefire-plugin</artifactId>
+    <version>3.0.0-M9</version>
+    <configuration>
+        <systemPropertyVariables>
+            <qase.enable>true</qase.enable>
+            <qase.project.code>WAT</qase.project.code>
+            <qase.api.token>${env.QASE_API_TOKEN}</qase.api.token>
+        </systemPropertyVariables>
+    </configuration>
+</plugin>
+```
+
+#### JUnit テストケース
+
+```java
+// src/test/java/com/example/UserServiceTest.java
+import io.qase.api.annotation.QaseId;
+import io.qase.api.annotation.QaseTitle;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+
+public class UserServiceTest {
+
+    @Test
+    @QaseId(5)
+    @QaseTitle("ユーザー作成 - 正常ケース")
+    public void testCreateUser_ValidData() {
+        UserService service = new UserService();
+        User user = new User("test@example.com", "Test User");
+
+        User created = service.createUser(user);
+
+        assertNotNull(created.getId());
+        assertEquals("test@example.com", created.getEmail());
+        assertEquals("Test User", created.getName());
+    }
+
+    @Test
+    @QaseId(6)
+    @QaseTitle("ユーザー作成 - 無効データエラー")
+    public void testCreateUser_InvalidEmail() {
+        UserService service = new UserService();
+        User user = new User("invalid-email", "Test User");
+
+        assertThrows(ValidationException.class, () -> {
+            service.createUser(user);
+        });
+    }
+}
+```
+
+### ⚡ 4. Jest/Vitest + Qase Reporter (フロントエンド)
+
+```bash
+# Jest/Vitest Qase Reporterインストール
+npm install -D jest-qase-reporter
+```
+
+```javascript
+// jest.config.js または vitest.config.js
+module.exports = {
+  // ... 他の設定
+
+  reporters: [
+    'default',
+    ['jest-qase-reporter', {
+      apiToken: process.env.QASE_API_TOKEN,
+      projectCode: 'WAT',
+      logging: true,
+      uploadAttachments: true
+    }]
+  ]
+};
+```
+
+```javascript
+// tests/components/LoginForm.test.js
+import { render, fireEvent, waitFor } from '@testing-library/react';
+import LoginForm from '../LoginForm';
+
+// Qase IDをdescribeまたはitに指定
+describe('LoginForm コンポーネント', () => {
+
+  it('WAT-7: 正常なフォーム送信', async () => {
+    // @QaseId 7
+    const mockOnSubmit = jest.fn();
+    const { getByLabelText, getByRole } = render(
+      <LoginForm onSubmit={mockOnSubmit} />
+    );
+
+    fireEvent.change(getByLabelText('メールアドレス'), {
+      target: { value: 'test@example.com' }
+    });
+
+    fireEvent.change(getByLabelText('パスワード'), {
+      target: { value: 'password123' }
+    });
+
+    fireEvent.click(getByRole('button', { name: 'ログイン' }));
+
+    await waitFor(() => {
+      expect(mockOnSubmit).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        password: 'password123'
+      });
+    });
+  });
+
+  it('WAT-8: バリデーションエラー表示', () => {
+    // @QaseId 8
+    const { getByRole, getByText } = render(<LoginForm />);
+
+    fireEvent.click(getByRole('button', { name: 'ログイン' }));
+
+    expect(getByText('メールアドレスは必須です')).toBeInTheDocument();
+    expect(getByText('パスワードは必須です')).toBeInTheDocument();
+  });
+});
+```
+
+### 🔍 5. SonarQube + SonarQube-mcp 連携
+
+#### GitHub Actionsでの統合設定
+
+```yaml
+# .github/workflows/qa-pipeline.yml
+name: 包括的QAパイプライン
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  comprehensive-testing:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 💻 Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: ⚙️ Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: ⚙️ Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm ci
+          mvn dependency:resolve
+
+      - name: 🧪 E2E Tests (Playwright + Qase)
+        run: |
+          npx playwright install
+          npx playwright test
+        env:
+          QASE_API_TOKEN: ${{ secrets.QASE_API_TOKEN }}
+
+      - name: ⚡ Frontend Tests (Vitest + Qase)
+        run: npm run test:unit
+        env:
+          QASE_API_TOKEN: ${{ secrets.QASE_API_TOKEN }}
+
+      - name: ⚙️ Backend Tests (JUnit + Qase)
+        run: mvn test
+        env:
+          QASE_API_TOKEN: ${{ secrets.QASE_API_TOKEN }}
+
+      - name: 🔍 SonarQube Analysis
+        uses: sonarqube-quality-gate-action@master
+        with:
+          scanMetadataReportFile: target/sonar/report-task.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: 🤖 SonarQube-mcp Auto Fix
+        run: |
+          # SonarQubeの結果を元に自動修正
+          npm run sonar-mcp-fix
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: 📊 Test Results Summary
+        run: |
+          echo "## 🎆 テスト結果サマリー" >> $GITHUB_STEP_SUMMARY
+          echo "- Playwright E2E: ✅ 完了" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend Unit: ✅ 完了" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend Unit: ✅ 完了" >> $GITHUB_STEP_SUMMARY
+          echo "- SonarQube: ✅ 解析完了" >> $GITHUB_STEP_SUMMARY
+          echo "- Qase 連携: ✅ 結果送信完了" >> $GITHUB_STEP_SUMMARY
+
+      - name: 📧 Slack Notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#qa-reports'
+          message: |
+            🎆 **テスト結果通知**
+            - Commit: ${{ github.sha }}
+            - Branch: ${{ github.ref }}
+            - Status: ${{ job.status }}
+            - Qase Report: https://app.qase.io/project/WAT
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+```
+
+### 📊 6. 結果の可視化とレポート
+
+#### Qaseダッシュボードでの結果確認
+
+1. **Test Runs** ページで最新の実行結果を確認
+2. **Defects** ページで自動検出されたバグを確認
+3. **Analytics** でテストカバレッジと品質指標を監視
+
+#### 自動レポート生成
+
+```javascript
+// scripts/generate-test-report.js
+const QaseAPI = require('qaseio');
+const fs = require('fs');
+
+async function generateWeeklyReport() {
+  const qase = new QaseAPI(process.env.QASE_API_TOKEN);
+  const projectCode = 'WAT';
+
+  // 直近1週間のテスト結果を取得
+  const runs = await qase.runs.getAll(projectCode, {
+    'filters[created_at][gte]': new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  });
+
+  let report = `# 📊 週次テストレポート\n\n`;
+
+  runs.result.entities.forEach(run => {
+    report += `## ${run.title}\n`;
+    report += `- 実行日: ${new Date(run.created_at).toLocaleDateString('ja-JP')}\n`;
+    report += `- 成功率: ${(run.stats.passed / run.stats.total * 100).toFixed(1)}%\n`;
+    report += `- 合格: ${run.stats.passed}, 不合格: ${run.stats.failed}\n\n`;
+  });
+
+  fs.writeFileSync('weekly-test-report.md', report);
+  console.log('✅ 週次レポートを生成しました');
+}
+
+generateWeeklyReport();
 ```
 
 ### 4-1. APIトークンの取得
