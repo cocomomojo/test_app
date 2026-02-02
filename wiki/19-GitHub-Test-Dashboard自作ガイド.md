@@ -56,25 +56,25 @@ graph TB
         AUTH[GitHub OAuth認証]
         CHART[Chart.js グラフ表示]
     end
-    
+
     subgraph "⚙️ Backend (Node.js + Express)"
         API[REST API Server]
         PARSER[Markdown Parser]
         ANALYZER[Test Result Analyzer]
     end
-    
+
     subgraph "🗄️ Data Layer"
         GITHUB[GitHub API]
         CACHE[Redis Cache]
         DB[(SQLite/PostgreSQL)]
     end
-    
+
     subgraph "🔄 Automation"
         GHA[GitHub Actions]
         WEBHOOK[GitHub Webhooks]
         SCHEDULER[Cron Jobs]
     end
-    
+
     UI --> API
     API --> GITHUB
     API --> CACHE
@@ -139,11 +139,11 @@ router.get('/cases', async (req, res) => {
   try {
     const { owner, repo } = req.query;
     const octokit = new Octokit({ auth: req.headers.authorization });
-    
+
     // tests/ ディレクトリからMarkdownファイルを取得
     const testFiles = await fetchTestFiles(octokit, owner, repo);
     const testCases = await TestParser.parseMarkdownTests(testFiles);
-    
+
     res.json({
       success: true,
       data: testCases,
@@ -162,12 +162,12 @@ router.get('/results', async (req, res) => {
   try {
     const { owner, repo, timeRange = '30d' } = req.query;
     const analyzer = new MetricsAnalyzer(octokit, owner, repo);
-    
+
     const results = await analyzer.analyzeTestResults({
       timeRange,
       includeMetrics: ['pass_rate', 'coverage', 'execution_time', 'flaky_tests']
     });
-    
+
     res.json({
       success: true,
       data: results,
@@ -186,7 +186,7 @@ router.get('/results', async (req, res) => {
 export class TestParser {
   static async parseMarkdownTests(files: GitHubFile[]): Promise<TestCase[]> {
     const testCases: TestCase[] = [];
-    
+
     for (const file of files) {
       if (file.name.endsWith('.md')) {
         const content = Buffer.from(file.content, 'base64').toString();
@@ -194,10 +194,10 @@ export class TestParser {
         testCases.push(parsed);
       }
     }
-    
+
     return testCases;
   }
-  
+
   private static parseTestCaseMarkdown(content: string, filePath: string): TestCase {
     const lines = content.split('\n');
     let testCase: Partial<TestCase> = {
@@ -212,20 +212,20 @@ export class TestParser {
       lastModified: new Date(),
       filePath
     };
-    
+
     return testCase as TestCase;
   }
-  
+
   private static extractTestId(content: string): string {
     const match = content.match(/\[TEST-(\d+)\]/);
     return match ? `TEST-${match[1]}` : `AUTO-${Date.now()}`;
   }
-  
+
   private static extractExecutionHistory(content: string): ExecutionRecord[] {
     const historyRegex = /\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*(Pass|Fail|Blocked)\s*\|\s*([^|]*)\s*\|/g;
     const records: ExecutionRecord[] = [];
     let match;
-    
+
     while ((match = historyRegex.exec(content)) !== null) {
       if (match[1] !== '実行日' && match[1].trim()) {
         records.push({
@@ -236,7 +236,7 @@ export class TestParser {
         });
       }
     }
-    
+
     return records;
   }
 }
@@ -273,10 +273,10 @@ export const Dashboard: React.FC = () => {
         fetch('/api/tests/cases'),
         fetch('/api/tests/results')
       ]);
-      
+
       const cases = await casesRes.json();
       const metricsData = await metricsRes.json();
-      
+
       setTestCases(cases.data);
       setMetrics(metricsData.data);
     } catch (error) {
@@ -341,7 +341,7 @@ export const Dashboard: React.FC = () => {
             <h3 className="text-lg font-semibold mb-4">Test Cases by Category</h3>
             <Pie data={getCategoryChartData(testCases)} />
           </div>
-          
+
           <div className="bg-white p-6 rounded-lg shadow">
             <h3 className="text-lg font-semibold mb-4">Pass Rate Trend</h3>
             <Line data={getPassRateTrendData(metrics?.history)} />
@@ -356,8 +356,8 @@ export const Dashboard: React.FC = () => {
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {testCases.map(testCase => (
-                <TestCaseCard 
-                  key={testCase.id} 
+                <TestCaseCard
+                  key={testCase.id}
                   testCase={testCase}
                   onExecute={() => executeTest(testCase.id)}
                   onEdit={() => editTest(testCase.id)}
@@ -419,11 +419,11 @@ export const TestCaseCard: React.FC<TestCaseCardProps> = ({
           {testCase.lastExecutionResult || 'Not Executed'}
         </span>
       </div>
-      
+
       <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">
         {testCase.title}
       </h4>
-      
+
       <div className="flex items-center justify-between text-sm text-gray-500 mb-3">
         <span className="flex items-center">
           📁 {testCase.category}
@@ -432,7 +432,7 @@ export const TestCaseCard: React.FC<TestCaseCardProps> = ({
           🕒 {testCase.lastModified ? new Date(testCase.lastModified).toLocaleDateString() : 'Never'}
         </span>
       </div>
-      
+
       {testCase.executionHistory && testCase.executionHistory.length > 0 && (
         <div className="mb-3">
           <div className="text-xs text-gray-500 mb-1">Recent Executions</div>
@@ -450,7 +450,7 @@ export const TestCaseCard: React.FC<TestCaseCardProps> = ({
           </div>
         </div>
       )}
-      
+
       <div className="flex space-x-2">
         <button
           onClick={onExecute}
@@ -517,7 +517,7 @@ export class TestExecutor {
 
   async getExecutionStatus(executionId: string): Promise<ExecutionStatus> {
     const execution = await this.getExecutionRecord(executionId);
-    
+
     if (!execution) {
       throw new Error('Execution record not found');
     }
@@ -607,7 +607,7 @@ export const ExecutionMonitor: React.FC<ExecutionMonitorProps> = ({
 
       {/* Progress Bar */}
       <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
-        <div 
+        <div
           className="bg-blue-600 h-2 rounded-full transition-all duration-300"
           style={{ width: `${progress}%` }}
         />
@@ -641,32 +641,32 @@ import { TestCase, ExecutionHistory, QualityPrediction } from '../types';
 export class QualityPredictor {
   async predictTestQuality(testCases: TestCase[]): Promise<QualityPrediction[]> {
     const predictions: QualityPrediction[] = [];
-    
+
     for (const testCase of testCases) {
       const prediction = await this.analyzeTestCase(testCase);
       predictions.push(prediction);
     }
-    
+
     return predictions;
   }
-  
+
   private async analyzeTestCase(testCase: TestCase): Promise<QualityPrediction> {
     const history = testCase.executionHistory || [];
-    
+
     // 安定性スコア計算（過去10回の実行結果から）
     const recentExecutions = history.slice(-10);
     const passCount = recentExecutions.filter(e => e.result === 'Pass').length;
     const stabilityScore = recentExecutions.length > 0 ? passCount / recentExecutions.length : 0;
-    
+
     // フレーキーテスト検出
     const isFlaky = this.detectFlakyPattern(recentExecutions);
-    
+
     // 実行時間トレンド
     const executionTimeTrend = this.analyzeExecutionTimeTrend(recentExecutions);
-    
+
     // リスクアセスメント
     const riskFactors = this.assessRiskFactors(testCase, history);
-    
+
     return {
       testCaseId: testCase.id,
       stabilityScore,
@@ -681,10 +681,10 @@ export class QualityPredictor {
       })
     };
   }
-  
+
   private detectFlakyPattern(executions: ExecutionHistory[]): boolean {
     if (executions.length < 5) return false;
-    
+
     // 連続する実行で結果が異なる場合の検出
     let flipCount = 0;
     for (let i = 1; i < executions.length; i++) {
@@ -692,29 +692,29 @@ export class QualityPredictor {
         flipCount++;
       }
     }
-    
+
     return flipCount / (executions.length - 1) > 0.3; // 30%以上変動
   }
-  
+
   private generateRecommendations(testCase: TestCase, analysis: any): string[] {
     const recommendations: string[] = [];
-    
+
     if (analysis.isFlaky) {
       recommendations.push('🔧 フレーキーテスト: 待機時間の調整や条件の見直しを検討');
     }
-    
+
     if (analysis.stabilityScore < 0.8) {
       recommendations.push('⚠️ 安定性低下: テストケースの条件や環境設定を確認');
     }
-    
+
     if (analysis.executionTimeTrend > 1.5) {
       recommendations.push('⏰ 実行時間増加: パフォーマンス改善またはテスト分割を検討');
     }
-    
+
     if (analysis.riskFactors.complexity > 0.7) {
       recommendations.push('📝 複雑性高: テストケースの簡素化やステップ分割を検討');
     }
-    
+
     return recommendations;
   }
 }
@@ -726,13 +726,13 @@ export class QualityPredictor {
 ```typescript
 export class ReportGenerator {
   async generateExecutiveSummary(
-    testCases: TestCase[], 
+    testCases: TestCase[],
     metrics: TestMetrics,
     timeRange: string
   ): Promise<ExecutiveSummary> {
     const qualityPredictor = new QualityPredictor();
     const predictions = await qualityPredictor.predictTestQuality(testCases);
-    
+
     return {
       overview: {
         totalTestCases: testCases.length,
@@ -741,33 +741,33 @@ export class ReportGenerator {
         coverage: metrics.coverage,
         period: timeRange
       },
-      
+
       qualityInsights: {
         trendAnalysis: this.analyzeTrends(metrics.history),
         riskAssessment: this.assessRisks(predictions),
         improvementAreas: this.identifyImprovements(testCases, predictions)
       },
-      
+
       actionItems: this.generateActionItems(testCases, predictions, metrics),
-      
+
       charts: {
         passRateTrend: this.generateTrendChart(metrics.history, 'passRate'),
         categoryDistribution: this.generateCategoryChart(testCases),
         riskHeatmap: this.generateRiskHeatmap(predictions)
       },
-      
+
       generatedAt: new Date(),
       nextReviewDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 1週間後
     };
   }
-  
+
   private generateActionItems(
-    testCases: TestCase[], 
-    predictions: QualityPrediction[], 
+    testCases: TestCase[],
+    predictions: QualityPrediction[],
     metrics: TestMetrics
   ): ActionItem[] {
     const actionItems: ActionItem[] = [];
-    
+
     // 高リスクテストケース
     const highRiskTests = predictions.filter(p => p.riskLevel === 'high');
     if (highRiskTests.length > 0) {
@@ -780,7 +780,7 @@ export class ReportGenerator {
         estimatedEffort: '2-3 days'
       });
     }
-    
+
     // カバレッジ改善
     if (metrics.coverage < 80) {
       actionItems.push({
@@ -791,7 +791,7 @@ export class ReportGenerator {
         estimatedEffort: '1 week'
       });
     }
-    
+
     // フレーキーテスト対応
     const flakyTests = predictions.filter(p => p.isFlaky);
     if (flakyTests.length > 0) {
@@ -804,7 +804,7 @@ export class ReportGenerator {
         estimatedEffort: '3-4 days'
       });
     }
-    
+
     return actionItems.sort((a, b) => {
       const priorityOrder = { high: 3, medium: 2, low: 1 };
       return priorityOrder[b.priority] - priorityOrder[a.priority];
@@ -869,7 +869,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Sync with Test Dashboard
         run: |
           curl -X POST "${{ secrets.DASHBOARD_API_URL }}/api/sync" \
@@ -893,22 +893,22 @@ export class AITestGenerator {
   async generateTestCases(spec: RequirementSpec): Promise<TestCase[]> {
     const prompt = `
       Based on the following requirement specification, generate comprehensive test cases:
-      
+
       ${spec.description}
-      
+
       Please provide test cases in the following format:
       - Test ID
-      - Test Name  
+      - Test Name
       - Priority (High/Medium/Low)
       - Test Steps
       - Expected Results
     `;
-    
+
     const response = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [{ role: "user", content: prompt }]
     });
-    
+
     return this.parseAIResponse(response.choices[0].message.content);
   }
 }
@@ -932,7 +932,7 @@ export class SlackNotifier {
         }
       ]
     };
-    
+
     await this.slackClient.chat.postMessage(message);
   }
 }
@@ -951,11 +951,11 @@ export const MobileDashboard: React.FC = () => {
         <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 16 }}>
           📱 GitHub Test Dashboard
         </Text>
-        
+
         {/* メトリクスカード */}
         <MetricsCard title="Pass Rate" value="94%" />
         <MetricsCard title="Coverage" value="87%" />
-        
+
         {/* テスト実行ボタン */}
         <TouchableOpacity onPress={executeAllTests}>
           <View style={styles.executeButton}>
@@ -975,7 +975,7 @@ export const MobileDashboard: React.FC = () => {
 ### Before (現状のGitHub方式)
 ```
 ❌ レポート機能なし → 手動集計で時間浪費
-❌ 専用UI不足 → GitHub標準UIで操作が煩雑  
+❌ 専用UI不足 → GitHub標準UIで操作が煩雑
 ❌ 実行管理困難 → 手動でのテスト実行・記録
 ❌ メトリクス不足 → 品質指標の見えない化
 ❌ 非技術者対応困難 → Git知識必須で参加障壁
