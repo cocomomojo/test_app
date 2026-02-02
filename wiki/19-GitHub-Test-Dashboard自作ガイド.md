@@ -109,6 +109,507 @@ flowchart LR
     └───────────────┴───────────────────┴─────────────────┘
 ```
 
+---
+
+## 🤖 包括的自動テスト連携の実装
+
+### 🎯 自動テスト連携の全体フロー
+
+```mermaid
+flowchart TB
+    A[💻 Git Push] --> B[🚀 GitHub Actions]
+    
+    B --> C[🧪 Playwright E2E]
+    B --> D[📝 CodeceptJS BDD]
+    B --> E[⚡ Jest/Vitest Unit]
+    B --> F[⚙️ JUnit Integration]
+    B --> G[🔍 SonarQube Analysis]
+    
+    C --> H[📄 JUnit XML Results]
+    D --> H
+    E --> H
+    F --> H
+    G --> I[📈 Quality Metrics]
+    
+    H --> J[🤖 Test Dashboard Webhook]
+    I --> J
+    
+    J --> K[📊 Results Processor]
+    K --> L[🗃️ Database Storage]
+    K --> M[📱 Real-time Updates]
+    
+    M --> N[🎨 Dashboard UI]
+    M --> O[📧 Slack Notifications]
+    M --> P[🐛 Auto Issue Creation]
+```
+
+### 🛠️ 1. GitHub Actions 連携設定
+
+**`.github/workflows/comprehensive-testing.yml`**
+
+```yaml
+name: 🤖 包括的自動テスト + Dashboard 連携
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 2 * * *'  # 毎日夜中2時に実行
+
+env:
+  DASHBOARD_API_URL: ${{ secrets.DASHBOARD_API_URL }}
+  DASHBOARD_API_TOKEN: ${{ secrets.DASHBOARD_API_TOKEN }}
+  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+jobs:
+  comprehensive-testing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    strategy:
+      matrix:
+        browser: [chromium, firefox, webkit]
+        node-version: [18, 20]
+      fail-fast: false
+      
+    steps:
+      - name: 💻 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: ⚙️ Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          
+      - name: ⚙️ Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          
+      - name: 📦 Install Dependencies
+        run: |
+          npm ci
+          npx playwright install --with-deps ${{ matrix.browser }}
+          mvn dependency:resolve -q
+          
+      - name: 🚀 Notify Dashboard - Test Start
+        run: |
+          curl -X POST "$DASHBOARD_API_URL/api/test-runs/start" \
+            -H "Authorization: Bearer $DASHBOARD_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "runId": "${{ github.run_id }}-${{ matrix.browser }}-${{ matrix.node-version }}",
+              "branch": "${{ github.ref_name }}",
+              "commit": "${{ github.sha }}",
+              "environment": "CI",
+              "browser": "${{ matrix.browser }}",
+              "nodeVersion": "${{ matrix.node-version }}",
+              "startedBy": "${{ github.actor }}",
+              "triggeredBy": "${{ github.event_name }}"
+            }'
+            
+      # 🧪 Playwright E2E Tests
+      - name: 🧪 Run Playwright E2E Tests
+        run: |
+          npx playwright test --project=${{ matrix.browser }} --reporter=junit
+        continue-on-error: true
+        
+      # 📝 CodeceptJS BDD Tests  
+      - name: 📝 Run CodeceptJS BDD Tests
+        run: |
+          npx codeceptjs run --reporter junit --output ./test-results/codecept
+        continue-on-error: true
+        
+      # ⚡ Frontend Unit Tests
+      - name: ⚡ Run Frontend Unit Tests (Vitest)
+        run: |
+          npm run test:unit -- --reporter=junit --outputFile=test-results/vitest-results.xml
+        continue-on-error: true
+        
+      # ⚙️ Backend Integration Tests
+      - name: ⚙️ Run Backend Tests (JUnit)
+        run: |
+          mvn test -Dmaven.test.failure.ignore=true
+        continue-on-error: true
+        
+      # 🔍 SonarQube Code Analysis
+      - name: 🔍 SonarQube Analysis
+        run: |
+          mvn sonar:sonar \
+            -Dsonar.projectKey=test-dashboard \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
+        continue-on-error: true
+        
+      # 🤖 SonarQube-mcp Auto Fix
+      - name: 🤖 SonarQube-mcp Auto Fix
+        run: |
+          # SonarQubeの結果を取得して自動修正
+          npx sonar-mcp-cli --project-key=test-dashboard --auto-fix
+        continue-on-error: true
+        
+      # 📄 Collect All Test Results
+      - name: 📄 Collect Test Results
+        run: |
+          mkdir -p combined-results
+          find . -name "*junit*.xml" -o -name "*results*.xml" | xargs cp -t combined-results/ || true
+          ls -la combined-results/
+          
+      # 🚀 Send Results to Dashboard
+      - name: 🚀 Send Results to Dashboard
+        run: |
+          # テスト結果をDashboard APIに送信
+          for result_file in combined-results/*.xml; do
+            if [ -f "$result_file" ]; then
+              echo "Uploading: $result_file"
+              curl -X POST "$DASHBOARD_API_URL/api/test-results/upload" \
+                -H "Authorization: Bearer $DASHBOARD_API_TOKEN" \
+                -F "runId=${{ github.run_id }}-${{ matrix.browser }}-${{ matrix.node-version }}" \
+                -F "resultFile=@$result_file" \
+                -F "testType=$(basename $result_file .xml)" \
+                -F "browser=${{ matrix.browser }}" \
+                -F "nodeVersion=${{ matrix.node-version }}"
+            fi
+          done
+          
+      # 📊 Quality Metrics Collection
+      - name: 📊 Collect Quality Metrics
+        run: |
+          # SonarQubeメトリクスを取得
+          QUALITY_GATE=$(curl -s -u "$SONAR_TOKEN:" \
+            "https://sonarcloud.io/api/qualitygates/project_status?projectKey=test-dashboard" | \
+            jq -r '.projectStatus.status')
+            
+          # Dashboardに品質メトリクスを送信
+          curl -X POST "$DASHBOARD_API_URL/api/quality-metrics" \
+            -H "Authorization: Bearer $DASHBOARD_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"runId\": \"${{ github.run_id }}-${{ matrix.browser }}-${{ matrix.node-version }}\",
+              \"qualityGate\": \"$QUALITY_GATE\",
+              \"coverage\": $(cat coverage/coverage-summary.json | jq '.total.lines.pct // 0'),
+              \"codeSmells\": 0,
+              \"vulnerabilities\": 0,
+              \"duplications\": 0
+            }"
+            
+      # 📧 Slack Notification
+      - name: 📧 Slack Notification
+        if: always()
+        run: |
+          STATUS_EMOJI="✅"
+          if [ "${{ job.status }}" != "success" ]; then
+            STATUS_EMOJI="❌"
+          fi
+          
+          curl -X POST $SLACK_WEBHOOK_URL \
+            -H 'Content-type: application/json' \
+            -d "{
+              \"channel\": \"#qa-automation\",
+              \"text\": \"$STATUS_EMOJI テスト実行結果\",
+              \"attachments\": [{
+                \"color\": \"$([[ \"${{ job.status }}\" == \"success\" ]] && echo \"good\" || echo \"danger\")\",
+                \"fields\": [
+                  {\"title\": \"Branch\", \"value\": \"${{ github.ref_name }}\", \"short\": true},
+                  {\"title\": \"Commit\", \"value\": \"${{ github.sha }}\", \"short\": true},
+                  {\"title\": \"Browser\", \"value\": \"${{ matrix.browser }}\", \"short\": true},
+                  {\"title\": \"Node.js\", \"value\": \"${{ matrix.node-version }}\", \"short\": true},
+                  {\"title\": \"Status\", \"value\": \"${{ job.status }}\", \"short\": true},
+                  {\"title\": \"Dashboard\", \"value\": \"<$DASHBOARD_API_URL/runs/${{ github.run_id }}|結果を見る>\", \"short\": true}
+                ]
+              }]
+            }"
+```
+
+### 📱 2. Dashboard API - テスト結果受信エンドポイント
+
+**`backend/src/controllers/TestResultsController.ts`**
+
+```typescript
+import { Request, Response } from 'express';
+import { TestResultProcessor } from '../services/TestResultProcessor';
+import { WebSocketManager } from '../services/WebSocketManager';
+import { SlackNotifier } from '../services/SlackNotifier';
+import { IssueAutoCreator } from '../services/IssueAutoCreator';
+
+export class TestResultsController {
+  private testResultProcessor = new TestResultProcessor();
+  private wsManager = new WebSocketManager();
+  private slackNotifier = new SlackNotifier();
+  private issueCreator = new IssueAutoCreator();
+  
+  /**
+   * 🚀 テスト実行開始通知
+   */
+  async startTestRun(req: Request, res: Response) {
+    try {
+      const testRun = await this.testResultProcessor.createTestRun(req.body);
+      
+      // リアルタイム更新
+      this.wsManager.broadcast('test-run-started', testRun);
+      
+      res.json({ success: true, testRun });
+    } catch (error) {
+      console.error('テスト実行開始エラー:', error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+  
+  /**
+   * 📄 JUnit XML結果アップロード
+   */
+  async uploadTestResults(req: Request, res: Response) {
+    try {
+      const { runId, testType, browser, nodeVersion } = req.body;
+      const resultFile = req.file;
+      
+      if (!resultFile) {
+        return res.status(400).json({ error: 'テスト結果ファイルがありません' });
+      }
+      
+      // JUnit XMLをパース
+      const results = await this.testResultProcessor.parseJUnitXML(
+        resultFile.buffer.toString(),
+        testType,
+        { browser, nodeVersion }
+      );
+      
+      // データベースに保存
+      const savedResults = await this.testResultProcessor.saveTestResults(runId, results);
+      
+      // 失敗テストの自動Issue作成
+      const failedTests = results.filter(test => test.status === 'failed');
+      for (const failedTest of failedTests) {
+        await this.issueCreator.createIssueForFailedTest(failedTest, runId);
+      }
+      
+      // リアルタイム更新
+      this.wsManager.broadcast('test-results-updated', {
+        runId,
+        testType,
+        results: savedResults,
+        summary: this.calculateSummary(results)
+      });
+      
+      // Slack通知（失敗がある場合）
+      if (failedTests.length > 0) {
+        await this.slackNotifier.notifyFailedTests(runId, failedTests, testType);
+      }
+      
+      res.json({ 
+        success: true, 
+        processed: results.length,
+        failed: failedTests.length,
+        testType 
+      });
+      
+    } catch (error) {
+      console.error('テスト結果処理エラー:', error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+  
+  /**
+   * 📊 品質メトリクス受信
+   */
+  async receiveQualityMetrics(req: Request, res: Response) {
+    try {
+      const { runId, qualityGate, coverage, codeSmells, vulnerabilities } = req.body;
+      
+      const qualityData = await this.testResultProcessor.saveQualityMetrics(runId, {
+        qualityGate,
+        coverage,
+        codeSmells,
+        vulnerabilities,
+        timestamp: new Date()
+      });
+      
+      // Quality Gate失敗時のアラート
+      if (qualityGate === 'ERROR') {
+        await this.slackNotifier.notifyQualityGateFailure(runId, qualityData);
+        await this.issueCreator.createQualityIssue(runId, qualityData);
+      }
+      
+      this.wsManager.broadcast('quality-metrics-updated', {
+        runId,
+        metrics: qualityData
+      });
+      
+      res.json({ success: true, qualityData });
+    } catch (error) {
+      console.error('品質メトリクスエラー:', error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+  
+  private calculateSummary(results: TestResult[]): TestSummary {
+    const total = results.length;
+    const passed = results.filter(r => r.status === 'passed').length;
+    const failed = results.filter(r => r.status === 'failed').length;
+    const skipped = results.filter(r => r.status === 'skipped').length;
+    
+    return {
+      total,
+      passed,
+      failed,
+      skipped,
+      passRate: total > 0 ? (passed / total) * 100 : 0,
+      duration: results.reduce((sum, r) => sum + (r.duration || 0), 0)
+    };
+  }
+}
+```
+
+### 🐛 3. 自動Issue作成サービス
+
+**`backend/src/services/IssueAutoCreator.ts`**
+
+```typescript
+import { Octokit } from '@octokit/rest';
+import { TestResult, QualityMetrics } from '../types';
+
+export class IssueAutoCreator {
+  private octokit: Octokit;
+  private repoOwner: string;
+  private repoName: string;
+  
+  constructor() {
+    this.octokit = new Octokit({
+      auth: process.env.GITHUB_TOKEN
+    });
+    
+    // GitHubリポジトリ情報を環境変数から取得
+    const repoUrl = process.env.GITHUB_REPOSITORY;
+    [this.repoOwner, this.repoName] = repoUrl?.split('/') || ['', ''];
+  }
+  
+  /**
+   * 🐛 失敗テスト用のIssueを自動作成
+   */
+  async createIssueForFailedTest(failedTest: TestResult, runId: string): Promise<void> {
+    try {
+      // 🔍 既存のIssueをチェック
+      const existingIssue = await this.findExistingTestIssue(failedTest.name);
+      
+      if (existingIssue) {
+        // 既存Issueにコメントを追加
+        await this.addFailureComment(existingIssue.number, failedTest, runId);
+        return;
+      }
+      
+      const issueTitle = `🐛 テスト失敗: ${failedTest.name}`;
+      const issueBody = this.generateTestFailureIssueBody(failedTest, runId);
+      
+      const newIssue = await this.octokit.issues.create({
+        owner: this.repoOwner,
+        repo: this.repoName,
+        title: issueTitle,
+        body: issueBody,
+        labels: [
+          'test-failure',
+          'automated',
+          failedTest.testType,
+          failedTest.metadata?.browser ? `browser:${failedTest.metadata.browser}` : ''
+        ].filter(Boolean),
+        assignees: await this.getDefaultAssignees()
+      });
+      
+      console.log(`✅ テスト失敗Issueを作成: #${newIssue.data.number}`);
+      
+    } catch (error) {
+      console.error('テスト失敗Issue作成エラー:', error);
+    }
+  }
+  
+  /**
+   * 📊 Quality Gate失敗用のIssueを作成
+   */
+  async createQualityIssue(runId: string, qualityData: QualityMetrics): Promise<void> {
+    try {
+      const issueTitle = `🚨 Quality Gate 失敗: ${runId}`;
+      const issueBody = this.generateQualityIssueBody(qualityData, runId);
+      
+      const newIssue = await this.octokit.issues.create({
+        owner: this.repoOwner,
+        repo: this.repoName,
+        title: issueTitle,
+        body: issueBody,
+        labels: ['quality-gate', 'sonarqube', 'automated', 'high-priority'],
+        assignees: await this.getQualityTeamAssignees()
+      });
+      
+      console.log(`✅ Quality Gate Issueを作成: #${newIssue.data.number}`);
+      
+    } catch (error) {
+      console.error('Quality Gate Issue作成エラー:', error);
+    }
+  }
+  
+  /**
+   * 📝 テスト失敗IssueのBodyを生成
+   */
+  private generateTestFailureIssueBody(failedTest: TestResult, runId: string): string {
+    return `
+## 🐛 テスト失敗の詳細
+
+**テスト名:** ${failedTest.name}  
+**テストタイプ:** ${failedTest.testType}  
+**クラス:** ${failedTest.className}  
+**実行時間:** ${failedTest.duration}ms  
+**Run ID:** ${runId}  
+
+### 🔍 実行環境
+- **ブラウザー:** ${failedTest.metadata?.browser || 'N/A'}
+- **Node.js:** ${failedTest.metadata?.nodeVersion || 'N/A'}
+- **スイート:** ${failedTest.metadata?.suiteName || 'N/A'}
+
+### ❌ エラー情報
+\`\`\`
+${failedTest.error || 'エラーメッセージなし'}
+\`\`\`
+
+${failedTest.stackTrace ? `### 📝 スタックトレース
+<details>
+<summary>スタックトレースを表示</summary>
+
+\`\`\`
+${failedTest.stackTrace}
+\`\`\`
+</details>` : ''}
+
+### 📎 添付ファイル
+${failedTest.attachments?.map(att => 
+  `- [${att.type.toUpperCase()}](${att.path})`
+).join('\n') || '添付ファイルなし'}
+
+### 🛠️ 修正アクション
+- [ ] エラー原因の特定
+- [ ] テストケースの修正
+- [ ] ローカルでの再現テスト
+- [ ] 修正後のCIテスト確認
+
+---
+*このIssueは自動生成されました。*
+`;
+  }
+  
+  private async getDefaultAssignees(): Promise<string[]> {
+    return process.env.DEFAULT_TEST_ASSIGNEES?.split(',') || [];
+  }
+  
+  private async getQualityTeamAssignees(): Promise<string[]> {
+    return process.env.QUALITY_TEAM_ASSIGNEES?.split(',') || [];
+  }
+}
+```
+
 ```mermaid
 graph TB
     subgraph "🌐 Frontend (React + TypeScript)"
