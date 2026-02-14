@@ -159,7 +159,7 @@ class StableTestHelper {
         await action();
         return;
       } catch (error) {
-        if (i === maxRetries - 1) throw error;
+        if (i === MAX_RETRIES - 1) throw error;
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
