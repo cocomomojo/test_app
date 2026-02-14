@@ -1,0 +1,41 @@
+name: エラー解析
+description: エラー調査・再現・修正依頼
+title: "[ERROR] "
+labels:
+  - bug
+  - error-analysis
+body:
+  - type: dropdown
+    id: error-type
+    attributes:
+      label: エラー種別
+      options:
+        - フロントエンド
+        - バックエンド
+        - パフォーマンス
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 再現手順
+      placeholder: |
+        1. 〜
+        2. 〜
+        3. 〜
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: エラーメッセージ・ログ
+      placeholder: スタックトレースやログを貼り付け
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: 受け入れ条件
+      placeholder: |
+        - [ ] 根本原因の特定
+        - [ ] 修正案の提示
+    validations:
+      required: true
