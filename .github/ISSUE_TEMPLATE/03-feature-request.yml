@@ -1,0 +1,35 @@
+name: アプリ機能改修
+description: 機能改修依頼
+title: "[FEATURE] "
+labels:
+  - enhancement
+  - feature
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: 改修種別
+      options:
+        - UI/UX改善
+        - パフォーマンス改善
+        - 新機能追加
+        - リファクタリング
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: 改修内容
+      description: 背景・変更内容・期待効果を具体的に記載
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: 受け入れ条件
+      placeholder: |
+        - [ ] 既存機能に影響なし
+        - [ ] テスト成功
+        - [ ] PR本文に Closes #<Issue番号>
+    validations:
+      required: true
