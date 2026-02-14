@@ -45,22 +45,22 @@ jobs:
             }
 
             const commentBody = `${marker}
-@copilot 以下の Issue を実装し、Pull Request を作成してください。
+            @copilot 以下の Issue を実装し、Pull Request を作成してください。
 
-## 必須要件
-- Issue #${issue.number} の要件を満たす
-- 変更は最小限で、既存機能を壊さない
-- 関連テストを追加/更新する
-- CI が通る状態にする
+            ## 必須要件
+            - Issue #${issue.number} の要件を満たす
+            - 変更は最小限で、既存機能を壊さない
+            - 関連テストを追加/更新する
+            - CI が通る状態にする
 
-## PR 要件
-- タイトル先頭に \`feat:\` を付ける
-- 本文に \`Closes #${issue.number}\` を含める
-- 変更点、テスト結果、影響範囲を明記する
+            ## PR 要件
+            - タイトル先頭に \`feat:\` を付ける
+            - 本文に \`Closes #${issue.number}\` を含める
+            - 変更点、テスト結果、影響範囲を明記する
 
-## 対象
-${issue.html_url}
-`;
+            ## 対象
+            ${issue.html_url}
+            `;
 
             await github.rest.issues.createComment({
               owner,
