@@ -1145,6 +1145,47 @@ NODE_PATH="./frontend/node_modules" node scripts/generate-manual-with-ai.js \
 
 ---
 
+## 🤖 方法5: 機能改修IssueからCopilot自動実装→PR作成（新規）
+
+### 概要
+
+機能改修Issue（`feature` + `auto-generated`）が作成されると、GitHub Actions が自動で Issue に `@copilot` コメントを投稿し、実装と PR 作成を依頼します。
+
+追加済みワークフロー:
+
+- `.github/workflows/feature-auto-implement-pr.yml`
+
+### 実行条件
+
+- Issue に **`feature`** ラベルがある
+- Issue に **`auto-generated`** ラベルがある
+
+> 上記2条件を満たすIssueにのみ自動トリガーされます（重複コメント防止あり）。
+
+### 自動化される範囲
+
+- ✅ 担当者が改修依頼
+- ✅ Issue 自動生成
+- ✅ Copilot への実装依頼コメント自動投稿
+- ✅ Copilot による実装・PR 作成（環境設定が有効な場合）
+- ✅ 担当者レビュー
+- ✅ 担当者マージ
+
+### 前提設定（必須）
+
+1. リポジトリで Copilot のコーディングエージェント機能が利用可能であること
+2. `Settings > Actions > General` で Workflow 権限が **Read and write permissions**
+3. `main` ブランチ保護（PR 経由のみ、レビュー必須）
+
+### 運用手順（最短）
+
+1. `auto-create-issues.yml` を `issue_type=feature` で実行
+2. 生成された Issue に Actions が `@copilot` コメントを投稿
+3. Copilot が実装して PR 作成
+4. 担当者がレビューしてマージ
+
+---
+
 ## 📚 関連ドキュメント
 
 - [GitHub Copilot カスタムコマンド vs カスタムエージェント比較](./12-カスタムコマンドVSカスタムエージェント比較.md)
@@ -1161,7 +1202,7 @@ NODE_PATH="./frontend/node_modules" node scripts/generate-manual-with-ai.js \
 |------|------|
 | **目的** | 4種類のGitHub Issueの自動生成とタスク管理の効率化 |
 | **対応Issueタイプ** | 1. E2Eテスト作成<br>2. 操作マニュアル作成<br>3. アプリ機能改修<br>4. エラー解析 |
-| **3つの実装方法** | GitHub Actions、CLI/スクリプト、カスタムコマンド |
+| **実装方法** | GitHub Actions、CLI/スクリプト、カスタムコマンド、AI駆動マニュアル生成、機能改修のCopilot自動実装PR |
 | **推奨** | GitHub Actions（定期実行）+ カスタムコマンド（手動実行） |
 | **効果** | タスク作成の完全自動化、開発効率化、品質向上 |
 
