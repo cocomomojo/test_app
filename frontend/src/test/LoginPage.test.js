@@ -26,6 +26,9 @@ describe('LoginPage', () => {
 
     const wrapper = mount(LoginPage);
     expect(wrapper.text()).toContain('こんにちは');
+    const greeting = wrapper.find('.mb-2');
+    const usernameInput = wrapper.find('input');
+    expect(greeting.element.compareDocumentPosition(usernameInput.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     const inputs = wrapper.findAll('input');
     await inputs[0].setValue('testuser');

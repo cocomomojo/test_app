@@ -10,6 +10,9 @@ test.describe('ログイン機能', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/login');
     await page.evaluate(() => localStorage.clear());
+  });
+
+  test('ユーザーID入力欄の上に「こんにちは」が表示される', async ({ page }) => {
     await expect(page.getByText('こんにちは')).toBeVisible();
   });
 
