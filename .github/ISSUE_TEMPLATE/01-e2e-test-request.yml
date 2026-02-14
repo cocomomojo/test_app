@@ -1,0 +1,33 @@
+name: E2Eテスト作成
+description: E2Eテスト作成依頼
+title: "[E2E] "
+labels:
+  - test
+  - e2e
+body:
+  - type: input
+    id: target-feature
+    attributes:
+      label: 対象機能
+      placeholder: 例) ログイン機能
+    validations:
+      required: true
+  - type: textarea
+    id: scenarios
+    attributes:
+      label: テストシナリオ
+      description: 正常系・異常系を記載
+      placeholder: |
+        - 正常系: 正しい認証情報でログインできる
+        - 異常系: 不正パスワードでエラー表示
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: 受け入れ条件
+      placeholder: |
+        - [ ] テストがローカルで成功
+        - [ ] CIで成功
+    validations:
+      required: true
