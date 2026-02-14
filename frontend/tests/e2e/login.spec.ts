@@ -10,6 +10,7 @@ test.describe('ログイン機能', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/login');
     await page.evaluate(() => localStorage.clear());
+    await expect(page.getByText('こんにちは')).toBeVisible();
   });
 
   test('正しい認証情報でログイン成功', async ({ page }) => {

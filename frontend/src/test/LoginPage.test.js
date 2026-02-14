@@ -25,6 +25,7 @@ describe('LoginPage', () => {
     login.mockResolvedValue('TOKEN');
 
     const wrapper = mount(LoginPage);
+    expect(wrapper.text()).toContain('こんにちは');
 
     const inputs = wrapper.findAll('input');
     await inputs[0].setValue('testuser');
