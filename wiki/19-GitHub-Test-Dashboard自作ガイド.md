@@ -11,6 +11,7 @@
 - PRテンプレート
   - `.github/pull_request_template.md`
 - ワークフロー
+  - `.github/workflows/auto-label-feature-pr.yml`
   - `.github/workflows/feature-pr-test-management-enterprise.yml`
   - `.github/workflows/feature-pr-test-management-pro.yml`
 - 生成スクリプト
@@ -26,6 +27,7 @@
 1. Repository Variable を設定
    - `COPILOT_ENTERPRISE_AUTOMATION=true`
 2. Feature PR を作成（`feature`ラベル、またはタイトル `feat:` 推奨）
+  - `feature` ラベルは自動付与されます（タイトルが `feat:` / `[FEATURE]`、または `Closes #<Issue>` 先Issueが `feature` の場合）
 3. ワークフローがPR本文を解析して以下を自動生成
    - テスト設計Markdown
    - E2E/手動/総合の分類
