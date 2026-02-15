@@ -103,13 +103,30 @@ todos.map((it) => `  test.todo(${JSON.stringify(it.text)});`).join('\n') + '\n' 
 
 function main() {
   const eventPath = process.env.GITHUB_EVENT_PATH;
-  if (!eventPath || !fs.existsSync(eventPath)) {
-    console.error('GITHUB_EVENT_PATH is missing.');
-    process.exit(1);
+  let pr = null;
+  if (eventPath && fs.existsSync(eventPath)) {
+    try {
+      const event = JSON.parse(fs.readFileSync(eventPath, 'utf8'));
+      pr = event.pull_request || null;
+    } catch {
+      pr = null;
+    }
   }
 
-  const event = JSON.parse(fs.readFileSync(eventPath, 'utf8'));
-  const pr = event.pull_request;
+  // workflow_dispatch など pull_request ペイロードが無い場合のフォールバック
+  if (!pr && process.env.PR_NUMBER) {
+    const decodedBody = process.env.PR_BODY_B64
+      ? Buffer.from(process.env.PR_BODY_B64, 'base64').toString('utf8')
+      : '';
+    pr = {
+      number: Number(process.env.PR_NUMBER),
+      title: process.env.PR_TITLE || 'Untitled PR',
+      body: decodedBody,
+      user: { login: process.env.PR_USER || 'unknown' },
+      html_url: process.env.PR_URL || '',
+    };
+  }
+
   if (!pr) {
     console.error('No pull_request payload found.');
     process.exit(1);

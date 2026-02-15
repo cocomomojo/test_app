@@ -26,6 +26,11 @@ jobs:
             const { owner, repo } = context.repo;
             const pr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
             core.setOutput('head_ref', pr.data.head.ref);
+            core.setOutput('pr_number', String(pr.data.number));
+            core.setOutput('pr_title', pr.data.title || 'Untitled PR');
+            core.setOutput('pr_url', pr.data.html_url || '');
+            core.setOutput('pr_user', pr.data.user?.login || 'unknown');
+            core.setOutput('pr_body_b64', Buffer.from(pr.data.body || '', 'utf8').toString('base64'));
 
       - name: Checkout PR head
         uses: actions/checkout@v4
@@ -49,6 +54,11 @@ jobs:
       - name: Generate test plan and Playwright skeleton
         env:
           GITHUB_EVENT_PATH: /tmp/pr-event.json
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+          PR_TITLE: ${{ steps.pr.outputs.pr_title }}
+          PR_URL: ${{ steps.pr.outputs.pr_url }}
+          PR_USER: ${{ steps.pr.outputs.pr_user }}
+          PR_BODY_B64: ${{ steps.pr.outputs.pr_body_b64 }}
         run: node scripts/generate-pr-test-assets.js
 
       - name: Update test dashboard
