@@ -1,0 +1,11 @@
+{
+  "pr": 20,
+  "title": "feat: PR起点のテスト管理自動化（Enterprise + Pro代替）を追加",
+  "url": "https://github.com/cocomomojo/test_app/pull/20",
+  "e2eCount": 0,
+  "manualCount": 0,
+  "integrationCount": 0,
+  "generatedSpec": "frontend/tests/e2e/generated/pr-20-feat-pr起点のテスト管理自動化enterprise-pro代替を追加.spec.ts",
+  "generatedPlan": "qa/test-management/pr/PR-20-test-plan.md",
+  "updatedAt": "2026-02-15T06:54:02.273Z"
+}
