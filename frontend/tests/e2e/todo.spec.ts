@@ -54,7 +54,7 @@ test('TODOフィルタ機能と件数表示が動作すること', async ({ page
   await expect(page.getByText(completeTodo)).toBeVisible();
 
   // Find and check the checkbox for the complete todo
-  const completeTodoRow = page.locator('text=' + completeTodo).locator('..').locator('..');
+  const completeTodoRow = page.locator('div[role="listitem"]').filter({ hasText: completeTodo });
   const checkbox = completeTodoRow.locator('input[type="checkbox"]');
   await checkbox.check();
 
