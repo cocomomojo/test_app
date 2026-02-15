@@ -51,6 +51,16 @@
 - PR本文には `Closes #<Issue番号>` を必ず記載
 - 生成された `test.todo` はレビュー前に具体実装へ置換する
 
+### 実行実績（2026-02-15）
+
+- 対象PR: `#20`
+- 実行ワークフロー: `Feature PR Test Management (Pro Manual Alternative)`
+- 実行結果: **success**
+- Run URL: `https://github.com/cocomomojo/test_app/actions/runs/22031365775`
+
+> 初回は `workflow_dispatch` 実行時の `pull_request` ペイロード不足で失敗。
+> `feature-pr-test-management-pro.yml` と `generate-pr-test-assets.js` にフォールバック処理を追加し、再実行で成功を確認。
+
 ## 📋 目次
 1. [GitHub Test Dashboard とは](#github-test-dashboard-とは)
 2. [解決する課題](#解決する課題)
