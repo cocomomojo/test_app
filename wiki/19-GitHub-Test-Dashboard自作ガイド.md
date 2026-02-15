@@ -2,6 +2,55 @@
 
 > GitHubリポジトリベーステスト管理の弱点を完全克服するカスタムダッシュボード
 
+## ✅ このリポジトリ向けの最新実装（2026-02）
+
+以下は「機能改修PR時にテスト管理を自動化する」ための、**GitHub Enterprise向け実装 + Pro代替運用**です。
+
+### 追加済みファイル
+
+- PRテンプレート
+  - `.github/pull_request_template.md`
+- ワークフロー
+  - `.github/workflows/feature-pr-test-management-enterprise.yml`
+  - `.github/workflows/feature-pr-test-management-pro.yml`
+- 生成スクリプト
+  - `scripts/generate-pr-test-assets.js`
+  - `scripts/update-test-dashboard.js`
+- 生成物（実行時）
+  - `qa/test-management/pr/PR-<番号>-test-plan.md`
+  - `frontend/tests/e2e/generated/pr-<番号>-*.spec.ts`
+  - `qa/test-management/dashboard.md`
+
+### Enterprise運用（自動）
+
+1. Repository Variable を設定
+   - `COPILOT_ENTERPRISE_AUTOMATION=true`
+2. Feature PR を作成（`feature`ラベル、またはタイトル `feat:` 推奨）
+3. ワークフローがPR本文を解析して以下を自動生成
+   - テスト設計Markdown
+   - E2E/手動/総合の分類
+   - E2E + 総合項目から Playwright 雛形（`test.todo`）
+   - テスト集計ダッシュボード更新
+
+### Pro運用（代替）
+
+#### 代替1: GitHub.com Chat
+
+- PR/Issue内容をもとに、Copilot Chatへ次を依頼
+  - `このPRのテスト設計（E2E/手動/総合）を作って、E2EはPlaywright案も出してください。`
+
+#### 代替2: 手動ワークフロー実行（推奨）
+
+1. `Actions` タブ → `Feature PR Test Management (Pro Manual Alternative)`
+2. `pr_number` に対象PR番号を入力して実行
+3. Enterprise自動運用と同じ生成物を得る
+
+### ベストプラクティス（運用ルール）
+
+- PRテンプレートの `Test Design (E2E / Manual)` と `Integration Test Items` を必ず埋める
+- PR本文には `Closes #<Issue番号>` を必ず記載
+- 生成された `test.todo` はレビュー前に具体実装へ置換する
+
 ## 📋 目次
 1. [GitHub Test Dashboard とは](#github-test-dashboard-とは)
 2. [解決する課題](#解決する課題)

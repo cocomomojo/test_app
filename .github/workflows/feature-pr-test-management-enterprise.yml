@@ -1,0 +1,50 @@
+name: Feature PR Test Management (Enterprise)
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, labeled, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  generate-test-assets:
+    if: >-
+      vars.COPILOT_ENTERPRISE_AUTOMATION == 'true' &&
+      (
+        contains(join(github.event.pull_request.labels.*.name, ','), 'feature') ||
+        startsWith(github.event.pull_request.title, 'feat:') ||
+        startsWith(github.event.pull_request.title, '[FEATURE]')
+      )
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Generate test plan and Playwright skeleton
+        run: node scripts/generate-pr-test-assets.js
+
+      - name: Update test dashboard
+        run: node scripts/update-test-dashboard.js
+
+      - name: Commit and push generated assets
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add qa/test-management frontend/tests/e2e/generated
+          git commit -m "test: auto-generate PR test plan and dashboard (#${{ github.event.pull_request.number }})"
+          git push
