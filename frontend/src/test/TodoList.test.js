@@ -79,4 +79,112 @@ describe('TodoList', () => {
 
     expect(deleteTodo).toHaveBeenCalledWith(1);
   });
+
+  it('displays incomplete count', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [
+        { id: 1, title: 'Task 1', done: false },
+        { id: 2, title: 'Task 2', done: true },
+        { id: 3, title: 'Task 3', done: false }
+      ]
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('未完了: 2');
+  });
+
+  it('filters todos by incomplete', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [
+        { id: 1, title: 'Task 1', done: false },
+        { id: 2, title: 'Task 2', done: true },
+        { id: 3, title: 'Task 3', done: false }
+      ]
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    const incompleteButton = wrapper.findAll('button').find(b => b.text() === '未完了');
+    await incompleteButton.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Task 1');
+    expect(wrapper.text()).not.toContain('Task 2');
+    expect(wrapper.text()).toContain('Task 3');
+  });
+
+  it('filters todos by complete', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [
+        { id: 1, title: 'Task 1', done: false },
+        { id: 2, title: 'Task 2', done: true },
+        { id: 3, title: 'Task 3', done: false }
+      ]
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    const completeButton = wrapper.findAll('button').find(b => b.text() === '完了');
+    await completeButton.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain('Task 1');
+    expect(wrapper.text()).toContain('Task 2');
+    expect(wrapper.text()).not.toContain('Task 3');
+  });
+
+  it('shows all todos when filter is set to all', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [
+        { id: 1, title: 'Task 1', done: false },
+        { id: 2, title: 'Task 2', done: true },
+        { id: 3, title: 'Task 3', done: false }
+      ]
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    const allButton = wrapper.findAll('button').find(b => b.text() === 'すべて');
+    await allButton.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Task 1');
+    expect(wrapper.text()).toContain('Task 2');
+    expect(wrapper.text()).toContain('Task 3');
+  });
+
+  it('updates incomplete count when todo is toggled', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [
+        { id: 1, title: 'Task 1', done: false },
+        { id: 2, title: 'Task 2', done: false }
+      ]
+    });
+    updateTodo.mockResolvedValue({});
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('未完了: 2');
+
+    const checkbox = wrapper.find('input[type="checkbox"]');
+    await checkbox.setValue(true);
+    await flushPromises();
+
+    // After toggling, the data would be reloaded with updated state
+    fetchTodos.mockResolvedValue({
+      data: [
+        { id: 1, title: 'Task 1', done: true },
+        { id: 2, title: 'Task 2', done: false }
+      ]
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('未完了: 1');
+  });
 });
