@@ -1,4 +1,4 @@
-# Issue 作成運用ガイド（標準・最新版）
+# Issue 作成運用ガイド
 
 ## 方針
 
@@ -40,6 +40,42 @@ Issue 作成は次の **4分類のみ** を使います。
 - Feature: `feature-issue-creator`
 - Error: `error-analysis-issue-creator`
 
+### 3) 具体例（そのまま使えるサンプル）
+
+#### 例A: GitHub UI で作る（E2Eテスト作成）
+
+`Issues` → `New issue` → `E2Eテスト作成` を選び、次のように入力します。
+
+- 対象機能: `ログイン機能`
+- テストシナリオ:
+  - `正常系: 正しいID/PWでログイン成功`
+  - `異常系: パスワード誤りでエラーメッセージ表示`
+- 受け入れ条件:
+  - `[ ] ローカルでテスト成功`
+  - `[ ] CIでテスト成功`
+
+作成されるタイトル例: `[E2E] ログイン機能`
+
+#### 例B: エージェントに依頼して作る（Feature）
+
+`feature-issue-creator` に以下のように依頼します。
+
+> ログイン画面のユーザーID入力欄の上に「こんにちは」ラベルを追加するIssueを作成してください。
+> 改修種別はUI/UX改善。受け入れ条件は「既存ログイン機能に影響なし」「テスト成功」です。
+
+作成されるタイトル例: `[FEATURE] ログイン画面: 改修`
+
+#### 例C: 4分類の依頼文テンプレート（コピペ用）
+
+- E2E（`e2e-issue-creator`）
+  - `「<対象機能> のE2Eテスト作成Issueを作成。正常系/異常系を含め、受け入れ条件はCI成功」`
+- Manual（`manual-issue-creator`）
+  - `「<対象機能> のユーザー向け操作マニュアル作成Issueを作成。スクリーンショット必須」`
+- Feature（`feature-issue-creator`）
+  - `「<対象機能> の機能改修Issueを作成。改修種別:<UI/UX改善|性能改善|新機能>、受け入れ条件を明記」`
+- Error（`error-analysis-issue-creator`）
+  - `「<対象機能> のエラー解析Issueを作成。再現手順・ログ・期待結果を含める」`
+
 ## 運用ルール
 
 - Issue の分類は 4種類以外を追加しない。
@@ -50,6 +86,54 @@ Issue 作成は次の **4分類のみ** を使います。
 
 - GitHub Copilot Pro（個人）では、Issueコメント起点の自動実装・自動PR作成は利用できません。
 - そのため本リポジトリは、Issue作成を標準化し、実装〜PRは通常の開発フローで実施します。
+
+## Copilot プラン別の実装フロー
+
+### A) GitHub Copilot Enterprise の場合
+
+- Issue コメント起点で、**自動実装・PR作成**が利用可能な構成を取れます。
+- 例: Issue に実装依頼コメントを投稿し、生成されたPRをレビューしてマージ。
+
+#### このリポジトリで有効化する手順（最小）
+
+1. `Settings` → `Secrets and variables` → `Actions` → `Variables`
+2. Repository Variable を追加
+  - Name: `COPILOT_ENTERPRISE_AUTOMATION`
+  - Value: `true`
+3. `Settings` → `Actions` → `General` で Workflow permissions を `Read and write` に設定
+4. Issue に `feature` と `auto-generated` ラベルを付与
+5. ワークフロー `/.github/workflows/feature-auto-implement-pr-enterprise.yml` が `@copilot` コメントを投稿
+
+> 補足: 変数を未設定、または `false` の場合はワークフローは実行されません（Pro運用に影響なし）。
+
+### B) GitHub Copilot Pro の場合（代替運用）
+
+Copilot Pro では、Issueコメント起点の自動実装・自動PR作成が使えないため、次のどちらかで対応します。
+
+#### 1) GitHub.com のチャットで直接 PR 作成を依頼
+
+1. GitHub.com で Copilot Chat を開く
+2. 次の文面をそのまま入力
+
+  - `このIssue #13 を解決するPRを作成してください。リポジトリ: cocomomojo/test_app`
+
+3. 提案内容を確認し、差分・テスト・PR本文（`Closes #13`）をチェック
+
+#### 2) IDE（VS Code など）で Copilot Chat を使用
+
+1. Issue #13 の内容（要件・受け入れ条件）をコピー
+2. Copilot Chat に次を入力
+
+  - `このIssue #13 を実装してください。要件: <貼り付けた内容>`
+
+3. 生成コードを確認して適用
+4. ローカルでテスト実行
+5. 手動で commit & PR 作成（PR本文に `Closes #13` を記載）
+
+### どちらを選ぶべきか
+
+- 素早く試す: **GitHub.comチャット（方法1）**
+- 実装を細かく調整しながら進める: **IDEチャット（方法2）**
 
 ## 変更履歴（本改訂）
 
