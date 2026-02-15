@@ -22,10 +22,16 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            const fs = require('fs');
             const prNumber = Number('${{ github.event.inputs.pr_number }}');
             const { owner, repo } = context.repo;
             const pr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
             core.setOutput('head_ref', pr.data.head.ref);
+
+            // generate-pr-test-assets.js が参照する pull_request 形式の擬似イベントを作成
+            const payloadPath = '/tmp/pr-event.json';
+            fs.writeFileSync(payloadPath, JSON.stringify({ pull_request: pr.data }, null, 2));
+            core.setOutput('event_path', payloadPath);
 
       - name: Checkout PR head
         uses: actions/checkout@v4
@@ -39,6 +45,8 @@ jobs:
           node-version: '20'
 
       - name: Generate test plan and Playwright skeleton
+        env:
+          GITHUB_EVENT_PATH: ${{ steps.pr.outputs.event_path }}
         run: node scripts/generate-pr-test-assets.js
 
       - name: Update test dashboard
