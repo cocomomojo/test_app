@@ -1,0 +1,11 @@
+{
+  "pr": 24,
+  "title": "feat: TODO完了管理の強化 - フィルタと未完了件数表示を追加",
+  "url": "https://github.com/cocomomojo/test_app/pull/24",
+  "e2eCount": 5,
+  "manualCount": 5,
+  "integrationCount": 4,
+  "generatedSpec": "frontend/tests/e2e/generated/pr-24-feat-todo完了管理の強化---フィルタと未完了件数表示を追加.spec.ts",
+  "generatedPlan": "qa/test-management/pr/PR-24-test-plan.md",
+  "updatedAt": "2026-02-15T11:20:52.602Z"
+}
