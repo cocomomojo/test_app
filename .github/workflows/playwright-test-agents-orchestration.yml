@@ -1,0 +1,233 @@
+name: Playwright Test Agents Orchestration
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, labeled, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: '対象PR番号（省略時はpull_requestイベントのPR）'
+        required: false
+        type: string
+      mode:
+        description: '実行モード'
+        required: true
+        default: planner-generator
+        type: choice
+        options:
+          - planner-generator
+          - healer
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: read
+
+jobs:
+  orchestrate:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(join(github.event.pull_request.labels.*.name, ','), 'feature') ||
+      startsWith(github.event.pull_request.title, 'feat:') ||
+      startsWith(github.event.pull_request.title, '[FEATURE]')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Resolve PR metadata
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const fromDispatch = context.eventName === 'workflow_dispatch';
+            const inputPr = Number(core.getInput('pr_number'));
+
+            let pr;
+            if (fromDispatch) {
+              if (!inputPr) {
+                core.setFailed('workflow_dispatch 実行時は pr_number が必要です。');
+                return;
+              }
+              const res = await github.rest.pulls.get({ owner, repo, pull_number: inputPr });
+              pr = res.data;
+            } else {
+              pr = context.payload.pull_request;
+            }
+
+            if (!pr) {
+              core.setFailed('Pull request payload not found.');
+              return;
+            }
+
+            core.setOutput('number', String(pr.number));
+            core.setOutput('head_ref', pr.head.ref);
+            core.setOutput('title', pr.title || 'Untitled PR');
+            core.setOutput('url', pr.html_url || '');
+            core.setOutput('body_b64', Buffer.from(pr.body || '', 'utf8').toString('base64'));
+
+      - name: Determine mode
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ github.event.inputs.mode }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=planner-generator" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr.outputs.head_ref }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Initialize Playwright Test Agents
+        working-directory: frontend
+        run: npx playwright init-agents --loop=copilot --prompts
+
+      - name: Extract linked Issue
+        id: issue
+        run: |
+          PR_BODY="$(printf '%s' '${{ steps.pr.outputs.body_b64 }}' | base64 -d)"
+          ISSUE_NUMBER="$(printf '%s' "$PR_BODY" | grep -Eio '(close[sd]?|fix(e[sd])?|resolve[sd]?)\s*#[0-9]+' | head -n1 | grep -Eo '[0-9]+' || true)"
+          if [ -z "$ISSUE_NUMBER" ]; then
+            echo "PR本文に Closes #<Issue番号> が必要です。" >&2
+            exit 1
+          fi
+          echo "number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Generate planner prompt file
+        if: steps.mode.outputs.value == 'planner-generator'
+        run: |
+          node scripts/create-planner-prompt.js \
+            --issue ${{ steps.issue.outputs.number }} \
+            --repo ${{ github.repository }}
+
+      - name: Commit generated planner prompt (if changed)
+        if: steps.mode.outputs.value == 'planner-generator'
+        run: |
+          if git diff --quiet -- qa/test-management/generated; then
+            echo "No planner prompt changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add qa/test-management/generated
+          git commit -m "test: generate planner prompt for PR #${{ steps.pr.outputs.number }}"
+          git push
+
+      - name: Upsert planner/generator request comment
+        if: steps.mode.outputs.value == 'planner-generator'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const prNumber = Number('${{ steps.pr.outputs.number }}');
+            const issueNumber = Number('${{ steps.issue.outputs.number }}');
+            const headRef = '${{ steps.pr.outputs.head_ref }}';
+            const marker = '<!-- playwright-agents-orchestrator:planner-generator -->';
+
+            const promptPath = `qa/test-management/generated/planner-prompt-issue-${issueNumber}.md`;
+            const promptUrl = `https://github.com/${owner}/${repo}/blob/${headRef}/${promptPath}`;
+
+            const body = [
+              marker,
+              '### 🤖 Playwright Test Agents 実行依頼（自動）',
+              '',
+              '@copilot',
+              'Playwright Test Agents の **planner → generator** を実行してください。',
+              '',
+              `- planner入力: [${promptPath}](${promptUrl})`,
+              `- planner出力先: \`qa/test-management/specs/issue-${issueNumber}-*.md\``,
+              `- generator出力先: \`frontend/tests/e2e/generated/pr-${prNumber}-*.spec.ts\``,
+              '',
+              '要件:',
+              '- テスト設計 + テスト項目は E2E / 手動 / 総合で分類する',
+              '- E2E項目が存在する場合は E2E 実装（雛形含む）を作成する',
+              '',
+              '> このコメントは workflow により自動更新されます。'
+            ].join('\n');
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+            const existing = comments.find((c) => (c.body || '').includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+            }
+
+      - name: Run E2E tests
+        if: steps.mode.outputs.value == 'healer'
+        id: e2e
+        continue-on-error: true
+        working-directory: frontend
+        run: npm run test:e2e
+
+      - name: Upload Playwright artifacts
+        if: steps.mode.outputs.value == 'healer' && steps.e2e.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-healer-input-pr-${{ steps.pr.outputs.number }}
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          if-no-files-found: ignore
+
+      - name: Upsert healer request comment
+        if: steps.mode.outputs.value == 'healer' && steps.e2e.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const prNumber = Number('${{ steps.pr.outputs.number }}');
+            const marker = '<!-- playwright-agents-orchestrator:healer -->';
+
+            const body = [
+              marker,
+              '### 🩹 Playwright Test Agents healer 実行依頼（自動）',
+              '',
+              '@copilot',
+              'Playwright Test Agents の **healer** を実行して、失敗したE2Eテストを修復してください。',
+              '',
+              '要件:',
+              '- 失敗テストを特定し、修正パッチをPRブランチへ反映する',
+              '- 変更理由をPRコメントに要約する',
+              '',
+              '> 失敗ログ/レポートは workflow artifact を参照してください。'
+            ].join('\n');
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+            const existing = comments.find((c) => (c.body || '').includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+            }
+
+      - name: Fail run when healer is requested
+        if: steps.mode.outputs.value == 'healer' && steps.e2e.outcome == 'failure'
+        run: |
+          echo "E2E tests failed. Healer request has been posted to PR."
+          exit 1
