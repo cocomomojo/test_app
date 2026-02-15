@@ -12,6 +12,8 @@
   - `.github/pull_request_template.md`
 - ワークフロー
   - `.github/workflows/auto-label-feature-pr.yml`
+  - `.github/workflows/feature-pr-planner-assist.yml`
+  - `.github/workflows/playwright-test-agents-orchestration.yml`
   - `.github/workflows/feature-pr-test-management-enterprise.yml`
   - `.github/workflows/feature-pr-test-management-pro.yml`
 - 生成スクリプト
@@ -51,6 +53,15 @@
 2. `pr_number` に対象PR番号を入力して実行
 3. Enterprise自動運用と同じ生成物を得る
 
+#### 代替3: Playwright Test Agents Orchestration（推奨）
+
+1. `Actions` タブ → `Playwright Test Agents Orchestration`
+2. `pr_number` に対象PR番号を入力
+3. `mode` を選択
+  - `planner-generator`: planner/generator 実行依頼コメントを自動投稿（prompt自動生成含む）
+  - `healer`: E2E実行で失敗時に healer 実行依頼コメントを自動投稿
+4. PR上の自動コメント（`@copilot`）を契機に、Agentsによる実行へ進める
+
 ### 必須ルール（合意済み運用）
 
 - PR本文に `Closes #<Issue番号>` を必ず記載する
@@ -58,6 +69,22 @@
 - generator相当は **spec雛形生成まで**（`test.todo` ベース）
   - 実テストコード化は次フェーズで段階的に拡張
 - PR本文からの自動生成には依存しない（Agents/AIが作成した成果物を必須入力として扱う）
+
+### 完全自動に寄せる段階設計（2026-02時点）
+
+- Phase 1（実装済み）
+  - featureラベル自動付与
+  - planner成果物必須チェック
+  - テスト設計/項目リンクのPR自動コメント
+- Phase 2（実装済み）
+  - planner依頼文のPR自動コメント（`feature-pr-planner-assist.yml`）
+  - 依頼者は「planner実行」の1アクションのみ
+- Phase 3（次段）
+  - generator/healer の運用証跡（実行ログ・更新対象ファイル）をPRに自動収集
+  - E2E項目がある場合の実装完了ゲートを強化
+- Phase 4（検討）
+  - GitHub Actions から planner/generator/healer を直接起動する完全無人化
+  - 実現には実行基盤・認証・コスト制御・失敗時リカバリ設計が必要
 
 ### ベストプラクティス（運用ルール）
 
