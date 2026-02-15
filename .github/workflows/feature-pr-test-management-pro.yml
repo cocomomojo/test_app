@@ -64,23 +64,13 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Build synthetic PR event payload
+      - name: Collect and validate agent-provided test assets
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api repos/${{ github.repository }}/pulls/${{ github.event.inputs.pr_number }} > /tmp/pr.json
-          jq -n --slurpfile pr /tmp/pr.json '{pull_request: $pr[0]}' > /tmp/pr-event.json
-          test -s /tmp/pr-event.json
-
-      - name: Generate test plan and Playwright skeleton
-        env:
-          GITHUB_EVENT_PATH: /tmp/pr-event.json
           PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
           PR_TITLE: ${{ steps.pr.outputs.pr_title }}
           PR_URL: ${{ steps.pr.outputs.pr_url }}
           PR_USER: ${{ steps.pr.outputs.pr_user }}
-          PR_BODY_B64: ${{ steps.pr.outputs.pr_body_b64 }}
-        run: node scripts/generate-pr-test-assets.js
+        run: node scripts/collect-pr-test-assets-meta.js
 
       - name: Update test dashboard
         run: node scripts/update-test-dashboard.js
@@ -93,8 +83,8 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add qa/test-management frontend/tests/e2e/generated
-          git commit -m "test: manual generate PR test plan/dashboard (#${{ github.event.inputs.pr_number }})"
+          git add qa/test-management
+          git commit -m "test: collect agent-provided test assets (#${{ github.event.inputs.pr_number }})"
           git push
 
       - name: Comment PR with test artifact links

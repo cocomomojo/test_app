@@ -29,10 +29,10 @@
 2. Feature PR を作成（`feature`ラベル、またはタイトル `feat:` 推奨）
   - `feature` ラベルは自動付与されます（タイトルが `feat:` / `[FEATURE]`、または `Closes #<Issue>` 先Issueが `feature` の場合）
 3. ワークフローがPR本文を解析して以下を自動生成
-   - テスト設計Markdown
-   - E2E/手動/総合の分類
-  - E2E + 総合項目から Playwright 雛形（`test.todo`）
-   - テスト集計ダッシュボード更新
+  - （変更後）Playwright Agents で作成済みの成果物を検証・収集
+  - テスト設計Markdown（E2E/手動/総合分類の存在確認）
+  - E2E項目がある場合の Playwright 実装ファイル存在確認
+  - テスト集計ダッシュボード更新
 4. PRへテスト成果物リンクを自動コメント投稿
   - `qa/test-management/pr/PR-<番号>-test-plan.md`
   - `frontend/tests/e2e/generated/pr-<番号>-*.spec.ts`
@@ -57,6 +57,7 @@
 - `qa/test-management/specs/issue-<Issue番号>-*.md`（Playwright planner成果物）が存在しない場合、ワークフローは失敗する
 - generator相当は **spec雛形生成まで**（`test.todo` ベース）
   - 実テストコード化は次フェーズで段階的に拡張
+- PR本文からの自動生成には依存しない（Agents/AIが作成した成果物を必須入力として扱う）
 
 ### ベストプラクティス（運用ルール）
 
