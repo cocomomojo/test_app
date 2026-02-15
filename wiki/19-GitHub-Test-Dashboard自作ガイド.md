@@ -61,6 +61,48 @@
 > 初回は `workflow_dispatch` 実行時の `pull_request` ペイロード不足で失敗。
 > `feature-pr-test-management-pro.yml` と `generate-pr-test-assets.js` にフォールバック処理を追加し、再実行で成功を確認。
 
+### FAQ: テスト設計はCopilotが考えているのか？何を入力にしているのか？
+
+- 結論: **両方**です。
+  - 本仕組みは、PR本文のチェックリストを機械的に解析して `test-plan.md` と `test.todo` を生成します。
+  - つまり、**設計品質はPR本文に書かれた入力品質に依存**します。
+
+- 現在の主な入力ソース
+  1. PR本文
+     - `Inputs for Test Design (Q&A)`
+     - `Test Design (E2E)`
+     - `Test Design (Manual)`
+     - `Integration Test Items`
+  2. Issue本文（受け入れ条件）
+  3. 既存E2Eコード（重複回避・命名/待機方針の踏襲）
+
+- 精度を上げる方法
+  - `.github/skills/build_test_design_input.md` の一問一答で入力を具体化
+  - 公式 Playwright Test Agents（planner/generator/healer）で E2E観点を先に洗い出す
+    - `npx playwright init-agents --loop=vscode`
+    - 参照: `https://playwright.dev/docs/test-agents`
+  - 生成された `test.todo` をレビュー前に具体実装へ置換
+
+### 標準化アセット
+
+- Prompt: `.github/prompts/feature-pr-request.prompt.md`
+- Skill (Q&A): `.github/skills/build_test_design_input.md`
+- Skill (Official Playwright Agents): `.github/skills/use_official_playwright_test_agents.md`
+- Planner Prompt Template: `qa/test-management/templates/planner-prompt-template.md`
+- Planner Prompt Generator: `scripts/create-planner-prompt.js`
+
+### 依頼者作業を最小化する運用（推奨）
+
+Issueごとに手書きで `planner-prompt-issue-<n>.md` を作る必要はありません。  
+共通テンプレート + 自動生成で運用します。
+
+1. Issue を作成（要件・受け入れ条件を記載）
+2. 次を実行して planner 入力を自動生成
+
+  - `node scripts/create-planner-prompt.js --issue <Issue番号> --repo cocomomojo/test_app`
+
+3. 生成ファイル（`qa/test-management/generated/planner-prompt-issue-<n>.md`）を planner に投入
+
 ## 📋 目次
 1. [GitHub Test Dashboard とは](#github-test-dashboard-とは)
 2. [解決する課題](#解決する課題)
