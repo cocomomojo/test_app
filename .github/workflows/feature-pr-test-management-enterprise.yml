@@ -69,8 +69,8 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Generate test plan and Playwright skeleton
-        run: node scripts/generate-pr-test-assets.js
+      - name: Collect and validate agent-provided test assets
+        run: node scripts/collect-pr-test-assets-meta.js
 
       - name: Update test dashboard
         run: node scripts/update-test-dashboard.js
@@ -83,8 +83,8 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add qa/test-management frontend/tests/e2e/generated
-          git commit -m "test: auto-generate PR test plan and dashboard (#${{ github.event.pull_request.number }})"
+          git add qa/test-management
+          git commit -m "test: collect agent-provided test assets (#${{ github.event.pull_request.number }})"
           git push
 
       - name: Comment PR with test artifact links
