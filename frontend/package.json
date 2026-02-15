@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "setup:e2e": "playwright install --with-deps",
+    "setup:agents": "playwright init-agents --loop=vscode",
     "test": "npm run test:e2e",
     "test:unit": "vitest run --coverage",
     "test:unit:watch": "vitest",
