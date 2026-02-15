@@ -1,0 +1,70 @@
+name: Auto Label Feature PR
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  pull-requests: write
+  issues: read
+
+jobs:
+  add-feature-label:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Add feature label when applicable
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pr = context.payload.pull_request;
+
+            if (!pr) {
+              core.info('No pull_request payload. Skip.');
+              return;
+            }
+
+            const hasFeatureLabel = (pr.labels || []).some((l) => (l.name || '').toLowerCase() === 'feature');
+            if (hasFeatureLabel) {
+              core.info('PR already has feature label.');
+              return;
+            }
+
+            const title = pr.title || '';
+            const body = pr.body || '';
+
+            const byTitle = /^\s*feat\s*:|^\s*\[feature\]/i.test(title);
+
+            let byLinkedIssue = false;
+            const m = body.match(/(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*#(\d+)/i);
+            if (m) {
+              const issueNumber = Number(m[1]);
+              try {
+                const { data: issue } = await github.rest.issues.get({
+                  owner,
+                  repo,
+                  issue_number: issueNumber,
+                });
+                byLinkedIssue = (issue.labels || []).some((l) => {
+                  const name = typeof l === 'string' ? l : (l.name || '');
+                  return name.toLowerCase() === 'feature';
+                });
+              } catch (e) {
+                core.warning(`Failed to inspect linked issue #${issueNumber}: ${e.message}`);
+              }
+            }
+
+            if (!byTitle && !byLinkedIssue) {
+              core.info('Not a feature PR by title or linked issue label.');
+              return;
+            }
+
+            await github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number: pr.number,
+              labels: ['feature'],
+            });
+            core.info('Added feature label to PR.');
