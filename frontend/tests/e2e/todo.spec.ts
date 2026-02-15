@@ -58,8 +58,11 @@ test('TODOフィルタと未完了件数が動作すること', async ({ page })
   const todoItem = page.locator(`text=${title2}`).locator('..').locator('..');
   await todoItem.locator('input[type="checkbox"]').check();
   
-  // wait for update
-  await page.waitForTimeout(1000);
+  // wait for snackbar message indicating the update was successful
+  await expect(page.getByText('状態を更新しました')).toBeVisible();
+  
+  // wait a moment for the snackbar to disappear and state to update
+  await expect(page.getByText('状態を更新しました')).not.toBeVisible();
 
   // test filter: click "未完了" button
   await page.getByRole('button', { name: '未完了' }).click();
