@@ -28,3 +28,51 @@ test('TODOで登録・更新・削除できること', async ({ page }) => {
 //   // assert removed
 //   await expect(page.getByText(title)).not.toBeVisible({ timeout: 3000 }).catch(() => {});
 });
+
+test('TODOフィルタと未完了件数が動作すること', async ({ page }) => {
+  // login
+  await page.goto('/login');
+  await page.getByLabel('ユーザ名').fill('testuser');
+  await page.getByLabel('パスワード').fill('Test1234!');
+  await page.getByRole('button', { name: /ログイン/ }).click();
+  await page.waitForURL(/\/top/);
+
+  await page.goto('/todo');
+
+  // create multiple todos
+  const title1 = `e2e-todo-incomplete-${Date.now()}`;
+  const title2 = `e2e-todo-complete-${Date.now()}`;
+  
+  await page.getByLabel('新しい TODO を入力').fill(title1);
+  await page.getByRole('button', { name: '追加' }).click();
+  await expect(page.getByText(title1)).toBeVisible();
+  
+  await page.getByLabel('新しい TODO を入力').fill(title2);
+  await page.getByRole('button', { name: '追加' }).click();
+  await expect(page.getByText(title2)).toBeVisible();
+
+  // check that incomplete count is visible
+  await expect(page.getByText(/未完了:/)).toBeVisible();
+
+  // mark one as complete by clicking its checkbox
+  const todoItem = page.locator(`text=${title2}`).locator('..').locator('..');
+  await todoItem.locator('input[type="checkbox"]').check();
+  
+  // wait for update
+  await page.waitForTimeout(1000);
+
+  // test filter: click "未完了" button
+  await page.getByRole('button', { name: '未完了' }).click();
+  await expect(page.getByText(title1)).toBeVisible();
+  await expect(page.getByText(title2)).not.toBeVisible();
+
+  // test filter: click "完了" button
+  await page.getByRole('button', { name: '完了' }).click();
+  await expect(page.getByText(title1)).not.toBeVisible();
+  await expect(page.getByText(title2)).toBeVisible();
+
+  // test filter: click "すべて" button
+  await page.getByRole('button', { name: 'すべて' }).click();
+  await expect(page.getByText(title1)).toBeVisible();
+  await expect(page.getByText(title2)).toBeVisible();
+});

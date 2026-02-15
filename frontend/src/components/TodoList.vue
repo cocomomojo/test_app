@@ -5,6 +5,8 @@
         <v-row class="d-flex align-center mb-3">
           <v-icon class="mr-2" color="primary">mdi-format-list-bulleted</v-icon>
           <h3 class="ma-0">TODO リスト</h3>
+          <v-spacer />
+          <v-chip class="ml-2" color="info">未完了: {{ incompleteCount }}</v-chip>
         </v-row>
 
         <v-row class="mb-4">
@@ -16,9 +18,19 @@
           </v-col>
         </v-row>
 
+        <v-row class="mb-4">
+          <v-col>
+            <v-btn-toggle v-model="filter" color="primary" mandatory>
+              <v-btn value="all">すべて</v-btn>
+              <v-btn value="incomplete">未完了</v-btn>
+              <v-btn value="complete">完了</v-btn>
+            </v-btn-toggle>
+          </v-col>
+        </v-row>
+
         <v-list>
           <v-divider />
-          <v-list-item v-for="todo in todos" :key="todo.id">
+          <v-list-item v-for="todo in filteredTodos" :key="todo.id">
             <v-list-item-action>
               <v-checkbox v-model="todo.done" @change="toggleDone(todo)" />
             </v-list-item-action>
@@ -53,7 +65,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import {
   fetchTodos,
   createTodo,
@@ -63,6 +75,7 @@ import {
 
 const todos = ref([]);
 const newTitle = ref("");
+const filter = ref("all");
 
 // 編集用
 const editing = ref(false);
@@ -73,6 +86,21 @@ const editTitle = ref("");
 const snackbar = ref(false);
 const snackMsg = ref('');
 const snackColor = ref('success');
+
+// フィルタリングされたTODO
+const filteredTodos = computed(() => {
+  if (filter.value === "incomplete") {
+    return todos.value.filter(todo => !todo.done);
+  } else if (filter.value === "complete") {
+    return todos.value.filter(todo => todo.done);
+  }
+  return todos.value;
+});
+
+// 未完了件数
+const incompleteCount = computed(() => {
+  return todos.value.filter(todo => !todo.done).length;
+});
 
 const load = async () => {
   const res = await fetchTodos();
