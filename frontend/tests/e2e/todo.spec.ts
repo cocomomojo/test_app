@@ -57,7 +57,6 @@ test('TODOフィルタ機能と件数表示が動作すること', async ({ page
   const completeTodoRow = page.locator('text=' + completeTodo).locator('..').locator('..');
   const checkbox = completeTodoRow.locator('input[type="checkbox"]');
   await checkbox.check();
-  await page.waitForTimeout(500); // Wait for update
 
   // Verify incomplete count shows 1
   const countChip = page.locator('[aria-label="incomplete-count"]');
@@ -65,29 +64,27 @@ test('TODOフィルタ機能と件数表示が動作すること', async ({ page
 
   // Test filter: incomplete
   await page.getByRole('button', { name: '未完了' }).click();
-  await page.waitForTimeout(300);
   await expect(page.getByText(incompleteTodo)).toBeVisible();
   await expect(page.getByText(completeTodo)).not.toBeVisible();
 
   // Test filter: complete
   await page.getByRole('button', { name: '完了' }).click();
-  await page.waitForTimeout(300);
   await expect(page.getByText(completeTodo)).toBeVisible();
   await expect(page.getByText(incompleteTodo)).not.toBeVisible();
 
   // Test filter: all
   await page.getByRole('button', { name: 'すべて' }).click();
-  await page.waitForTimeout(300);
   await expect(page.getByText(incompleteTodo)).toBeVisible();
   await expect(page.getByText(completeTodo)).toBeVisible();
 
   // Verify filter state persists after reload
   await page.getByRole('button', { name: '未完了' }).click();
-  await page.waitForTimeout(300);
-  await page.reload();
-  await page.waitForTimeout(500);
+  await expect(page.getByText(incompleteTodo)).toBeVisible();
+  await expect(page.getByText(completeTodo)).not.toBeVisible();
   
-  // Should still show only incomplete todos
+  await page.reload();
+  
+  // Should still show only incomplete todos after reload
   await expect(page.getByText(incompleteTodo)).toBeVisible();
   await expect(page.getByText(completeTodo)).not.toBeVisible();
 });
