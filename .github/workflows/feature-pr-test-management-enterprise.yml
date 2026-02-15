@@ -2,7 +2,7 @@ name: Feature PR Test Management (Enterprise)
 
 on:
   pull_request:
-    types: [opened, edited, synchronize, labeled, ready_for_review]
+    types: [synchronize, labeled]
 
 permissions:
   contents: write

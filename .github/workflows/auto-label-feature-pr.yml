@@ -2,7 +2,7 @@ name: Auto Label Feature PR
 
 on:
   pull_request:
-    types: [opened, edited, reopened, synchronize]
+    types: [opened, reopened]
 
 permissions:
   pull-requests: write
