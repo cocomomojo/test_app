@@ -29,8 +29,12 @@
 3. ワークフローがPR本文を解析して以下を自動生成
    - テスト設計Markdown
    - E2E/手動/総合の分類
-   - E2E + 総合項目から Playwright 雛形（`test.todo`）
+  - E2E + 総合項目から Playwright 雛形（`test.todo`）
    - テスト集計ダッシュボード更新
+4. PRへテスト成果物リンクを自動コメント投稿
+  - `qa/test-management/pr/PR-<番号>-test-plan.md`
+  - `frontend/tests/e2e/generated/pr-<番号>-*.spec.ts`
+  - `qa/test-management/specs/issue-<番号>-*.md`（planner成果物）
 
 ### Pro運用（代替）
 
@@ -45,11 +49,18 @@
 2. `pr_number` に対象PR番号を入力して実行
 3. Enterprise自動運用と同じ生成物を得る
 
+### 必須ルール（合意済み運用）
+
+- PR本文に `Closes #<Issue番号>` を必ず記載する
+- `qa/test-management/specs/issue-<Issue番号>-*.md`（Playwright planner成果物）が存在しない場合、ワークフローは失敗する
+- generator相当は **spec雛形生成まで**（`test.todo` ベース）
+  - 実テストコード化は次フェーズで段階的に拡張
+
 ### ベストプラクティス（運用ルール）
 
 - PRテンプレートの `Test Design (E2E / Manual)` と `Integration Test Items` を必ず埋める
 - PR本文には `Closes #<Issue番号>` を必ず記載
-- 生成された `test.todo` はレビュー前に具体実装へ置換する
+- 生成された `test.todo` は必要に応じて具体実装へ置換する
 
 ### 実行実績（2026-02-15）
 
@@ -93,7 +104,7 @@
 
 ### 依頼者作業を最小化する運用（推奨）
 
-Issueごとに手書きで `planner-prompt-issue-<n>.md` を作る必要はありません。  
+Issueごとに手書きで `planner-prompt-issue-<n>.md` を作る必要はありません。
 共通テンプレート + 自動生成で運用します。
 
 1. Issue を作成（要件・受け入れ条件を記載）

@@ -47,27 +47,27 @@ graph TB
         DB[(MySQL<br/>Port: 3306)]
         LS[LocalStack<br/>S3 Mock<br/>Port: 9000]
     end
-    
+
     subgraph "🔄 CI環境 GitHub Actions"
         FE_CI[Frontend<br/>Nginx<br/>Port: 8081]
         BE_CI[Backend<br/>Spring Boot<br/>Port: 8080]
         DB_CI[(MySQL<br/>Port: 3306)]
         PW[Playwright<br/>E2E Tests]
     end
-    
+
     subgraph "📊 成果物"
         GHP[GitHub Pages<br/>Allure Report]
     end
-    
+
     FE -->|API Request| BE
     BE -->|Query| DB
     BE -->|S3 API| LS
-    
+
     PW -->|Test| FE_CI
     FE_CI -->|API| BE_CI
     BE_CI -->|Query| DB_CI
     PW -->|Generate| GHP
-    
+
     style FE fill:#61dafb
     style BE fill:#6db33f
     style DB fill:#4479a1
@@ -150,7 +150,7 @@ graph LR
     A --> C[🐙 Git]
     A --> D[📦 Node.js 18+]
     A --> E[☕ Java 17+]
-    
+
     style A fill:#e1f5fe
     style B fill:#bbdefb
     style C fill:#90caf9
@@ -295,7 +295,7 @@ sequenceDiagram
     participant FE as ⚛️ Frontend
     participant BE as 🍃 Backend
     participant DB as 💾 MySQL
-    
+
     Dev->>PW: npm run test:e2e
     PW->>FE: ブラウザでアクセス
     FE->>BE: API リクエスト
@@ -323,7 +323,18 @@ cd frontend
 npm install
 
 # Playwright ブラウザのインストール
-npx playwright install --with-deps
+npm run setup:e2e
+```
+
+#### 2.5️⃣ 公式 Playwright Test Agents の初期化（初回 1 回）
+
+> planner / generator / healer を使う場合に必要です。
+
+```bash
+cd frontend
+
+# 公式 Playwright Test Agents を初期化
+npm run setup:agents
 ```
 
 #### 3️⃣ テストの実行
@@ -384,24 +395,24 @@ npx playwright show-report
 ```mermaid
 graph TD
     A[🖱️ 手動実行] --> B[🏗️ Docker Build]
-    
+
     B --> C[⏳ サービス起動待機]
     C --> D{✅ ヘルスチェック}
     D -->|❌ 失敗| E[📋 ログ出力]
     D -->|✅ 成功| F[🎭 E2E テスト実行]
-    
+
     F -->|❌ 失敗| G[📸 スクリーンショット保存]
     F -->|✅ 成功| H[📊 Allure レポート生成]
-    
+
     H --> I{🔍 main ブランチ?}
     I -->|Yes| J[🚀 GitHub Pages デプロイ]
     I -->|No| K[📦 Artifact 保存]
-    
+
     J --> L[✨ 完了]
     K --> L
     G --> L
     E --> L
-    
+
     style A fill:#e3f2fd
     style F fill:#fff3e0
     style J fill:#e8f5e9
@@ -521,16 +532,16 @@ graph LR
     A[🔒 セキュリティ対策] --> B[🔑 権限制御]
     A --> C[🚫 実行制限]
     A --> D[⏱️ タイムアウト]
-    
+
     B --> B1[書き込み権限あり]
     B --> B2[手動実行のみ]
-    
+
     C --> C1[手動実行のみ許可]
     C --> C2[main ブランチのみデプロイ]
-    
+
     D --> D1[30分で強制終了]
     D --> D2[リソース不正使用防止]
-    
+
     style A fill:#ffebee
     style B fill:#fce4ec
     style C fill:#f3e5f5
@@ -643,7 +654,7 @@ npm run manual:generate:user:ai -- --feature "ログイン機能" --frontend-url
 
 このプロジェクトのドキュメントは、以下の方法で生成されています：
 
-- **生成ツール**: deepwiki  
+- **生成ツール**: deepwiki
 - **参考サイト**: [deepwiki を試す](https://qiita.com/a32-suzuki/items/c3540da3e009dab1bf97)
 - **生成指示**: [生成指示書/ドキュメント指示書.md](./生成指示書/ドキュメント指示書.md)
 - **ドキュメント構成**: [生成指示書/ドキュメント構成.md](./生成指示書/ドキュメント構成.md)
@@ -709,5 +720,5 @@ Cognito をローカルで完全にエミュレートするには **LocalStack P
 
 ---
 
-**作成日:** 2025-12-30  
+**作成日:** 2025-12-30
 **最終更新:** 2025-12-30
