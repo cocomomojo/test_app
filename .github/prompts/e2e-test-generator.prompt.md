@@ -15,7 +15,7 @@ Playwrightを使用した高品質なE2Eテストを生成します。
 ### アプリケーション仕様
 - **フレームワーク**: Vue 3 + Vuetify 3
 - **テストフレームワーク**: Playwright
-- **テストランナー**: npm test:e2e
+- **テストランナー**: npm run test:e2e
 - **基本URL**: http://localhost:5173
 - **主なページ**: LOGIN（/login）, TOP（/top）, TODO（/todo）, MEMO（/memo）
 
@@ -149,13 +149,13 @@ test.describe('[機能名] のテスト', () => {
 ### ローカル実行
 ```bash
 cd frontend
-npm test:e2e                    # すべてのテスト実行
-npm test:e2e -- login.spec.ts  # 特定ファイルのみ実行
+npm run test:e2e                # すべてのテスト実行
+npm run test:e2e -- login.spec.ts  # 特定ファイルのみ実行
 ```
 
 ### レポート確認
 ```bash
-npm test:e2e:report            # Allureレポート生成・表示
+npm run test:e2e:report        # Allureレポート生成・表示
 ```
 
 ### デバッグ

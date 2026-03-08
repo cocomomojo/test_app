@@ -40,7 +40,7 @@
 
 - PR本文に `Closes #<Issue番号>` を必ず記載する
 - `qa/test-management/specs/issue-<Issue番号>-*.md`（Playwright planner成果物）が存在しない場合、ワークフローは失敗する
-- generator相当は **spec雛形生成まで**（`test.todo` ベース）
+- generator相当は **spec雛形生成まで**（`test.skip` ベースの placeholder）
   - 実テストコード化は次フェーズで段階的に拡張
 - PR本文からの自動生成には依存しない（Agents/AIが作成した成果物を必須入力として扱う）
 
@@ -61,7 +61,7 @@
 
 - PRテンプレートの `Test Design (E2E / Manual)` と `Integration Test Items` を必ず埋める
 - PR本文には `Closes #<Issue番号>` を必ず記載
-- 生成された `test.todo` は必要に応じて具体実装へ置換する
+- 生成された placeholder spec は必要に応じて具体実装へ置換する
 
 ### 実行実績（2026-02-15）
 
@@ -76,7 +76,7 @@
 ### FAQ: テスト設計はCopilotが考えているのか？何を入力にしているのか？
 
 - 結論: **両方**です。
-  - 本仕組みは、PR本文のチェックリストを機械的に解析して `test-plan.md` と `test.todo` を生成します。
+  - 本仕組みは、PR本文のチェックリストを機械的に解析して `test-plan.md` と Playwright の placeholder spec を生成します。
   - つまり、**設計品質はPR本文に書かれた入力品質に依存**します。
 
 - 現在の主な入力ソース
@@ -93,7 +93,7 @@
   - 公式 Playwright Test Agents（planner/generator/healer）で E2E観点を先に洗い出す
     - `npx playwright init-agents --loop=vscode`
     - 参照: `https://playwright.dev/docs/test-agents`
-  - 生成された `test.todo` をレビュー前に具体実装へ置換
+  - 生成された placeholder spec をレビュー前に具体実装へ置換
 
 ### 標準化アセット
 
