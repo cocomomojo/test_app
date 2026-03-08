@@ -11,9 +11,9 @@ on:
         type: string
 
 permissions:
+  actions: write
   contents: read
   issues: write
-  actions: read
 
 jobs:
   generate-fix-brief:
@@ -91,6 +91,7 @@ jobs:
             const firstSection = brief.split('\n').slice(0, 20).join('\n');
             const prDraftPath = path.join(process.env.OUTPUT_DIR, `pr-draft-issue-${issueNumber}.md`);
             const hasPrDraft = fs.existsSync(prDraftPath);
+            const autoFixEligible = triage.aiFixable && triage.bugPattern === 'frontend-ui-text' && ['low', 'medium'].includes(triage.severity);
 
             const body = [
               marker,
@@ -100,6 +101,7 @@ jobs:
               `- severity: ${triage.severity || 'unknown'}`,
               `- ai_fixable: ${triage.aiFixable ? 'true' : 'false'}`,
               `- pr_draft: ${hasPrDraft ? 'generated' : 'not-generated'}`,
+              `- auto_fix_pilot: ${autoFixEligible ? 'eligible' : 'out-of-scope'}`,
               '',
               'artifact から fix brief と PR draft を取得できます。fix brief の冒頭プレビューは以下です。',
               '',
@@ -132,3 +134,63 @@ jobs:
                 body,
               });
             }
+
+      - name: Dispatch auto-fix PR workflow
+        uses: actions/github-script@v7
+        env:
+          TRIAGE_PATH: /tmp/fix-brief/triage.json
+          OUTPUT_DIR: /tmp/fix-brief/output
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const triage = JSON.parse(fs.readFileSync(process.env.TRIAGE_PATH, 'utf8'));
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const marker = '<!-- issue-to-auto-fix-pr -->';
+            const ref = process.env.GITHUB_REF_NAME || context.ref.replace('refs/heads/', '');
+            const supportedPatterns = new Set(['frontend-ui-text']);
+            const supportedSeverities = new Set(['low', 'medium']);
+            const prDraftPath = path.join(process.env.OUTPUT_DIR, `pr-draft-issue-${issueNumber}.md`);
+
+            if (!triage.aiFixable) {
+              core.notice(`Skip auto-fix dispatch because issue #${issueNumber} is not ai-fixable.`);
+              return;
+            }
+
+            if (!supportedPatterns.has(triage.bugPattern) || !supportedSeverities.has(triage.severity)) {
+              core.notice(`Skip auto-fix dispatch because issue #${issueNumber} is outside pilot scope (${triage.bugPattern || 'unresolved'} / ${triage.severity || 'unknown'}).`);
+              return;
+            }
+
+            if (!fs.existsSync(prDraftPath)) {
+              core.notice(`Skip auto-fix dispatch because PR draft was not generated for issue #${issueNumber}.`);
+              return;
+            }
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: issueNumber,
+              per_page: 100,
+            });
+
+            const existing = comments.find((comment) => (comment.body || '').includes(marker));
+            if (existing) {
+              core.notice(`Skip auto-fix dispatch because issue #${issueNumber} already has an auto-fix status comment.`);
+              return;
+            }
+
+            await github.rest.actions.createWorkflowDispatch({
+              owner,
+              repo,
+              workflow_id: 'issue-to-auto-fix-pr.yml',
+              ref,
+              inputs: {
+                issue_number: String(issueNumber),
+              },
+            });
+
+            core.notice(`Dispatched issue-to-auto-fix-pr.yml for issue #${issueNumber} on ref ${ref}.`);
