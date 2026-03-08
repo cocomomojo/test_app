@@ -495,8 +495,6 @@ Copilot（AIエージェント）:
 - ⚠️ 環境依存性が増加
 - ⚠️ 対話的なため、バッチ処理より遅い
 
-**実装案**: [scripts/generate-manual-with-mcp.md](scripts/generate-manual-with-mcp.md)
-
 **優先度**: 中（将来的な検討課題）
 
 ---

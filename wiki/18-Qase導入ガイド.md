@@ -824,7 +824,7 @@ class AuthControllerTest {
 ### 5-1. GitHub Actions設定
 
 ```yaml
-# .github/workflows/test.yml
+# .github/workflows/pr-quality.yml
 name: Test with Qase Reporting
 
 on:

@@ -4,7 +4,7 @@ set -euo pipefail
 echo "Create-resources ready.d script starting"
 
 for i in $(seq 1 60); do
-  if curl -sS http://localhost:4566/health >/dev/null 2>&1; then
+  if curl -sS http://localhost:4566/_localstack/health >/dev/null 2>&1; then
     break
   fi
   sleep 1

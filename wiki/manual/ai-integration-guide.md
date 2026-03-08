@@ -600,9 +600,6 @@ jobs:
 - ⚠️ 対話的処理のため、バッチ処理より遅い
 - ⚠️ 環境依存性が増加
 
-**実装案**:
-- 詳細は [scripts/generate-manual-with-mcp.md](../../scripts/generate-manual-with-mcp.md) を参照
-
 **現在の選択理由**:
 - 通常のPlaywrightで十分な品質を実現
 - 手動ステップは1回のみで許容範囲

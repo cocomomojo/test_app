@@ -1,0 +1,229 @@
+name: PR Quality Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  quality-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    outputs:
+      frontend_status: ${{ steps.final_status.outputs.frontend_status }}
+      backend_status: ${{ steps.final_status.outputs.backend_status }}
+      sonar_status: ${{ steps.final_status.outputs.sonar_status }}
+      sonar_reason: ${{ steps.final_status.outputs.sonar_reason }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run frontend unit tests
+        id: frontend_unit
+        continue-on-error: true
+        working-directory: frontend
+        run: npm run test:unit
+
+      - name: Upload frontend coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-unit-coverage
+          path: |
+            frontend/coverage/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Run backend unit tests
+        id: backend_unit
+        continue-on-error: true
+        working-directory: backend
+        run: |
+          chmod +x gradlew
+          ./gradlew test jacocoTestReport
+
+      - name: Upload backend test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-unit-reports
+          path: |
+            backend/build/reports/tests/test/
+            backend/build/reports/jacoco/test/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Determine SonarQube availability
+        id: sonar_config
+        env:
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          if [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "reason=fork PR では secret を利用できないため SonarQube をスキップ" >> "$GITHUB_OUTPUT"
+          elif [ -z "$SONAR_TOKEN" ] || [ -z "$SONAR_PROJECT_KEY" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "reason=SONAR_TOKEN または SONAR_PROJECT_KEY が未設定のため SonarQube をスキップ" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "reason=configured" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build SonarQube arguments
+        id: sonar_args
+        if: steps.sonar_config.outputs.enabled == 'true'
+        env:
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+        run: |
+          HOST_URL="${SONAR_HOST_URL:-https://sonarcloud.io}"
+          ARGS="-Dsonar.projectKey=${SONAR_PROJECT_KEY}"
+          ARGS="$ARGS -Dsonar.host.url=${HOST_URL}"
+          ARGS="$ARGS -Dsonar.sources=backend/src/main/java,frontend/src"
+          ARGS="$ARGS -Dsonar.tests=backend/src/test/java,frontend/test"
+          ARGS="$ARGS -Dsonar.java.binaries=backend/build/classes/java/main"
+          ARGS="$ARGS -Dsonar.java.test.binaries=backend/build/classes/java/test"
+          ARGS="$ARGS -Dsonar.coverage.jacoco.xmlReportPaths=backend/build/reports/jacoco/test/jacocoTestReport.xml"
+          ARGS="$ARGS -Dsonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info"
+          ARGS="$ARGS -Dsonar.exclusions=frontend/node_modules/**,frontend/dist/**,frontend/tests/e2e/**,frontend/test-results/**,**/*.d.ts"
+          ARGS="$ARGS -Dsonar.test.inclusions=frontend/test/**/*.js,backend/src/test/java/**/*.java"
+          ARGS="$ARGS -Dsonar.qualitygate.wait=true"
+          if [ -n "$SONAR_ORGANIZATION" ]; then
+            ARGS="$ARGS -Dsonar.organization=${SONAR_ORGANIZATION}"
+          fi
+          printf 'value=%s\n' "$ARGS" >> "$GITHUB_OUTPUT"
+
+      - name: Cache SonarQube packages
+        if: steps.sonar_config.outputs.enabled == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Run SonarQube analysis
+        id: sonar_scan
+        if: steps.sonar_config.outputs.enabled == 'true'
+        continue-on-error: true
+        uses: SonarSource/sonarqube-scan-action@v7
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: ${{ steps.sonar_args.outputs.value }}
+
+      - name: Finalize quality status
+        id: final_status
+        run: |
+          FRONTEND_STATUS='${{ steps.frontend_unit.outcome }}'
+          BACKEND_STATUS='${{ steps.backend_unit.outcome }}'
+          SONAR_REASON='${{ steps.sonar_config.outputs.reason }}'
+
+          if [ '${{ steps.sonar_config.outputs.enabled }}' = 'true' ]; then
+            SONAR_STATUS='${{ steps.sonar_scan.outcome }}'
+          else
+            SONAR_STATUS='skipped'
+          fi
+
+          echo "frontend_status=${FRONTEND_STATUS}" >> "$GITHUB_OUTPUT"
+          echo "backend_status=${BACKEND_STATUS}" >> "$GITHUB_OUTPUT"
+          echo "sonar_status=${SONAR_STATUS}" >> "$GITHUB_OUTPUT"
+          echo "sonar_reason=${SONAR_REASON}" >> "$GITHUB_OUTPUT"
+
+          if [ "$FRONTEND_STATUS" = 'failure' ] || [ "$BACKEND_STATUS" = 'failure' ] || [ "$SONAR_STATUS" = 'failure' ]; then
+            echo 'One or more quality checks failed.' >&2
+            exit 1
+          fi
+
+  report-to-pr:
+    needs: quality-checks
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Comment PR with quality results
+        uses: actions/github-script@v7
+        env:
+          FRONTEND_STATUS: ${{ needs.quality-checks.outputs.frontend_status }}
+          BACKEND_STATUS: ${{ needs.quality-checks.outputs.backend_status }}
+          SONAR_STATUS: ${{ needs.quality-checks.outputs.sonar_status }}
+          SONAR_REASON: ${{ needs.quality-checks.outputs.sonar_reason }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const marker = '<!-- pr-quality-checks -->';
+            const prNumber = context.payload.pull_request.number;
+
+            const icon = (status) => {
+              switch (status) {
+                case 'success': return '✅ success';
+                case 'failure': return '❌ failure';
+                case 'skipped': return '⏭️ skipped';
+                default: return `ℹ️ ${status || 'unknown'}`;
+              }
+            };
+
+            const body = [
+              marker,
+              '### 🔎 PR Quality Checks',
+              '',
+              `- Frontend Unit Tests: ${icon(process.env.FRONTEND_STATUS)}`,
+              `- Backend Unit Tests: ${icon(process.env.BACKEND_STATUS)}`,
+              `- SonarQube Static Analysis: ${icon(process.env.SONAR_STATUS)}`,
+              '',
+              process.env.SONAR_STATUS === 'skipped'
+                ? `- SonarQube 補足: ${process.env.SONAR_REASON}`
+                : '- SonarQube は unit test 実行後の coverage を用いて解析しました。',
+              `- Workflow Run: ${process.env.RUN_URL}`,
+            ].join('\n');
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+
+            const existing = comments.find((comment) => (comment.body || '').includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+            }

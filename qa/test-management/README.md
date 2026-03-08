@@ -8,15 +8,10 @@
 - `.meta/pr-<番号>.json`: ダッシュボード集計用メタ情報
 - `dashboard.md`: 全PRの集計ダッシュボード
 
-## Enterprise（自動）
+## 現在の扱い
 
-- Workflow: `.github/workflows/feature-pr-test-management-enterprise.yml`
-- 事前設定: `COPILOT_ENTERPRISE_AUTOMATION=true`
-
-## Pro（代替）
-
-- Workflow: `.github/workflows/feature-pr-test-management-pro.yml`
-- `workflow_dispatch` で `pr_number` を指定して実行
+- 現在は過去のテスト設計生成物・補助ファイルの保管場所です。
+- 現行のCI運用は `.github/workflows/e2e.yml` / `.github/workflows/e2e-failure-analysis.yml` / `.github/workflows/pr-quality.yml` に移行しています。
 
 ## 補足
 
