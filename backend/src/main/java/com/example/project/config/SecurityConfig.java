@@ -49,8 +49,8 @@ public class SecurityConfig {
         }
 
         http.authorizeHttpRequests(auth -> auth
-                .requestMatchers("/public/**", "/top").permitAll()
-                .anyRequest().authenticated()
+            .requestMatchers("/public/**", "/top", "/actuator/health", "/actuator/info").permitAll()
+            .anyRequest().authenticated()
         );
 
         if (localMode) {

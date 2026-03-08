@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Start Docker Compose services
         working-directory: infra
@@ -102,6 +102,28 @@ jobs:
           name: playwright-test-results
           path: frontend/test-results/
           retention-days: 5
+
+      - name: Collect E2E debug artifacts (on failure)
+        if: failure()
+        run: |
+          set -e
+          mkdir -p /tmp/e2e-debug/infra /tmp/e2e-debug/frontend
+
+          cp -R frontend/test-results /tmp/e2e-debug/frontend/test-results 2>/dev/null || true
+          cp -R frontend/allure-results /tmp/e2e-debug/frontend/allure-results 2>/dev/null || true
+
+          docker compose -f infra/docker-compose.ci.yml logs mysql > /tmp/e2e-debug/infra/mysql.log 2>&1 || true
+          docker compose -f infra/docker-compose.ci.yml logs springboot > /tmp/e2e-debug/infra/springboot.log 2>&1 || true
+          docker compose -f infra/docker-compose.ci.yml logs frontend > /tmp/e2e-debug/infra/frontend.log 2>&1 || true
+          docker compose -f infra/docker-compose.ci.yml ps > /tmp/e2e-debug/infra/compose-ps.txt 2>&1 || true
+
+      - name: Upload E2E debug artifacts (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failure-debug
+          path: /tmp/e2e-debug/
+          retention-days: 7
 
       - name: Print container logs (on failure)
         if: failure()

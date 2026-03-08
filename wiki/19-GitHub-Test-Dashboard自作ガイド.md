@@ -2,20 +2,18 @@
 
 > GitHubリポジトリベーステスト管理の弱点を完全克服するカスタムダッシュボード
 
-## ✅ このリポジトリ向けの最新実装（2026-02）
+## ✅ このリポジトリ向けの最新実装（2026-03）
 
-以下は「機能改修PR時にテスト管理を自動化する」ための、**GitHub Enterprise向け実装 + Pro代替運用**です。
+以下の旧PR起点テスト管理workflowは整理済みです。現在は **PR品質チェック** と **E2E失敗時のCopilot調査** を中心に運用します。
 
 ### 追加済みファイル
 
 - PRテンプレート
   - `.github/pull_request_template.md`
 - ワークフロー
-  - `.github/workflows/auto-label-feature-pr.yml`
-  - `.github/workflows/feature-pr-planner-assist.yml`
-  - `.github/workflows/playwright-test-agents-orchestration.yml`
-  - `.github/workflows/feature-pr-test-management-enterprise.yml`
-  - `.github/workflows/feature-pr-test-management-pro.yml`
+  - `.github/workflows/e2e.yml`
+  - `.github/workflows/e2e-failure-analysis.yml`
+  - `.github/workflows/pr-quality.yml`
 - 生成スクリプト
   - `scripts/generate-pr-test-assets.js`
   - `scripts/update-test-dashboard.js`
@@ -24,43 +22,19 @@
   - `frontend/tests/e2e/generated/pr-<番号>-*.spec.ts`
   - `qa/test-management/dashboard.md`
 
-### Enterprise運用（自動）
+### 現在の運用
 
-1. Repository Variable を設定
-   - `COPILOT_ENTERPRISE_AUTOMATION=true`
-2. Feature PR を作成（`feature`ラベル、またはタイトル `feat:` 推奨）
-  - `feature` ラベルは自動付与されます（タイトルが `feat:` / `[FEATURE]`、または `Closes #<Issue>` 先Issueが `feature` の場合）
-3. ワークフローがPR本文を解析して以下を自動生成
-  - （変更後）Playwright Agents で作成済みの成果物を検証・収集
-  - テスト設計Markdown（E2E/手動/総合分類の存在確認）
-  - E2E項目がある場合の Playwright 実装ファイル存在確認
-  - テスト集計ダッシュボード更新
-4. PRへテスト成果物リンクを自動コメント投稿
-  - `qa/test-management/pr/PR-<番号>-test-plan.md`
-  - `frontend/tests/e2e/generated/pr-<番号>-*.spec.ts`
-  - `qa/test-management/specs/issue-<番号>-*.md`（planner成果物）
+#### PR品質チェック
 
-### Pro運用（代替）
+1. PR作成または更新で `PR Quality Checks` が自動実行されます。
+2. Frontend / Backend の unit test を実行します。
+3. SonarQube が設定済みなら静的解析も実行し、結果をPRコメントに反映します。
 
-#### 代替1: GitHub.com Chat
+#### E2E失敗時の自動調査
 
-- PR/Issue内容をもとに、Copilot Chatへ次を依頼
-  - `このPRのテスト設計（E2E/手動/総合）を作って、E2EはPlaywright案も出してください。`
-
-#### 代替2: 手動ワークフロー実行（推奨）
-
-1. `Actions` タブ → `Feature PR Test Management (Pro Manual Alternative)`
-2. `pr_number` に対象PR番号を入力して実行
-3. Enterprise自動運用と同じ生成物を得る
-
-#### 代替3: Playwright Test Agents Orchestration（推奨）
-
-1. `Actions` タブ → `Playwright Test Agents Orchestration`
-2. `pr_number` に対象PR番号を入力
-3. `mode` を選択
-  - `planner-generator`: planner/generator 実行依頼コメントを自動投稿（prompt自動生成含む）
-  - `healer`: E2E実行で失敗時に healer 実行依頼コメントを自動投稿
-4. PR上の自動コメント（`@copilot`）を契機に、Agentsによる実行へ進める
+1. `E2E Tests with Playwright and Allure` を手動実行します。
+2. 失敗すると `E2E Failure Analysis with Copilot` が自動起動します。
+3. Copilot がログとartifactを読んで原因候補を整理し、Issueを自動作成します。
 
 ### 必須ルール（合意済み運用）
 
@@ -73,18 +47,15 @@
 ### 完全自動に寄せる段階設計（2026-02時点）
 
 - Phase 1（実装済み）
-  - featureラベル自動付与
-  - planner成果物必須チェック
-  - テスト設計/項目リンクのPR自動コメント
+  - PRでの unit test 自動実行
+  - PRへの結果自動コメント
+  - E2E失敗時のログ収集
 - Phase 2（実装済み）
-  - planner依頼文のPR自動コメント（`feature-pr-planner-assist.yml`）
-  - 依頼者は「planner実行」の1アクションのみ
+  - Copilot CLI によるE2E失敗原因の自動調査
+  - 調査結果のIssue自動作成
 - Phase 3（次段）
-  - generator/healer の運用証跡（実行ログ・更新対象ファイル）をPRに自動収集
-  - E2E項目がある場合の実装完了ゲートを強化
-- Phase 4（検討）
-  - GitHub Actions から planner/generator/healer を直接起動する完全無人化
-  - 実現には実行基盤・認証・コスト制御・失敗時リカバリ設計が必要
+  - Issueの重複抑止
+  - SonarQube品質ゲート結果のPRステータス強化
 
 ### ベストプラクティス（運用ルール）
 
@@ -95,12 +66,12 @@
 ### 実行実績（2026-02-15）
 
 - 対象PR: `#20`
-- 実行ワークフロー: `Feature PR Test Management (Pro Manual Alternative)`
+- 実行ワークフロー: `旧 Feature PR Test Management (Pro Manual Alternative)`
 - 実行結果: **success**
 - Run URL: `https://github.com/cocomomojo/test_app/actions/runs/22031365775`
 
 > 初回は `workflow_dispatch` 実行時の `pull_request` ペイロード不足で失敗。
-> `feature-pr-test-management-pro.yml` と `generate-pr-test-assets.js` にフォールバック処理を追加し、再実行で成功を確認。
+> 当時は旧PR起点テスト管理 workflow と `generate-pr-test-assets.js` にフォールバック処理を追加し、再実行で成功を確認。
 
 ### FAQ: テスト設計はCopilotが考えているのか？何を入力にしているのか？
 

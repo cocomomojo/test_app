@@ -87,26 +87,7 @@ Issue 作成は次の **4分類のみ** を使います。
 - GitHub Copilot Pro（個人）では、Issueコメント起点の自動実装・自動PR作成は利用できません。
 - そのため本リポジトリは、Issue作成を標準化し、実装〜PRは通常の開発フローで実施します。
 
-## Copilot プラン別の実装フロー
-
-### A) GitHub Copilot Enterprise の場合
-
-- Issue コメント起点で、**自動実装・PR作成**が利用可能な構成を取れます。
-- 例: Issue に実装依頼コメントを投稿し、生成されたPRをレビューしてマージ。
-
-#### このリポジトリで有効化する手順（最小）
-
-1. `Settings` → `Secrets and variables` → `Actions` → `Variables`
-2. Repository Variable を追加
-  - Name: `COPILOT_ENTERPRISE_AUTOMATION`
-  - Value: `true`
-3. `Settings` → `Actions` → `General` で Workflow permissions を `Read and write` に設定
-4. Issue に `feature` と `auto-generated` ラベルを付与
-5. ワークフロー `/.github/workflows/feature-auto-implement-pr-enterprise.yml` が `@copilot` コメントを投稿
-
-> 補足: 変数を未設定、または `false` の場合はワークフローは実行されません（Pro運用に影響なし）。
-
-### B) GitHub Copilot Pro の場合（代替運用）
+## Copilot Pro での実装フロー
 
 Copilot Pro では、Issueコメント起点の自動実装・自動PR作成が使えないため、次のどちらかで対応します。
 

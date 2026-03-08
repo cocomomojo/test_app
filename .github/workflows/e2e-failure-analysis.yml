@@ -1,0 +1,180 @@
+name: E2E Failure Analysis with Copilot
+
+on:
+  workflow_run:
+    workflows: ['E2E Tests with Playwright and Allure']
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: '調査対象の workflow run ID（手動実行時のみ必須）'
+        required: false
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+jobs:
+  analyze-e2e-failure:
+    if: >-
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_id != '')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TARGET_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || github.event.inputs.run_id }}
+      TARGET_RUN_URL: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.html_url || format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.event.inputs.run_id) }}
+
+    steps:
+      - name: Setup Scripts
+        uses: github/gh-aw/actions/setup@a0ed2f46906483dcf634e8694268e4fab9b21e65
+        with:
+          destination: /opt/gh-aw/actions
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate COPILOT_GITHUB_TOKEN secret
+        run: /opt/gh-aw/actions/validate_multi_secret.sh COPILOT_GITHUB_TOKEN 'GitHub Copilot CLI' https://github.github.com/gh-aw/reference/engines/#github-copilot-default
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+
+      - name: Install GitHub Copilot CLI
+        run: /opt/gh-aw/actions/install_copilot_cli.sh 0.0.421
+
+      - name: Download failed run artifacts and logs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          mkdir -p /tmp/e2e-analysis/artifacts /tmp/e2e-analysis/logs /tmp/e2e-analysis/output
+
+          gh run download "$TARGET_RUN_ID" --dir /tmp/e2e-analysis/artifacts || echo 'No downloadable artifacts found.'
+          gh run view "$TARGET_RUN_ID" > /tmp/e2e-analysis/logs/run-summary.txt || true
+          gh run view "$TARGET_RUN_ID" --log-failed > /tmp/e2e-analysis/logs/failed-steps.log || gh run view "$TARGET_RUN_ID" --log > /tmp/e2e-analysis/logs/full.log || true
+          gh api \
+            -H 'Accept: application/vnd.github+json' \
+            "/repos/${GITHUB_REPOSITORY}/actions/runs/${TARGET_RUN_ID}" > /tmp/e2e-analysis/logs/run.json || true
+
+          find /tmp/e2e-analysis -maxdepth 3 -type f | sort
+
+      - name: Create Copilot prompt
+        run: |
+          cat > /tmp/e2e-analysis/output/prompt.txt <<EOF
+          あなたは GitHub Actions 上で E2E 失敗を調査する GitHub Copilot です。
+          以下の証拠を読み、再現条件・有力な原因・暫定対処案を整理してください。
+
+          証拠:
+          - リポジトリ一式: ${GITHUB_WORKSPACE}
+          - 失敗run情報: /tmp/e2e-analysis/logs/run.json
+          - run要約: /tmp/e2e-analysis/logs/run-summary.txt
+          - 失敗ログ: /tmp/e2e-analysis/logs/failed-steps.log（なければ full.log）
+          - 失敗artifact群: /tmp/e2e-analysis/artifacts
+
+          タスク:
+          1. 失敗原因を、証拠ベースで「確度の高い原因」「仮説」に分けて整理する。
+          2. GitHub Issue 作成用に、/tmp/e2e-analysis/output/issue.json を UTF-8 JSON で作成する。
+          3. JSON形式は次のみとする: {"title":"...","body":"..."}
+
+          制約:
+          - title は 120 文字以内
+          - body は日本語
+          - body には以下の見出しを含める:
+            - 概要
+            - 発生した事象
+            - 有力な原因
+            - 根拠ログ
+            - 対応案
+            - 参考情報
+          - 断定できない内容は「仮説」と明記
+          - Run URL: ${TARGET_RUN_URL}
+          - 本文末尾に必ず次の1行を入れる: Workflow Run: ${TARGET_RUN_URL}
+          - issue.json 以外のファイルは変更しない
+          EOF
+
+      - name: Execute GitHub Copilot CLI
+        run: |
+          /usr/local/bin/copilot \
+            --add-dir "${GITHUB_WORKSPACE}" \
+            --add-dir "/tmp/e2e-analysis" \
+            --disable-builtin-mcps \
+            --allow-all-tools \
+            --allow-all-paths \
+            --prompt "$(cat /tmp/e2e-analysis/output/prompt.txt)"
+        env:
+          COPILOT_AGENT_RUNNER_TYPE: STANDALONE
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          XDG_CONFIG_HOME: /home/runner
+
+      - name: Create fallback issue payload when needed
+        env:
+          TARGET_RUN_URL: ${{ env.TARGET_RUN_URL }}
+        run: |
+          python3 <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path('/tmp/e2e-analysis/output/issue.json')
+          run_url = os.environ.get('TARGET_RUN_URL', 'unavailable')
+          fallback = {
+              'title': 'E2E失敗の自動調査結果を確認してください',
+              'body': '\n'.join([
+                  '## 概要',
+                  'E2Eワークフローが失敗しました。Copilotによる詳細分析結果を生成できなかったため、フォールバックIssueを作成します。',
+                  '',
+                  '## 発生した事象',
+                  'GitHub Actions 上で E2E 実行が失敗しました。',
+                  '',
+                  '## 有力な原因',
+                  '- 詳細分析結果を生成できなかったため未特定',
+                  '',
+                  '## 根拠ログ',
+                  '- run-summary.txt / failed-steps.log / artifact を確認してください。',
+                  '',
+                  '## 対応案',
+                  '- 失敗runの artifact とログを手動確認する',
+                  '- 同条件で再実行し再現性を確認する',
+                  '',
+                  '## 参考情報',
+                    f'Workflow Run: {run_url}'
+              ])
+          }
+
+          if not path.exists():
+              path.write_text(json.dumps(fallback, ensure_ascii=False, indent=2), encoding='utf-8')
+          else:
+              try:
+                  data = json.loads(path.read_text(encoding='utf-8'))
+              except Exception:
+                  data = fallback
+
+              if not isinstance(data, dict) or not data.get('title') or not data.get('body'):
+                  data = fallback
+
+              path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
+          PY
+
+      - name: Create GitHub Issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            const payload = JSON.parse(fs.readFileSync('/tmp/e2e-analysis/output/issue.json', 'utf8'));
+            const body = [
+              '<!-- automated-e2e-failure-analysis -->',
+              payload.body || '',
+            ].join('\n\n');
+
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: payload.title || 'E2E failure analysis',
+              body,
+            });
+
+            core.notice(`Created issue #${issue.data.number}: ${issue.data.html_url}`);
