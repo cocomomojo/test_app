@@ -11,6 +11,7 @@ on:
         type: string
 
 permissions:
+  actions: write
   contents: read
   issues: write
 
@@ -141,7 +142,7 @@ jobs:
               `- reason: ${result.reason}`,
               '',
               result.aiFixable
-                ? '- 次の候補: `issue-to-fix-brief.yml` で fix brief を生成'
+                ? '- 次の候補: `issue-to-fix-brief.yml` を自動 dispatch（既存 fix brief がない場合）'
                 : '- 次の候補: 人手で分類を補完してから fix brief を生成',
             ].join('\n');
 
@@ -169,3 +170,49 @@ jobs:
                 body,
               });
             }
+
+      - name: Dispatch fix brief workflow
+        uses: actions/github-script@v7
+        env:
+          RESULT_PATH: /tmp/issue-triage/result.json
+        with:
+          script: |
+            const fs = require('fs');
+
+            const result = JSON.parse(fs.readFileSync(process.env.RESULT_PATH, 'utf8'));
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const fixBriefMarker = '<!-- issue-to-fix-brief -->';
+            const ref = process.env.GITHUB_REF_NAME || context.ref.replace('refs/heads/', '');
+
+            if (!result.aiFixable) {
+              core.notice(`Skip fix brief dispatch because issue #${issueNumber} is not ai-fixable.`);
+              return;
+            }
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: issueNumber,
+              per_page: 100,
+            });
+
+            const existingFixBrief = comments.find((comment) => (comment.body || '').includes(fixBriefMarker));
+
+            if (existingFixBrief) {
+              core.notice(`Skip fix brief dispatch because issue #${issueNumber} already has a generated fix brief comment.`);
+              return;
+            }
+
+            await github.rest.actions.createWorkflowDispatch({
+              owner,
+              repo,
+              workflow_id: 'issue-to-fix-brief.yml',
+              ref,
+              inputs: {
+                issue_number: String(issueNumber),
+              },
+            });
+
+            core.notice(`Dispatched issue-to-fix-brief.yml for issue #${issueNumber} on ref ${ref}.`);
