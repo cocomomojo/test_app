@@ -171,7 +171,7 @@ jobs:
         if: steps.eligibility.outputs.supported == 'true'
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.COPILOT_GITHUB_TOKEN }}
           branch: ${{ steps.pr_meta.outputs.branch }}
           base: main
           title: ${{ steps.pr_meta.outputs.title }}
@@ -191,6 +191,7 @@ jobs:
           TEST_OUTCOME: ${{ steps.frontend_validation.outcome }}
           PR_URL: ${{ steps.create_pr.outputs.pull-request-url }}
           PR_OPERATION: ${{ steps.create_pr.outputs.pull-request-operation }}
+          PR_BRANCH: ${{ steps.pr_meta.outputs.branch }}
         with:
           script: |
             const marker = '<!-- issue-to-auto-fix-pr -->';
@@ -217,6 +218,7 @@ jobs:
                 `- changed_files_validation: ${process.env.VALIDATE_OUTCOME || 'unknown'}`,
                 `- validation_tests: ${process.env.TEST_OUTCOME || 'unknown'}`,
                 `- pr_operation: ${process.env.PR_OPERATION || 'none'}`,
+                `- branch: ${process.env.PR_BRANCH || 'unknown'}`,
                 prUrl ? `- pr_url: ${prUrl}` : '- pr_url: not-created',
               ].join('\n');
             }
