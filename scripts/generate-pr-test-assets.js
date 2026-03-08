@@ -97,7 +97,11 @@ function buildPlaywrightSpec(meta, e2eItems, integrationItems) {
 
   return `import { test } from '@playwright/test';\n\n` +
 `test.describe('PR #${meta.number}: ${title}', () => {\n` +
-todos.map((it) => `  test.todo(${JSON.stringify(it.text)});`).join('\n') + '\n' +
+todos.map((it) =>
+  `  test.skip(${JSON.stringify(it.text)}, async () => {\n` +
+  `    // Generated placeholder. Replace with a concrete Playwright scenario when ready.\n` +
+  `  });`
+).join('\n\n') + '\n' +
 `});\n`;
 }
 
