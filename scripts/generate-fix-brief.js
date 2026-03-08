@@ -62,6 +62,23 @@ function extractPaths(text) {
   return unique(matches.map((value) => value.replace(/[`,.)]+$/g, '')));
 }
 
+function pathMatchesRule(candidatePath, rule) {
+  if (!candidatePath || !rule) return false;
+
+  if (rule.endsWith('/')) {
+    return candidatePath.startsWith(rule);
+  }
+
+  return candidatePath === rule;
+}
+
+function filterCandidatePaths(paths, allowedPaths = []) {
+  if (!Array.isArray(paths) || paths.length === 0) return [];
+  if (!Array.isArray(allowedPaths) || allowedPaths.length === 0) return unique(paths);
+
+  return unique(paths.filter((candidatePath) => allowedPaths.some((rule) => pathMatchesRule(candidatePath, rule))));
+}
+
 function extractQuotedTexts(text) {
   const matches = [...text.matchAll(/["'`「](.{1,80}?)["'`」]/g)];
   return unique(matches.map((match) => match[1]).filter((value) => value && !value.includes('\n'))).slice(0, 6);
@@ -81,6 +98,7 @@ function buildPatternDetails(issue, triage) {
 
   const defaults = {
     'frontend-ui-text': {
+      allowedPaths: ['frontend/src/', 'frontend/tests/e2e/', 'frontend/test/'],
       candidateFiles: ['frontend/tests/e2e/', 'frontend/src/components/'],
       validationSteps: [
         'frontend の E2E テストを対象シナリオ中心に再実行する',
@@ -92,6 +110,7 @@ function buildPatternDetails(issue, triage) {
       ],
     },
     'frontend-unit-test': {
+      allowedPaths: ['frontend/src/', 'frontend/test/'],
       candidateFiles: ['frontend/src/', 'frontend/test/'],
       validationSteps: [
         'frontend unit test を再実行する',
@@ -102,6 +121,7 @@ function buildPatternDetails(issue, triage) {
       ],
     },
     backend: {
+      allowedPaths: ['backend/src/main/', 'backend/src/test/'],
       candidateFiles: ['backend/src/main/', 'backend/src/test/'],
       validationSteps: [
         './gradlew test jacocoTestReport を実行する',
@@ -112,6 +132,7 @@ function buildPatternDetails(issue, triage) {
       ],
     },
     'ci-config': {
+      allowedPaths: ['.github/workflows/', 'infra/', 'frontend/Dockerfile', 'backend/Dockerfile'],
       candidateFiles: ['.github/workflows/', 'infra/', 'frontend/Dockerfile', 'backend/Dockerfile'],
       validationSteps: [
         '対象 workflow を再実行し、失敗ステップが解消したか確認する',
@@ -122,6 +143,7 @@ function buildPatternDetails(issue, triage) {
       ],
     },
     'e2e-environment': {
+      allowedPaths: ['infra/', '.github/workflows/e2e.yml', 'frontend/tests/e2e/'],
       candidateFiles: ['infra/', '.github/workflows/e2e.yml', 'frontend/tests/e2e/'],
       validationSteps: [
         'docker compose の health check を確認する',
@@ -132,6 +154,7 @@ function buildPatternDetails(issue, triage) {
       ],
     },
     'docs-manual': {
+      allowedPaths: ['wiki/', 'README.md', 'wiki/manual/'],
       candidateFiles: ['wiki/', 'README.md', 'wiki/manual/'],
       validationSteps: [
         '関連 Markdown の整合を確認する',
@@ -144,14 +167,17 @@ function buildPatternDetails(issue, triage) {
   };
 
   const selected = defaults[pattern] || {
+    allowedPaths: [],
     candidateFiles: [],
     validationSteps: ['人手で分類と検証手順を補完する'],
     changeConstraints: ['対象範囲が明確になるまで変更しない'],
   };
 
+  const filteredReferencedPaths = filterCandidatePaths(referencedPaths, selected.allowedPaths);
+
   return {
     pattern,
-    candidateFiles: unique([...referencedPaths, ...selected.candidateFiles]),
+    candidateFiles: unique([...filteredReferencedPaths, ...selected.candidateFiles]),
     validationSteps: selected.validationSteps,
     changeConstraints: selected.changeConstraints,
     evidence: quotedTexts,

@@ -18,7 +18,20 @@ jobs:
   triage:
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event.issue && github.event.issue.state == 'open')
+      (
+        github.event.issue &&
+        github.event.issue.state == 'open' &&
+        (
+          github.event.action != 'labeled' ||
+          !github.event.label ||
+          (
+            !startsWith(github.event.label.name, 'bug-pattern:') &&
+            !startsWith(github.event.label.name, 'severity:') &&
+            github.event.label.name != 'ai-fixable' &&
+            github.event.label.name != 'needs-human-triage'
+          )
+        )
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
