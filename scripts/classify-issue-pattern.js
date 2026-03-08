@@ -74,6 +74,17 @@ function hasAny(text, patterns) {
   return patterns.some((pattern) => text.includes(pattern));
 }
 
+function hasKeyword(text, keywords) {
+  return keywords.some((keyword) => {
+    if (/^[a-z0-9_-]+$/i.test(keyword)) {
+      const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, 'i').test(text);
+    }
+
+    return text.includes(keyword);
+  });
+}
+
 function extractFormValue(body, heading) {
   const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const regex = new RegExp(`###\\s+${escapedHeading}\\s*\\n+([\\s\\S]*?)(?=\\n###\\s+|$)`, 'i');
@@ -222,9 +233,9 @@ function detectSeverity(issue, pattern) {
     return explicitSeverity;
   }
 
-  if (hasAny(text, ['critical', 'sev1', 'blocker', '重大'])) return 'critical';
-  if (hasAny(text, ['high', 'sev2', '緊急'])) return 'high';
-  if (hasAny(text, ['low', '軽微'])) return 'low';
+  if (hasKeyword(text, ['critical', 'sev1', 'blocker', '重大'])) return 'critical';
+  if (hasKeyword(text, ['high', 'sev2', '緊急'])) return 'high';
+  if (hasKeyword(text, ['low', '軽微'])) return 'low';
 
   switch (pattern) {
     case BUG_PATTERNS.BACKEND:
