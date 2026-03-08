@@ -1,0 +1,134 @@
+name: Issue to Fix Brief
+
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'fix brief を生成する issue 番号'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+jobs:
+  generate-fix-brief:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.label && github.event.label.name == 'ai-fixable')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      ISSUE_NUMBER: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.issue_number || github.event.issue.number }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Fetch issue payload
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          mkdir -p /tmp/fix-brief
+          gh issue view "$ISSUE_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json number,title,body,url,labels > /tmp/fix-brief/issue.json
+
+      - name: Classify issue for fix brief
+        run: |
+          node scripts/classify-issue-pattern.js \
+            --issue-file /tmp/fix-brief/issue.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --out /tmp/fix-brief/triage.json
+
+      - name: Generate fix brief
+        run: |
+          node scripts/generate-fix-brief.js \
+            --issue-file /tmp/fix-brief/issue.json \
+            --triage-file /tmp/fix-brief/triage.json \
+            --out-dir /tmp/fix-brief/output
+          find /tmp/fix-brief/output -maxdepth 1 -type f | sort
+
+      - name: Generate PR draft
+        run: |
+          node scripts/generate-pr-draft.js \
+            --fix-brief /tmp/fix-brief/output/fix-brief-issue-${ISSUE_NUMBER}.json \
+            --out-dir /tmp/fix-brief/output
+          find /tmp/fix-brief/output -maxdepth 1 -type f | sort
+
+      - name: Upload fix brief artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fix-brief-issue-${{ env.ISSUE_NUMBER }}
+          path: /tmp/fix-brief/output/
+          retention-days: 7
+
+      - name: Comment issue with fix brief summary
+        uses: actions/github-script@v7
+        env:
+          TRIAGE_PATH: /tmp/fix-brief/triage.json
+          OUTPUT_DIR: /tmp/fix-brief/output
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const marker = '<!-- issue-to-fix-brief -->';
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const triage = JSON.parse(fs.readFileSync(process.env.TRIAGE_PATH, 'utf8'));
+            const briefPath = path.join(process.env.OUTPUT_DIR, `fix-brief-issue-${issueNumber}.md`);
+            const brief = fs.readFileSync(briefPath, 'utf8');
+            const firstSection = brief.split('\n').slice(0, 20).join('\n');
+            const prDraftPath = path.join(process.env.OUTPUT_DIR, `pr-draft-issue-${issueNumber}.md`);
+            const hasPrDraft = fs.existsSync(prDraftPath);
+
+            const body = [
+              marker,
+              '### 🧩 Fix Brief Generated',
+              '',
+              `- bug_pattern: ${triage.bugPattern || 'unresolved'}`,
+              `- severity: ${triage.severity || 'unknown'}`,
+              `- ai_fixable: ${triage.aiFixable ? 'true' : 'false'}`,
+              `- pr_draft: ${hasPrDraft ? 'generated' : 'not-generated'}`,
+              '',
+              'artifact から fix brief と PR draft を取得できます。fix brief の冒頭プレビューは以下です。',
+              '',
+              '```md',
+              firstSection,
+              '```',
+            ].join('\n');
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              per_page: 100,
+            });
+
+            const existing = comments.find((comment) => (comment.body || '').includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body,
+              });
+            }

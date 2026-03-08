@@ -627,6 +627,7 @@ npm run manual:generate:user:ai -- --feature "ログイン機能" --frontend-url
 - **[AI統合ガイド](wiki/manual/ai-integration-guide.md)** - AI統合モードの詳細
 - **[マニュアル作成ガイド](wiki/manual/README.md)** - 全体概要
 - **[Issue自動生成ガイド](wiki/15-Issue自動生成ガイド.md)** - GitHub Actions統合
+- **[AI修正提案ワークフローガイド](wiki/20-AI修正提案ワークフローガイド.md)** - Issue を triage / fix brief / Copilot 実装へつなぐ pilot 手順
 
 ---
 

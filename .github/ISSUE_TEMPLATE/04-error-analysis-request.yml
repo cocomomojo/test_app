@@ -15,6 +15,30 @@ body:
         - パフォーマンス
     validations:
       required: true
+  - type: dropdown
+    id: bug-pattern
+    attributes:
+      label: 不具合パターン（任意）
+      description: わかる場合のみ選択してください。未選択なら triage workflow が補完します。
+      options:
+        - 未選択
+        - frontend-ui-text
+        - frontend-unit-test
+        - backend
+        - ci-config
+        - e2e-environment
+        - docs-manual
+  - type: dropdown
+    id: severity
+    attributes:
+      label: 重要度（任意）
+      description: わかる場合のみ選択してください。未選択なら triage workflow が補完します。
+      options:
+        - 未選択
+        - low
+        - medium
+        - high
+        - critical
   - type: textarea
     id: reproduction
     attributes:
