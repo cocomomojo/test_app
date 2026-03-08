@@ -16,9 +16,24 @@
           </v-col>
         </v-row>
 
+        <v-row class="mb-4">
+          <v-col>
+            <v-btn-toggle v-model="filter" mandatory color="primary" class="mb-2">
+              <v-btn value="all" aria-label="filter-all">すべて</v-btn>
+              <v-btn value="incomplete" aria-label="filter-incomplete">未完了</v-btn>
+              <v-btn value="complete" aria-label="filter-complete">完了</v-btn>
+            </v-btn-toggle>
+          </v-col>
+          <v-col cols="auto" class="d-flex align-center">
+            <v-chip color="info" aria-label="incomplete-count">
+              未完了: {{ incompleteCount }}
+            </v-chip>
+          </v-col>
+        </v-row>
+
         <v-list>
           <v-divider />
-          <v-list-item v-for="todo in todos" :key="todo.id">
+          <v-list-item v-for="todo in filteredTodos" :key="todo.id">
             <v-list-item-action>
               <v-checkbox v-model="todo.done" @change="toggleDone(todo)" />
             </v-list-item-action>
@@ -53,7 +68,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import {
   fetchTodos,
   createTodo,
@@ -64,6 +79,9 @@ import {
 const todos = ref([]);
 const newTitle = ref("");
 
+// フィルタ
+const filter = ref(localStorage.getItem('todoFilter') || 'all');
+
 // 編集用
 const editing = ref(false);
 const editId = ref(null);
@@ -73,6 +91,26 @@ const editTitle = ref("");
 const snackbar = ref(false);
 const snackMsg = ref('');
 const snackColor = ref('success');
+
+// フィルタされたTODOリスト
+const filteredTodos = computed(() => {
+  if (filter.value === 'incomplete') {
+    return todos.value.filter(todo => !todo.done);
+  } else if (filter.value === 'complete') {
+    return todos.value.filter(todo => todo.done);
+  }
+  return todos.value;
+});
+
+// 未完了件数
+const incompleteCount = computed(() => {
+  return todos.value.filter(todo => !todo.done).length;
+});
+
+// フィルタの変更を保存
+watch(filter, (newFilter) => {
+  localStorage.setItem('todoFilter', newFilter);
+});
 
 const load = async () => {
   const res = await fetchTodos();

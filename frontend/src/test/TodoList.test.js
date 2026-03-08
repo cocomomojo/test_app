@@ -13,6 +13,7 @@ vi.mock('../api/todo', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
 });
 
 describe('TodoList', () => {
@@ -78,5 +79,110 @@ describe('TodoList', () => {
     await flushPromises();
 
     expect(deleteTodo).toHaveBeenCalledWith(1);
+  });
+
+  it('filters todos by incomplete status', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [
+        { id: 1, title: 'Complete Task', done: true },
+        { id: 2, title: 'Incomplete Task', done: false }
+      ]
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    const filterIncomplete = wrapper.find('button[aria-label="filter-incomplete"]');
+    await filterIncomplete.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Incomplete Task');
+    expect(wrapper.text()).not.toContain('Complete Task');
+  });
+
+  it('filters todos by complete status', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [
+        { id: 1, title: 'Complete Task', done: true },
+        { id: 2, title: 'Incomplete Task', done: false }
+      ]
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    const filterComplete = wrapper.find('button[aria-label="filter-complete"]');
+    await filterComplete.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Complete Task');
+    expect(wrapper.text()).not.toContain('Incomplete Task');
+  });
+
+  it('shows all todos when "all" filter is selected', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [
+        { id: 1, title: 'Complete Task', done: true },
+        { id: 2, title: 'Incomplete Task', done: false }
+      ]
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    const filterAll = wrapper.find('button[aria-label="filter-all"]');
+    await filterAll.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Complete Task');
+    expect(wrapper.text()).toContain('Incomplete Task');
+  });
+
+  it('displays incomplete count correctly', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [
+        { id: 1, title: 'Complete Task', done: true },
+        { id: 2, title: 'Incomplete Task 1', done: false },
+        { id: 3, title: 'Incomplete Task 2', done: false }
+      ]
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    const countChip = wrapper.find('[aria-label="incomplete-count"]');
+    expect(countChip.text()).toContain('未完了: 2');
+  });
+
+  it('persists filter selection to localStorage', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [{ id: 1, title: 'Task', done: false }]
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    const filterIncomplete = wrapper.find('button[aria-label="filter-incomplete"]');
+    await filterIncomplete.trigger('click');
+    await flushPromises();
+
+    expect(localStorage.getItem('todoFilter')).toBe('incomplete');
+  });
+
+  it('restores filter selection from localStorage', async () => {
+    localStorage.setItem('todoFilter', 'complete');
+    
+    fetchTodos.mockResolvedValue({
+      data: [
+        { id: 1, title: 'Complete Task', done: true },
+        { id: 2, title: 'Incomplete Task', done: false }
+      ]
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Complete Task');
+    expect(wrapper.text()).not.toContain('Incomplete Task');
   });
 });
