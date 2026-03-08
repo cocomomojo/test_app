@@ -177,6 +177,7 @@ function buildPatternDetails(issue, triage) {
 
   return {
     pattern,
+    allowedPaths: selected.allowedPaths,
     candidateFiles: unique([...filteredReferencedPaths, ...selected.candidateFiles]),
     validationSteps: selected.validationSteps,
     changeConstraints: selected.changeConstraints,
