@@ -12,8 +12,8 @@ test.describe('ログイン機能', () => {
     await page.evaluate(() => localStorage.clear());
   });
 
-  test('ユーザーID入力欄の上に「こんばんは」が表示される', async ({ page }) => {
-    await expect(page.getByText('こんばんは')).toBeVisible();
+  test('ユーザーID入力欄の上に「こんばんわー」が表示される', async ({ page }) => {
+    await expect(page.getByText('こんばんわー')).toBeVisible();
   });
 
   test('正しい認証情報でログイン成功', async ({ page }) => {
