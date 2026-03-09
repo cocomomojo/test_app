@@ -627,7 +627,29 @@ npm run manual:generate:user:ai -- --feature "ログイン機能" --frontend-url
 - **[AI統合ガイド](wiki/manual/ai-integration-guide.md)** - AI統合モードの詳細
 - **[マニュアル作成ガイド](wiki/manual/README.md)** - 全体概要
 - **[Issue自動生成ガイド](wiki/15-Issue自動生成ガイド.md)** - GitHub Actions統合
-- **[AI修正提案ワークフローガイド](wiki/20-AI修正提案ワークフローガイド.md)** - Issue を triage / fix brief / Copilot 実装へつなぐ pilot 手順
+- **[AI修正提案ワークフローガイド](wiki/20-AI修正提案ワークフローガイド.md)** - Issue triage → fix brief → AI auto-fix → Draft PR の実運用ガイド
+- **[AI修正運用フローガイド](wiki/22-AI修正運用フローガイド.md)** - 開発者の改修 PR 起点で見る運用フロー
+
+### 🤖 AI修正PR自動化フロー（Pilot）
+
+Issue #35 の検証で、`frontend-ui-text` × `low|medium` を対象に **Issue から Draft PR 作成まで** の自動化が確認できました。
+
+```mermaid
+flowchart LR
+    A[Error Analysis<br/>Issue] --> B[issue-to-triage.yml]
+    B --> C[issue-to-fix-brief.yml]
+    C --> D{pilot eligible}
+    D -->|yes| E[issue-to-auto-fix-pr.yml]
+    E --> F[Copilot fix<br/>+ validation]
+    F --> G[Draft PR]
+    D -->|no| H[Human review<br/>path]
+```
+
+現在の pilot 条件:
+
+- bug pattern: `frontend-ui-text`
+- severity: `low`, `medium`
+- PR 作成には repository secret `AUTO_FIX_GITHUB_TOKEN` が必要
 
 ---
 
