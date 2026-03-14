@@ -18,7 +18,7 @@
 ### 1. AI統合モードでマニュアル生成
 
 ```bash
-cd /home/comojo/test_app/frontend
+cd /path/to/test_app/frontend
 
 # AI統合モード（--ai オプション付き）
 npm run manual:generate:user -- --feature "ログイン機能" --frontend-url "http://localhost:5173" --ai

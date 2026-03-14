@@ -16,7 +16,7 @@
 
 ```bash
 # 1. フロントエンド起動（別ターミナル）
-cd /home/comojo/test_app/frontend
+cd /path/to/test_app/frontend
 npm run dev
 
 # 2. マニュアル生成実行

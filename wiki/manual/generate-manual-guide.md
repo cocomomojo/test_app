@@ -76,7 +76,7 @@ git --version             # Git
 ### 2. リポジトリのセットアップ
 
 ```bash
-cd /home/comojo/test_app
+cd /path/to/test_app
 
 # Docker環境起動
 docker-compose -f infra/docker-compose.local.yml up -d
@@ -89,7 +89,7 @@ npm install
 ### 3. スクリプト権限設定
 
 ```bash
-cd /home/comojo/test_app
+cd /path/to/test_app
 chmod +x scripts/generate-manual.sh
 ```
 

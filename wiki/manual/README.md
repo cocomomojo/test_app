@@ -47,7 +47,7 @@ wiki/manual/
 
 ```bash
 # セットアップ（初回のみ）
-cd /home/comojo/test_app
+cd /path/to/test_app
 docker-compose -f infra/docker-compose.local.yml up -d  # バックエンド起動
 cd frontend && npm run dev &  # フロントエンド起動
 
@@ -88,9 +88,10 @@ npm run manual:generate:admin:ai -- --feature "システム設定" --frontend-ur
 
 #### 1. アプリケーションの起動
 
+
 ```bash
 # Docker環境を起動
-cd /home/comojo/test_app
+cd /path/to/test_app
 docker-compose -f infra/docker-compose.local.yml up -d
 
 # 起動確認
@@ -114,7 +115,7 @@ wiki/manual/screenshots/user/01-login.png
 
 ```bash
 # スクリーンショット一括撮影
-cd /home/comojo/test_app/frontend
+cd /path/to/test_app/frontend
 npx ts-node ../scripts/capture-manual-screenshots.ts
 ```
 

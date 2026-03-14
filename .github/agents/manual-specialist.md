@@ -21,7 +21,7 @@ Issue の内容を確認し、以下を把握する：
 
 ```bash
 # Docker環境を起動
-cd /home/comojo/test_app
+cd /path/to/test_app
 docker-compose -f infra/docker-compose.local.yml up -d
 
 # フロントエンドとバックエンドが起動したことを確認

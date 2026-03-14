@@ -17,27 +17,27 @@
 12. Phase 4: 完全自動化への境界を定義する。初版ではコード変更・commit・push・PR 作成は人手承認後とする。将来の `auto-fix-and-pr.yml` は別計画に分離し、専用トークン、対象パス制限、危険変更の自動停止条件、レビュー必須条件を揃えた後に追加する。 *after 1-11*
 
 **Relevant files**
-- `/home/coco2/work/test_app/.github/workflows/e2e-failure-analysis.yml` — 自動Issue化の既存起点。Issue本文の構造、artifact/log の扱い、Copilot CLI の呼び出し方を再利用する。
-- `/home/coco2/work/test_app/.github/workflows/pr-quality.yml` — frontend/backend/Sonar の共通品質ゲートを流用する。
-- `/home/coco2/work/test_app/.github/workflows/e2e.yml` — docker compose 起動、health check、Playwright 実行の再利用元。
-- `/home/coco2/work/test_app/scripts/create-planner-prompt.js` — Issue→テンプレート埋め込みの既存資産。fix brief 生成のベース候補。
-- `/home/coco2/work/test_app/qa/test-management/templates/planner-prompt-template.md` — 既存テンプレート構成の参考。brief template のベースにできる。
-- `/home/coco2/work/test_app/.github/pull_request_template.md` — PR本文ドラフトの整形先。
-- `/home/coco2/work/test_app/.github/skills/create_pr.md` — PR 説明文に含める項目の参考。
-- `/home/coco2/work/test_app/.github/ISSUE_TEMPLATE/04-error-analysis-request.yml` — bug pattern / severity を取り込む更新対象。
-- `/home/coco2/work/test_app/.github/agents/error-analysis-issue-creator.agent.md` — エラー解析 Issue 作成ルールの参考。
-- `/home/coco2/work/test_app/.github/ISSUE_TEMPLATE/config.yml` — blank issue 無効化済みであることを前提に、Form 起点へ寄せる際の基準。
-- `/home/coco2/work/test_app/frontend/tests/e2e/login.spec.ts` — `frontend-ui-text` パイロットの対象候補。
-- `/home/coco2/work/test_app/frontend/src/components/LoginPage.vue` — パイロットの根拠ソース。
+ - `/path/to/test_app/.github/workflows/e2e-failure-analysis.yml` — 自動Issue化の既存起点。Issue本文の構造、artifact/log の扱い、Copilot CLI の呼び出し方を再利用する。
+ - `/path/to/test_app/.github/workflows/pr-quality.yml` — frontend/backend/Sonar の共通品質ゲートを流用する。
+ - `/path/to/test_app/.github/workflows/e2e.yml` — docker compose 起動、health check、Playwright 実行の再利用元。
+ - `/path/to/test_app/scripts/create-planner-prompt.js` — Issue→テンプレート埋め込みの既存資産。fix brief 生成のベース候補。
+ - `/path/to/test_app/qa/test-management/templates/planner-prompt-template.md` — 既存テンプレート構成の参考。brief template のベースにできる。
+ - `/path/to/test_app/.github/pull_request_template.md` — PR本文ドラフトの整形先。
+ - `/path/to/test_app/.github/skills/create_pr.md` — PR 説明文に含める項目の参考。
+ - `/path/to/test_app/.github/ISSUE_TEMPLATE/04-error-analysis-request.yml` — bug pattern / severity を取り込む更新対象。
+ - `/path/to/test_app/.github/agents/error-analysis-issue-creator.agent.md` — エラー解析 Issue 作成ルールの参考。
+ - `/path/to/test_app/.github/ISSUE_TEMPLATE/config.yml` — blank issue 無効化済みであることを前提に、Form 起点へ寄せる際の基準。
+ - `/path/to/test_app/frontend/tests/e2e/login.spec.ts` — `frontend-ui-text` パイロットの対象候補。
+ - `/path/to/test_app/frontend/src/components/LoginPage.vue` — パイロットの根拠ソース。
 
 **Change guardrails**
-- 既存 workflow の責務は維持する。`/home/coco2/work/test_app/.github/workflows/e2e-failure-analysis.yml` は「E2E失敗の証拠収集と Issue 起票」、`/home/coco2/work/test_app/.github/workflows/e2e.yml` は「E2E実行と artifact 収集」、`/home/coco2/work/test_app/.github/workflows/pr-quality.yml` は「PR品質ゲート」に責務を固定し、新しい triage / brief 生成責務を混ぜ込まない。
+ - 既存 workflow の責務は維持する。`/path/to/test_app/.github/workflows/e2e-failure-analysis.yml` は「E2E失敗の証拠収集と Issue 起票」、`/path/to/test_app/.github/workflows/e2e.yml` は「E2E実行と artifact 収集」、`/path/to/test_app/.github/workflows/pr-quality.yml` は「PR品質ゲート」に責務を固定し、新しい triage / brief 生成責務を混ぜ込まない。
 - 既存 workflow の trigger は原則変更しない。イベント種別、実行条件、permissions の意味を変える変更は初版スコープ外とする。
-- 既存スクリプトは後方互換を優先する。`/home/coco2/work/test_app/scripts/create-planner-prompt.js` は既存用途を壊さない範囲で再利用し、責務が分岐するなら `/home/coco2/work/test_app/scripts/generate-fix-brief.js` のように新規追加する。
-- 既存 Issue Form は破壊的変更を避ける。`/home/coco2/work/test_app/.github/ISSUE_TEMPLATE/04-error-analysis-request.yml` への追加は任意入力または後方互換ありの項目に限り、既存入力必須項目の意味は変えない。
-- 新機能は追加型で実装する。新規追加対象は主に `/home/coco2/work/test_app/.github/workflows/issue-to-triage.yml`、`/home/coco2/work/test_app/.github/workflows/issue-to-fix-brief.yml`、`/home/coco2/work/test_app/scripts/classify-issue-pattern.js`、`/home/coco2/work/test_app/scripts/generate-fix-brief.js`、`/home/coco2/work/test_app/qa/test-management/templates/fix-brief-*.md` とする。
-- パイロット段階の最小変更対象を明確化する。Phase 1 では既存ファイルの変更は `04-error-analysis-request.yml` と `create-planner-prompt.js` の判断に留め、基本は新規 workflow / script / template の追加だけで成立する構成を優先する。
-- 将来の自動PR化でも、変更可能パスを `bug_pattern` ごとに制限する。例として `frontend-ui-text` は `frontend/tests/e2e/**` と `frontend/src/components/**` を主対象にし、`.github/workflows/**` や `infra/**` への変更は別パターンに限定する。
+ - 既存スクリプトは後方互換を優先する。`/path/to/test_app/scripts/create-planner-prompt.js` は既存用途を壊さない範囲で再利用し、責務が分岐するなら `/path/to/test_app/scripts/generate-fix-brief.js` のように新規追加する。
+ - 既存 Issue Form は破壊的変更を避ける。`/path/to/test_app/.github/ISSUE_TEMPLATE/04-error-analysis-request.yml` への追加は任意入力または後方互換ありの項目に限り、既存入力必須項目の意味は変えない。
+ - 新機能は追加型で実装する。新規追加対象は主に `/path/to/test_app/.github/workflows/issue-to-triage.yml`、`/path/to/test_app/.github/workflows/issue-to-fix-brief.yml`、`/path/to/test_app/scripts/classify-issue-pattern.js`、`/path/to/test_app/scripts/generate-fix-brief.js`、`/path/to/test_app/qa/test-management/templates/fix-brief-*.md` とする。
+ - パイロット段階の最小変更対象を明確化する。Phase 1 では既存ファイルの変更は `04-error-analysis-request.yml` と `create-planner-prompt.js` の判断に留め、基本は新規 workflow / script / template の追加だけで成立する構成を優先する。
+ - 将来の自動PR化でも、変更可能パスを `bug_pattern` ごとに制限する。例として `frontend-ui-text` は `frontend/tests/e2e/**` と `frontend/src/components/**` を主対象にし、`.github/workflows/**` や `infra/**` への変更は別パターンに限定する。
 
 **Verification**
 1. `issue-to-triage.yml` が Issue #35 を `frontend-ui-text` と判定し、`ai-fixable` を付けられることを確認する。
