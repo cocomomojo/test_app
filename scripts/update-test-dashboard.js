@@ -16,7 +16,7 @@ function readJsonSafe(filePath) {
 }
 
 function main() {
-  const root = process.cwd();
+  const root = process.env.PR_TEST_PLAN_OUTPUT_ROOT || process.cwd();
   const metaDir = path.join(root, 'qa', 'test-management', '.meta');
   const outputDir = path.join(root, 'qa', 'test-management');
   const outputFile = path.join(outputDir, 'dashboard.md');
