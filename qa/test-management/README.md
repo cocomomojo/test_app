@@ -75,6 +75,8 @@ PR test plan を自動生成する設計案は、次のファイルにまとめ�
 
 現在、最小構成の workflow 雛形として `.github/workflows/pr-test-plan.yml` も追加しています。
 
+`COPILOT_GITHUB_TOKEN` が設定されている場合、`pr-test-plan.yml` も **AI 提案ファイル** を生成します。
+
 branch へ戻す運用ルールは、次のファイルに分けて整理しています。
 
 - `branch-reflection-policy.md`
@@ -184,6 +186,11 @@ branch へ戻す運用ルールは、次のファイルに分けて整理して�
 - `qa/test-management/dashboard.md`
 - `qa/test-management/simulation-summary.md`
 - `frontend/tests/e2e/generated/pr-<番号>-*.spec.ts`
+
+本番の PR workflow では、追加で次も出力対象になります。
+
+- `qa/test-management/ai/prompt-pr-<番号>.txt`
+- `qa/test-management/ai/pr-<番号>-ai-suggestions.md`
 
 ### ローカルに Node.js がない場合
 
