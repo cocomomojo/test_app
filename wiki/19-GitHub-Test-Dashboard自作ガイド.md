@@ -4,25 +4,45 @@
 
 ## ✅ このリポジトリ向けの最新実装（2026-03）
 
-以下の旧PR起点テスト管理workflowは整理済みです。現在は **PR品質チェック** と **E2E失敗時のCopilot調査** を中心に運用します。
+現在は **PR品質チェック**、**PR test plan 自動生成 / simulation**、**E2E失敗時のCopilot調査** を組み合わせて運用します。
 
 ### 追加済みファイル
 
 - PRテンプレート
   - `.github/pull_request_template.md`
 - ワークフロー
+  - `.github/workflows/pr-test-plan.yml`
+  - `.github/workflows/pr-test-plan-simulation.yml`
   - `.github/workflows/e2e.yml`
   - `.github/workflows/e2e-failure-analysis.yml`
   - `.github/workflows/pr-quality.yml`
 - 生成スクリプト
   - `scripts/generate-pr-test-assets.js`
+  - `scripts/generate-pr-test-plan-ai-prompt.js`
+  - `scripts/ensure-pr-test-plan-ai-output.js`
   - `scripts/update-test-dashboard.js`
 - 生成物（実行時）
   - `qa/test-management/pr/PR-<番号>-test-plan.md`
+  - `qa/test-management/.meta/pr-<番号>.json`
+  - `qa/test-management/ai/prompt-pr-<番号>.txt`
+  - `qa/test-management/ai/pr-<番号>-ai-suggestions.md`
   - `frontend/tests/e2e/generated/pr-<番号>-*.spec.ts`
   - `qa/test-management/dashboard.md`
 
 ### 現在の運用
+
+#### PR test plan 自動生成
+
+1. PR作成または更新で `PR Test Plan Assets` が自動実行されます。
+2. PR本文から test plan / meta / dashboard / Playwright 雛形を生成します。
+3. `COPILOT_GITHUB_TOKEN` が設定されていれば AI提案ファイルも生成します。
+4. branch 反映は same-repo / non-draft / label / token / opt-in 条件を満たす場合だけ実施します。
+
+#### PR test plan simulation
+
+1. `PR Test Plan Simulation` を `workflow_dispatch` で起動します。
+2. `normal` / `fork` / `draft` / `no-label` / `no-token` の条件をCI上で再現できます。
+3. AI prompt / AI suggestions を含む artifact を取得できます。
 
 #### PR品質チェック
 
@@ -42,7 +62,7 @@
 - `qa/test-management/specs/issue-<Issue番号>-*.md`（Playwright planner成果物）が存在しない場合、ワークフローは失敗する
 - generator相当は **spec雛形生成まで**（`test.skip` ベースの placeholder）
   - 実テストコード化は次フェーズで段階的に拡張
-- PR本文からの自動生成には依存しない（Agents/AIが作成した成果物を必須入力として扱う）
+- PR test plan workflow は PR本文のチェックリストを基礎入力とし、AI提案は補完情報として扱う
 
 ### 完全自動に寄せる段階設計（2026-02時点）
 
@@ -51,9 +71,12 @@
   - PRへの結果自動コメント
   - E2E失敗時のログ収集
 - Phase 2（実装済み）
+  - PR test plan / meta / dashboard / Playwright 雛形の自動生成
+  - PR test plan simulation のCI実行
   - Copilot CLI によるE2E失敗原因の自動調査
   - 調査結果のIssue自動作成
 - Phase 3（次段）
+  - PR test plan 本番運用の定常化
   - Issueの重複抑止
   - SonarQube品質ゲート結果のPRステータス強化
 
@@ -77,6 +100,7 @@
 
 - 結論: **両方**です。
   - 本仕組みは、PR本文のチェックリストを機械的に解析して `test-plan.md` と Playwright の placeholder spec を生成します。
+  - さらに、Copilot が `qa/test-management/ai/pr-<番号>-ai-suggestions.md` に不足観点の補完提案を出せます。
   - つまり、**設計品質はPR本文に書かれた入力品質に依存**します。
 
 - 現在の主な入力ソース

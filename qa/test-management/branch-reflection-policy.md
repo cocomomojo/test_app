@@ -4,11 +4,13 @@
 
 PR test plan 自動生成で作られた成果物を、**どのPRで branch に戻してよいか** を明確にするためのポリシーです。
 
-対象の生成物は次の4つです。
+対象の生成物は次の6つです。
 
 - `qa/test-management/pr/PR-<番号>-test-plan.md`
 - `qa/test-management/.meta/pr-<番号>.json`
 - `qa/test-management/dashboard.md`
+- `qa/test-management/ai/prompt-pr-<番号>.txt`
+- `qa/test-management/ai/pr-<番号>-ai-suggestions.md`
 - `frontend/tests/e2e/generated/pr-<番号>-*.spec.ts`
 
 ---
@@ -58,6 +60,8 @@ branch 反映で push してよいのは、次の生成物だけです。
 - `qa/test-management/pr/PR-<番号>-test-plan.md`
 - `qa/test-management/.meta/pr-<番号>.json`
 - `qa/test-management/dashboard.md`
+- `qa/test-management/ai/prompt-pr-<番号>.txt`
+- `qa/test-management/ai/pr-<番号>-ai-suggestions.md`
 - `frontend/tests/e2e/generated/pr-<番号>-*.spec.ts`
 
 workflow は、これ以外の差分を検知した場合は push を中止します。
@@ -109,6 +113,7 @@ workflow summary / PRコメントには、次の情報が出ます。
 - required label
 - policy
 - branch sync result
+- Copilot availability / outcome
 
 これにより、
 
