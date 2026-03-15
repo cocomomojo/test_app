@@ -1,0 +1,255 @@
+---
+name: PR Test Plan Assets
+
+"on":
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  generate-pr-test-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine publication mode
+        id: publication_mode
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+          PR_TEST_PLAN_PUSH_ENABLED: ${{ vars.PR_TEST_PLAN_PUSH_ENABLED }}
+          PR_TEST_PLAN_PUSH_LABEL: ${{ vars.PR_TEST_PLAN_PUSH_LABEL }}
+          PR_TEST_PLAN_GITHUB_TOKEN_CONFIGURED: ${{ secrets.PR_TEST_PLAN_GITHUB_TOKEN != '' }}
+          PR_LABELS_JSON: ${{ toJson(github.event.pull_request.labels.*.name) }}
+          PR_IS_DRAFT: ${{ github.event.pull_request.draft }}
+        run: node scripts/pr-test-plan-publication-mode.js
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Generate PR test assets
+        run: node scripts/generate-pr-test-assets.js
+
+      - name: Collect PR test meta
+        run: node scripts/collect-pr-test-assets-meta.js
+
+      - name: Update test dashboard
+        run: node scripts/update-test-dashboard.js
+
+      - name: Upload PR test assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.publication_mode.outputs.artifact_name }}
+          path: |
+            qa/test-management/pr/PR-${{ github.event.pull_request.number }}-test-plan.md
+            qa/test-management/.meta/pr-${{ github.event.pull_request.number }}.json
+            qa/test-management/dashboard.md
+            frontend/tests/e2e/generated/pr-${{ github.event.pull_request.number }}-*.spec.ts
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Sync generated assets to PR branch
+        id: branch_sync
+        if: steps.publication_mode.outputs.branch_sync_enabled == 'true'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_TEST_PLAN_GITHUB_TOKEN: ${{ secrets.PR_TEST_PLAN_GITHUB_TOKEN }}
+        run: |
+          set -e
+
+          ALLOWED_PLAN="qa/test-management/pr/PR-${PR_NUMBER}-test-plan.md"
+          ALLOWED_META="qa/test-management/.meta/pr-${PR_NUMBER}.json"
+          ALLOWED_DASHBOARD="qa/test-management/dashboard.md"
+
+          TMP_DIR="$(mktemp -d)"
+
+          mkdir -p "$TMP_DIR/qa/test-management/pr"
+          mkdir -p "$TMP_DIR/qa/test-management/.meta"
+          mkdir -p "$TMP_DIR/qa/test-management"
+          mkdir -p "$TMP_DIR/frontend/tests/e2e/generated"
+
+          cp "qa/test-management/pr/PR-${PR_NUMBER}-test-plan.md" "$TMP_DIR/qa/test-management/pr/"
+          cp "qa/test-management/.meta/pr-${PR_NUMBER}.json" "$TMP_DIR/qa/test-management/.meta/"
+          cp "qa/test-management/dashboard.md" "$TMP_DIR/qa/test-management/"
+          cp frontend/tests/e2e/generated/pr-"${PR_NUMBER}"-*.spec.ts "$TMP_DIR/frontend/tests/e2e/generated/"
+
+          git fetch origin "$HEAD_REF"
+          git checkout -B "$HEAD_REF" "origin/$HEAD_REF"
+
+          mkdir -p qa/test-management/pr qa/test-management/.meta frontend/tests/e2e/generated
+          cp "$TMP_DIR/qa/test-management/pr/PR-${PR_NUMBER}-test-plan.md" qa/test-management/pr/
+          cp "$TMP_DIR/qa/test-management/.meta/pr-${PR_NUMBER}.json" qa/test-management/.meta/
+          cp "$TMP_DIR/qa/test-management/dashboard.md" qa/test-management/
+          cp "$TMP_DIR/frontend/tests/e2e/generated/"pr-"${PR_NUMBER}"-*.spec.ts frontend/tests/e2e/generated/
+
+          mapfile -t CHANGED_FILES < <(git status --porcelain | awk '{print $2}')
+          for file in "${CHANGED_FILES[@]}"; do
+            if [ "$file" = "$ALLOWED_PLAN" ] || [ "$file" = "$ALLOWED_META" ] || [ "$file" = "$ALLOWED_DASHBOARD" ] || [[ "$file" == frontend/tests/e2e/generated/pr-${PR_NUMBER}-*.spec.ts ]]; then
+              continue
+            fi
+
+            echo "status=blocked" >> "$GITHUB_OUTPUT"
+            echo "reason=許可対象外のファイル差分を検知したため branch 反映を中止: ${file}" >> "$GITHUB_OUTPUT"
+            echo "Unexpected file change: ${file}"
+            exit 1
+          done
+
+          if git diff --quiet -- qa/test-management/pr/PR-${PR_NUMBER}-test-plan.md qa/test-management/.meta/pr-${PR_NUMBER}.json qa/test-management/dashboard.md frontend/tests/e2e/generated/pr-${PR_NUMBER}-*.spec.ts; then
+            echo "status=skipped" >> "$GITHUB_OUTPUT"
+            echo "reason=branch へ反映すべき差分がなかったため commit を作成しない" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add qa/test-management/pr/PR-${PR_NUMBER}-test-plan.md qa/test-management/.meta/pr-${PR_NUMBER}.json qa/test-management/dashboard.md frontend/tests/e2e/generated/pr-${PR_NUMBER}-*.spec.ts
+          git commit -m "test: update PR ${PR_NUMBER} test plan assets"
+          git remote set-url origin "https://x-access-token:${PR_TEST_PLAN_GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
+          git push origin "HEAD:${HEAD_REF}"
+
+          echo "status=success" >> "$GITHUB_OUTPUT"
+          echo "reason=生成した test plan / meta / dashboard / Playwright 雛形をPR branchへ反映" >> "$GITHUB_OUTPUT"
+
+      - name: Write workflow summary
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ARTIFACT_NAME: ${{ steps.publication_mode.outputs.artifact_name }}
+          BRANCH_SYNC_ENABLED: ${{ steps.publication_mode.outputs.branch_sync_enabled }}
+          BRANCH_SYNC_REASON: ${{ steps.publication_mode.outputs.branch_sync_reason }}
+          BRANCH_SYNC_STATUS: ${{ steps.branch_sync.outputs.status }}
+          BRANCH_SYNC_RESULT_REASON: ${{ steps.branch_sync.outputs.reason }}
+          REQUIRED_LABEL: ${{ steps.publication_mode.outputs.required_label }}
+          COMMENT_MODE: ${{ steps.publication_mode.outputs.comment_mode }}
+          IS_FORK: ${{ steps.publication_mode.outputs.is_fork }}
+        run: |
+          {
+            echo "## 🧪 PR Test Plan Assets"
+            echo
+            echo "- PR: #${PR_NUMBER}"
+            echo "- Artifact: \`${ARTIFACT_NAME}\`"
+            echo "- Test Plan: \`qa/test-management/pr/PR-${PR_NUMBER}-test-plan.md\`"
+            echo "- Meta: \`qa/test-management/.meta/pr-${PR_NUMBER}.json\`"
+            echo "- Dashboard: \`qa/test-management/dashboard.md\`"
+            echo "- Playwright Draft: \`frontend/tests/e2e/generated/pr-${PR_NUMBER}-*.spec.ts\`"
+            echo
+            echo "### Publication Mode"
+            echo "- Comment mode: ${COMMENT_MODE}"
+            echo "- Branch sync enabled: ${BRANCH_SYNC_ENABLED}"
+            echo "- Required label for branch sync: ${REQUIRED_LABEL}"
+            echo "- Policy: ${BRANCH_SYNC_REASON}"
+            if [ -n "$BRANCH_SYNC_STATUS" ]; then
+              echo "- Branch sync result: ${BRANCH_SYNC_STATUS}"
+              echo "- Branch sync note: ${BRANCH_SYNC_RESULT_REASON}"
+            fi
+            echo
+            echo "### Artifact の取得手順"
+            echo "1. この workflow run の画面を開く"
+            echo "2. 右側または下部の Artifacts セクションを開く"
+            echo "3. \`${ARTIFACT_NAME}\` をダウンロードする"
+            echo "4. 展開後に test plan / meta / dashboard / Playwright 雛形を確認する"
+            if [ "$IS_FORK" = 'true' ]; then
+              echo
+              echo "> fork PR のため、PRコメントと branch 反映は行わず、artifact と workflow summary のみ提供しています。"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment PR with test assets summary
+        if: steps.publication_mode.outputs.comment_mode == 'comment-and-summary'
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ARTIFACT_NAME: ${{ steps.publication_mode.outputs.artifact_name }}
+          REQUIRED_LABEL: ${{ steps.publication_mode.outputs.required_label }}
+          BRANCH_SYNC_ENABLED: ${{ steps.publication_mode.outputs.branch_sync_enabled }}
+          BRANCH_SYNC_REASON: ${{ steps.publication_mode.outputs.branch_sync_reason }}
+          BRANCH_SYNC_STATUS: ${{ steps.branch_sync.outputs.status }}
+          BRANCH_SYNC_RESULT_REASON: ${{ steps.branch_sync.outputs.reason }}
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const marker = '<!-- pr-test-plan-assets -->';
+            const prNumber = Number(process.env.PR_NUMBER);
+            const metaPath = path.join(process.env.GITHUB_WORKSPACE, 'qa', 'test-management', '.meta', `pr-${prNumber}.json`);
+
+            let meta = null;
+            if (fs.existsSync(metaPath)) {
+              meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+            }
+
+            const body = [
+              marker,
+              '### 🧪 PR Test Plan Assets',
+              '',
+              meta
+                ? `- Test Plan: \`${meta.generatedPlan || 'qa/test-management/pr/PR-' + prNumber + '-test-plan.md'}\``
+                : `- Test Plan: \`qa/test-management/pr/PR-${prNumber}-test-plan.md\``,
+              meta?.generatedSpec
+                ? `- Playwright Draft: \`${meta.generatedSpec}\``
+                : `- Playwright Draft: \`frontend/tests/e2e/generated/pr-${prNumber}-*.spec.ts\``,
+              meta
+                ? `- Meta: \`qa/test-management/.meta/pr-${prNumber}.json\``
+                : `- Meta: \`qa/test-management/.meta/pr-${prNumber}.json\``,
+              '- Dashboard: `qa/test-management/dashboard.md`',
+              '',
+              '#### Summary',
+              `- E2E items: ${meta?.e2eCount ?? 'unknown'}`,
+              `- Manual items: ${meta?.manualCount ?? 'unknown'}`,
+              `- Integration items: ${meta?.integrationCount ?? 'unknown'}`,
+              '',
+              '#### Publication',
+              `- Artifact: ${process.env.ARTIFACT_NAME || 'pr-test-assets-' + prNumber}`,
+              `- Required label for branch sync: ${process.env.REQUIRED_LABEL || 'test-plan-sync'}`,
+              `- Branch sync enabled: ${process.env.BRANCH_SYNC_ENABLED || 'false'}`,
+              `- Policy: ${process.env.BRANCH_SYNC_REASON || 'n/a'}`,
+              process.env.BRANCH_SYNC_STATUS
+                ? `- Branch sync result: ${process.env.BRANCH_SYNC_STATUS} (${process.env.BRANCH_SYNC_RESULT_REASON || 'n/a'})`
+                : '- Branch sync result: not-run',
+              '',
+              '#### Next actions',
+              '- [ ] QA が観点を確認',
+              '- [ ] 必要なら test plan を追記',
+              '- [ ] E2E の採否を決定',
+              '- [ ] dashboard の内容を確認',
+              `- Workflow Run: ${process.env.RUN_URL}`,
+            ].join('\n');
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+
+            const existing = comments.find((comment) => (comment.body || '').includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+            }

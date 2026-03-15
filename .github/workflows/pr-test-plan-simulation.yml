@@ -1,0 +1,201 @@
+---
+name: PR Test Plan Simulation
+
+"on":
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Simulation PR number"
+        required: true
+        default: "99001"
+      scenario:
+        description: "Simulation scenario"
+        required: true
+        default: "normal"
+        type: choice
+        options:
+          - normal
+          - fork
+          - draft
+          - no-label
+          - no-token
+      push_label:
+        description: "Required label name"
+        required: false
+        default: "test-plan-sync"
+
+permissions:
+  contents: read
+
+jobs:
+  simulate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Setup Scripts
+        uses: github/gh-aw/actions/setup@a0ed2f46906483dcf634e8694268e4fab9b21e65
+        with:
+          destination: /opt/gh-aw/actions
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect Copilot availability
+        id: copilot_secret
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+        run: |
+          if [ -n "$COPILOT_GITHUB_TOKEN" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "reason=configured" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "reason=COPILOT_GITHUB_TOKEN secret is not configured" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate COPILOT_GITHUB_TOKEN secret
+        if: steps.copilot_secret.outputs.available == 'true'
+        run: /opt/gh-aw/actions/validate_multi_secret.sh COPILOT_GITHUB_TOKEN 'GitHub Copilot CLI' https://github.github.com/gh-aw/reference/engines/#github-copilot-default
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+
+      - name: Install GitHub Copilot CLI
+        if: steps.copilot_secret.outputs.available == 'true'
+        run: /opt/gh-aw/actions/install_copilot_cli.sh 0.0.421
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Resolve scenario parameters
+        id: scenario
+        env:
+          SCENARIO: ${{ inputs.scenario }}
+          PUSH_LABEL: ${{ inputs.push_label }}
+        run: |
+          LABELS="$PUSH_LABEL"
+          FORK=false
+          DRAFT=false
+          PUSH_ENABLED=true
+          TOKEN_CONFIGURED=true
+
+          case "$SCENARIO" in
+            fork)
+              FORK=true
+              ;;
+            draft)
+              DRAFT=true
+              ;;
+            no-label)
+              LABELS="needs-review"
+              ;;
+            no-token)
+              TOKEN_CONFIGURED=false
+              ;;
+          esac
+
+          echo "labels=${LABELS}" >> "$GITHUB_OUTPUT"
+          echo "fork=${FORK}" >> "$GITHUB_OUTPUT"
+          echo "draft=${DRAFT}" >> "$GITHUB_OUTPUT"
+          echo "push_enabled=${PUSH_ENABLED}" >> "$GITHUB_OUTPUT"
+          echo "token_configured=${TOKEN_CONFIGURED}" >> "$GITHUB_OUTPUT"
+
+      - name: Run simulation
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          SCENARIO: ${{ inputs.scenario }}
+          PUSH_LABEL: ${{ inputs.push_label }}
+          LABELS: ${{ steps.scenario.outputs.labels }}
+          FORK: ${{ steps.scenario.outputs.fork }}
+          DRAFT: ${{ steps.scenario.outputs.draft }}
+          PUSH_ENABLED: ${{ steps.scenario.outputs.push_enabled }}
+          TOKEN_CONFIGURED: ${{ steps.scenario.outputs.token_configured }}
+        run: |
+          node scripts/simulate-pr-test-plan-workflow.js \
+            --pr-number "$PR_NUMBER" \
+            --push-label "$PUSH_LABEL" \
+            --labels "$LABELS" \
+            --fork "$FORK" \
+            --draft "$DRAFT" \
+            --push-enabled "$PUSH_ENABLED" \
+            --token-configured "$TOKEN_CONFIGURED" \
+            --output-root .tmp/pr-test-plan-simulations/${SCENARIO}-${PR_NUMBER}
+
+      - name: Generate AI prompt
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          SCENARIO: ${{ inputs.scenario }}
+          PUSH_LABEL: ${{ inputs.push_label }}
+        run: |
+          node scripts/generate-pr-test-plan-ai-prompt.js \
+            --simulation-root .tmp/pr-test-plan-simulations/${SCENARIO}-${PR_NUMBER} \
+            --pr-number "$PR_NUMBER" \
+            --scenario "$SCENARIO" \
+            --required-label "$PUSH_LABEL" \
+            --out .tmp/pr-test-plan-simulations/${SCENARIO}-${PR_NUMBER}/qa/test-management/ai/prompt.txt
+
+      - name: Execute GitHub Copilot CLI for AI suggestions
+        id: copilot
+        if: steps.copilot_secret.outputs.available == 'true'
+        env:
+          COPILOT_AGENT_RUNNER_TYPE: STANDALONE
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          XDG_CONFIG_HOME: /home/runner
+        run: |
+          /usr/local/bin/copilot \
+            --add-dir "${GITHUB_WORKSPACE}" \
+            --add-dir "${GITHUB_WORKSPACE}/.tmp/pr-test-plan-simulations/${{ inputs.scenario }}-${{ inputs.pr_number }}" \
+            --disable-builtin-mcps \
+            --allow-all-tools \
+            --allow-all-paths \
+            --prompt "$(cat .tmp/pr-test-plan-simulations/${{ inputs.scenario }}-${{ inputs.pr_number }}/qa/test-management/ai/prompt.txt)"
+
+      - name: Ensure AI suggestion output
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          SCENARIO: ${{ inputs.scenario }}
+          AI_STATUS: ${{ steps.copilot.outcome || 'skipped' }}
+          AI_REASON: ${{ steps.copilot_secret.outputs.reason }}
+        run: |
+          node scripts/ensure-pr-test-plan-ai-output.js \
+            --simulation-root .tmp/pr-test-plan-simulations/${SCENARIO}-${PR_NUMBER} \
+            --pr-number "$PR_NUMBER" \
+            --scenario "$SCENARIO" \
+            --ai-status "$AI_STATUS" \
+            --reason "$AI_REASON"
+
+      - name: Write AI simulation summary
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          SCENARIO: ${{ inputs.scenario }}
+          COPILOT_AVAILABLE: ${{ steps.copilot_secret.outputs.available }}
+          COPILOT_REASON: ${{ steps.copilot_secret.outputs.reason }}
+          COPILOT_OUTCOME: ${{ steps.copilot.outcome }}
+        run: |
+          {
+            echo "## 🤖 Copilot Simulation"
+            echo
+            echo "- scenario: ${SCENARIO}"
+            echo "- copilot_available: ${COPILOT_AVAILABLE}"
+            echo "- copilot_reason: ${COPILOT_REASON}"
+            echo "- copilot_outcome: ${COPILOT_OUTCOME:-not-run}"
+            echo "- ai_suggestions: .tmp/pr-test-plan-simulations/${SCENARIO}-${PR_NUMBER}/qa/test-management/ai/pr-${PR_NUMBER}-ai-suggestions.md"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload simulation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-test-plan-simulation-${{ inputs.scenario }}-${{ inputs.pr_number }}
+          path: |
+            .tmp/pr-test-plan-simulations/${{ inputs.scenario }}-${{ inputs.pr_number }}/qa/test-management/pr/PR-${{ inputs.pr_number }}-test-plan.md
+            .tmp/pr-test-plan-simulations/${{ inputs.scenario }}-${{ inputs.pr_number }}/qa/test-management/.meta/pr-${{ inputs.pr_number }}.json
+            .tmp/pr-test-plan-simulations/${{ inputs.scenario }}-${{ inputs.pr_number }}/qa/test-management/dashboard.md
+            .tmp/pr-test-plan-simulations/${{ inputs.scenario }}-${{ inputs.pr_number }}/qa/test-management/simulation-summary.md
+            .tmp/pr-test-plan-simulations/${{ inputs.scenario }}-${{ inputs.pr_number }}/qa/test-management/ai/prompt.txt
+            .tmp/pr-test-plan-simulations/${{ inputs.scenario }}-${{ inputs.pr_number }}/qa/test-management/ai/pr-${{ inputs.pr_number }}-ai-suggestions.md
+            .tmp/pr-test-plan-simulations/${{ inputs.scenario }}-${{ inputs.pr_number }}/frontend/tests/e2e/generated/pr-${{ inputs.pr_number }}-*.spec.ts
+          if-no-files-found: error
+          retention-days: 7

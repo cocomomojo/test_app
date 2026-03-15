@@ -81,7 +81,7 @@ function loadPrMeta() {
 }
 
 function main() {
-  const root = process.cwd();
+  const root = process.env.PR_TEST_PLAN_OUTPUT_ROOT || process.cwd();
   const pr = loadPrMeta();
 
   const planPath = path.join(root, 'qa', 'test-management', 'pr', `PR-${pr.number}-test-plan.md`);

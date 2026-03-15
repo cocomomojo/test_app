@@ -163,7 +163,7 @@ function main() {
     '^##\\s*総合\\s*テスト\\s*項目',
   ]));
 
-  const root = process.cwd();
+  const root = process.env.PR_TEST_PLAN_OUTPUT_ROOT || process.cwd();
   const planDir = path.join(root, 'qa', 'test-management', 'pr');
   const dashboardDataDir = path.join(root, 'qa', 'test-management', '.meta');
   const generatedE2EDir = path.join(root, 'frontend', 'tests', 'e2e', 'generated');
