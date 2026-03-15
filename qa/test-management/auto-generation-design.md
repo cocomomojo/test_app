@@ -21,6 +21,7 @@
 | Playwright 雛形 | `frontend/tests/e2e/generated/pr-<番号>-*.spec.ts` | E2Eのたたき台 |
 | meta情報 | `qa/test-management/.meta/pr-<番号>.json` | ダッシュボード集計 |
 | dashboard | `qa/test-management/dashboard.md` | PR横断の一覧表示 |
+| AI suggestions | `qa/test-management/ai/pr-<番号>-ai-suggestions.md` | Copilot による補完提案 |
 | PRコメント | PRコメント欄 | レビュー時の要約 |
 
 ---
@@ -74,6 +75,8 @@ workflow では、この許可リスト以外の差分を検知した場合は b
 | `scripts/generate-pr-test-assets.js` | PR本文から test plan / Playwright 雛形を生成 |
 | `scripts/collect-pr-test-assets-meta.js` | 生成物を検証し meta を作成 |
 | `scripts/update-test-dashboard.js` | meta を集計して dashboard を更新 |
+| `scripts/generate-pr-test-plan-ai-prompt.js` | Copilot へ渡す prompt を生成 |
+| `scripts/ensure-pr-test-plan-ai-output.js` | AI提案ファイルの fallback を作成 |
 | `qa/test-management/templates/pr-test-plan-template.md` | 人が書く test plan の雛形 |
 | `.github/pull_request_template.md` | PR作成時の入力をそろえる |
 
@@ -149,10 +152,12 @@ flowchart TD
 4. `scripts/generate-pr-test-assets.js` 実行
 5. `scripts/collect-pr-test-assets-meta.js` 実行
 6. `scripts/update-test-dashboard.js` 実行
-7. 生成物を artifact に保存
-8. workflow summary に結果を要約
-9. 条件を満たす場合のみ PR branch へ反映
-10. コメント可能なPRでは PRコメントに結果を要約
+7. `generate-pr-test-plan-ai-prompt.js` 実行
+8. 条件を満たす場合は Copilot で AI提案を生成
+9. 生成物を artifact に保存
+10. workflow summary に結果を要約
+11. 条件を満たす場合のみ PR branch へ反映
+12. コメント可能なPRでは PRコメントに結果を要約
 
 ### フロー図
 
@@ -164,14 +169,19 @@ flowchart TD
   D --> E[generate-pr-test-assets.js]
   E --> F[collect-pr-test-assets-meta.js]
   F --> G[update-test-dashboard.js]
-  G --> H[artifact upload]
-  G --> I[workflow summary]
-  I --> J{branch反映可能?}
-  J -->|Yes| K[PR branchへcommit/push]
-  J -->|No| L[artifactのみ提供]
-  I --> M{PRコメント可能?}
-  M -->|Yes| N[PR comment update]
-  M -->|No| O[summaryのみ]
+  G --> H[generate-pr-test-plan-ai-prompt.js]
+  H --> I{Copilot利用可能?}
+  I -->|Yes| J[AI suggestions生成]
+  I -->|No| K[fallback suggestions生成]
+  J --> L[artifact upload]
+  K --> L
+  L --> M[workflow summary]
+  M --> N{branch反映可能?}
+  N -->|Yes| O[PR branchへcommit/push]
+  N -->|No| P[artifactのみ提供]
+  M --> Q{PRコメント可能?}
+  Q -->|Yes| R[PR comment update]
+  Q -->|No| S[summaryのみ]
 ```
 
 ---
@@ -202,6 +212,12 @@ flowchart TD
 - PRコメントは付けず、workflow summary に結果を残します
 - artifact から test plan / meta / dashboard / Playwright 雛形を取得します
 - branch への push は行いません
+
+### AI提案の扱い
+
+- `COPILOT_GITHUB_TOKEN` がある場合は Copilot が `qa/test-management/ai/pr-<番号>-ai-suggestions.md` を生成します
+- token がない場合でも fallback ファイルを作るため、artifact の形は崩れません
+- AI提案は **正本ではなく補完提案** として扱い、人レビューで採否を決めます
 
 ### workflow summary で見えるようにする内容
 
