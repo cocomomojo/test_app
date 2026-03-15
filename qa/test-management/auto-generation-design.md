@@ -50,7 +50,7 @@
 - `PR_TEST_PLAN_PUSH_ENABLED=true` が設定されている
 - `PR_TEST_PLAN_GITHUB_TOKEN` が設定されている
 
-この条件を満たしたときだけ、生成した test plan / meta / dashboard / Playwright 雛形を PR branch へ commit & push します。
+この条件を満たしたときだけ、生成した test plan / meta / dashboard / AI補助ファイル / Playwright 雛形を PR branch へ commit & push します。
 
 ### push 対象パス
 
@@ -59,6 +59,8 @@ branch 反映で push してよいファイルは、次の生成物だけに限�
 - `qa/test-management/pr/PR-<番号>-test-plan.md`
 - `qa/test-management/.meta/pr-<番号>.json`
 - `qa/test-management/dashboard.md`
+- `qa/test-management/ai/prompt-pr-<番号>.txt`
+- `qa/test-management/ai/pr-<番号>-ai-suggestions.md`
 - `frontend/tests/e2e/generated/pr-<番号>-*.spec.ts`
 
 workflow では、この許可リスト以外の差分を検知した場合は branch 反映を中止します。
@@ -138,7 +140,8 @@ flowchart TD
 | Workflow | 役割 |
 |---|---|
 | `pr-quality.yml` | unit test / SonarQube |
-| `pr-test-plan.yml` | test plan / spec / meta / PRコメント生成 |
+| `pr-test-plan.yml` | test plan / spec / meta / AI suggestions / PRコメント生成 |
+| `pr-test-plan-simulation.yml` | publication mode と AI補完を CI 上で検証 |
 
 ---
 

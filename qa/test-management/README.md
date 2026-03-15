@@ -40,6 +40,8 @@
 - `pr/PR-<番号>-test-plan.md`: PR単位のテスト計画
 - `.meta/pr-<番号>.json`: ダッシュボード集計用メタ情報
 - `dashboard.md`: 全PRの集計ダッシュボード
+- `ai/prompt-pr-<番号>.txt`: 本番PR workflow が Copilot に渡す prompt
+- `ai/pr-<番号>-ai-suggestions.md`: Copilot または fallback による補完提案
 
 ---
 
@@ -73,7 +75,10 @@ PR test plan を自動生成する設計案は、次のファイルにまとめ�
 - branch反映を許可する条件
 - 段階導入の進め方
 
-現在、最小構成の workflow 雛形として `.github/workflows/pr-test-plan.yml` も追加しています。
+現在は、次の workflow が `main` で利用できます。
+
+- `.github/workflows/pr-test-plan.yml`
+- `.github/workflows/pr-test-plan-simulation.yml`
 
 `COPILOT_GITHUB_TOKEN` が設定されている場合、`pr-test-plan.yml` も **AI 提案ファイル** を生成します。
 
@@ -278,8 +283,9 @@ flowchart TD
 
 ## 現在の扱い
 
-- 現在は過去のテスト設計生成物・補助ファイルの保管場所です。
-- 現行のCI運用は `.github/workflows/e2e.yml` / `.github/workflows/e2e-failure-analysis.yml` / `.github/workflows/pr-quality.yml` に移行しています。
+- 現在は、PR単位のテスト設計生成物・補助ファイル・AI提案ファイルの保管場所です。
+- 現行のCI運用では、`.github/workflows/pr-test-plan.yml` が本番PR向け、`.github/workflows/pr-test-plan-simulation.yml` がシミュレーション向けに利用されます。
+- `.github/workflows/e2e.yml` / `.github/workflows/e2e-failure-analysis.yml` / `.github/workflows/pr-quality.yml` も引き続き並行して利用されます。
 
 ## 補足
 
@@ -287,4 +293,4 @@ flowchart TD
 - テンプレート群は、`testplan.md` の標準プロセス図と対応しています。
 - 今後 PR自動生成フローを追加する場合も、このディレクトリを正本として拡張します。
 - fork PR では、PRコメントや branch 反映の代わりに artifact / workflow summary を確認する運用を基本にします。
-- branch 反映時に push 対象となるのは、`qa/test-management/pr/`、`qa/test-management/.meta/`、`qa/test-management/dashboard.md`、`frontend/tests/e2e/generated/` の生成物だけです。
+- branch 反映時に push 対象となるのは、`qa/test-management/pr/`、`qa/test-management/.meta/`、`qa/test-management/dashboard.md`、`qa/test-management/ai/`、`frontend/tests/e2e/generated/` の生成物だけです。
