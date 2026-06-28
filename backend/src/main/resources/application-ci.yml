@@ -27,7 +27,7 @@ auth:
 
 aws:
   region: ap-northeast-1
-  endpoint: http://localhost:9000
+  endpoint: http://moto:5000
   s3:
     bucket: memo-bucket
 

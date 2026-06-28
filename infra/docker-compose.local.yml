@@ -19,18 +19,14 @@ services:
       timeout: 3s
       retries: 20
 
-  localstack:
-    image: localstack/localstack:3.8
-    environment:
-      SERVICES: s3
-      DEBUG: 1
-      AWS_DEFAULT_REGION: ap-northeast-1
+  moto:
+    image: motoserver/moto:latest
     ports:
-      - "9000:4566"
-    volumes:
-      - ./localstack/init:/etc/localstack/init
+      - "5000:5000"
+    environment:
+      MOTO_PORT: "5000"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:5000/moto-api/reset"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -45,11 +41,11 @@ services:
       SPRING_PROFILES_ACTIVE: local
       SPRING_DATASOURCE_USERNAME: appuser
       SPRING_DATASOURCE_PASSWORD: apppass
-      AWS_ENDPOINT: http://localstack:4566
+      AWS_ENDPOINT: http://moto:5000
     depends_on:
       mysql:
         condition: service_healthy
-      localstack:
+      moto:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]

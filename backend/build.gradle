@@ -83,3 +83,36 @@ tasks.jacocoTestCoverageVerification {
 tasks.check {
     dependsOn tasks.jacocoTestCoverageVerification
 }
+
+// E2E coverage report: merge unit + e2e exec files into a single report
+tasks.register('jacocoE2EReport', JacocoReport) {
+    description = 'Generates JaCoCo coverage report from E2E exec file'
+    group = 'verification'
+
+    executionData fileTree(project.rootDir).include('**/jacoco-output/jacoco.exec')
+    sourceSets sourceSets.main
+
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
+}
+
+// Export jacocoagent.jar so CI can mount it into the Docker container
+tasks.register('copyJacocoAgent', Copy) {
+    description = 'Copies JaCoCo agent jar to build/jacoco for Docker mounts'
+    group = 'build'
+
+    from configurations.jacocoAgent
+    into layout.buildDirectory.dir('jacoco')
+    rename { 'jacocoagent.jar' }
+}
+
+configurations {
+    jacocoAgent
+}
+
+dependencies {
+    jacocoAgent "org.jacoco:org.jacoco.agent:${jacoco.toolVersion}:runtime"
+}

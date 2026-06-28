@@ -11,8 +11,6 @@ coverage/
 test-results/
 playwright-report/
 .playwright/
-allure-results/
-allure-report/
 
 # -------------------------
 # Java / Spring Boot
@@ -22,10 +20,10 @@ build/
 .gradle/
 out/
 
-# LocalStack (コンテナ内なので通常不要)
-localstack/output/
-tmp/
-*.tmp
+# JaCoCo E2E output (generated at runtime)
+infra/jacoco/
+infra/jacoco-output/
+gh-pages-coverage/
 
 # -------------------------
 # Docker
@@ -38,7 +36,6 @@ tmp/
 .DS_Store
 Thumbs.db
 .idea/
-.vscode/
 *.swp
 
 # -------------------------
