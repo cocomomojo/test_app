@@ -39,7 +39,7 @@ jobs:
           destination: /opt/gh-aw/actions
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Detect Copilot availability
         id: copilot_secret
@@ -65,7 +65,7 @@ jobs:
         run: /opt/gh-aw/actions/install_copilot_cli.sh 0.0.421
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
 
@@ -186,7 +186,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload simulation artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: pr-test-plan-simulation-${{ inputs.scenario }}-${{ inputs.pr_number }}
           path: |

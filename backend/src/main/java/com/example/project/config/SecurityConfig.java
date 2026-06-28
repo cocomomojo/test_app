@@ -11,7 +11,6 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.core.env.Environment;
 import com.example.project.security.LocalAuthFilter;
 
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -34,57 +33,42 @@ public class SecurityConfig {
     @Value("${auth.mode:prod}")
     private String authMode;
 
-
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        boolean localMode = authMode != null && ("local".equals(authMode) || "test".equals(authMode));
-
         if ("test".equals(authMode)) {
-            // CI/test mode: allow all requests
             http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                .cors()
-                .and()
-                .csrf().disable();
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .csrf(csrf -> csrf.disable());
             return http.build();
         }
+
+        boolean localMode = "local".equals(authMode);
 
         http.authorizeHttpRequests(auth -> auth
             .requestMatchers("/public/**", "/top", "/actuator/health", "/actuator/info").permitAll()
             .anyRequest().authenticated()
         );
 
-        if (localMode) {
-            // local 開発モードでは簡易トークンを受け入れるフィルタを追加
+        if (localMode || issuer == null || issuer.isEmpty()) {
             http.addFilterBefore(new LocalAuthFilter(), UsernamePasswordAuthenticationFilter.class);
-            // allow CORS from vite dev server
-            http.cors();
+            http.cors(cors -> cors.configurationSource(corsConfigurationSource()));
         } else {
-            // Production mode: use JWT with issuer
-            if (issuer == null || issuer.isEmpty()) {
-                // If issuer not configured, fall back to local mode
-                http.addFilterBefore(new LocalAuthFilter(), UsernamePasswordAuthenticationFilter.class);
-                http.cors();
+            NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder
+                .withJwkSetUri(issuer + "/.well-known/jwks.json").build();
+            OAuth2TokenValidator<org.springframework.security.oauth2.jwt.Jwt> withIssuer =
+                JwtValidators.createDefaultWithIssuer(issuer);
+
+            if (audience != null && !audience.isEmpty()) {
+                jwtDecoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                    withIssuer, new AudienceValidator(audience)));
             } else {
-                // build JwtDecoder here to avoid auto-config enabling resource-server in local
-                NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withJwkSetUri(issuer + "/.well-known/jwks.json").build();
-                OAuth2TokenValidator<org.springframework.security.oauth2.jwt.Jwt> withIssuer = JwtValidators.createDefaultWithIssuer(issuer);
-
-                if (audience != null && !audience.isEmpty()) {
-                    OAuth2TokenValidator<org.springframework.security.oauth2.jwt.Jwt> audienceValidator = new com.example.project.security.AudienceValidator(audience);
-                    jwtDecoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(withIssuer, audienceValidator));
-                } else {
-                    jwtDecoder.setJwtValidator(withIssuer);
-                }
-
-                http.oauth2ResourceServer(oauth -> oauth
-                        .jwt(jwt -> jwt.decoder(jwtDecoder))
-                );
+                jwtDecoder.setJwtValidator(withIssuer);
             }
+
+            http.oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.decoder(jwtDecoder)));
         }
 
-        // For API-style usage in local dev, disable CSRF to allow POST requests from tools/scripts
-        http.csrf().disable();
-
+        http.csrf(csrf -> csrf.disable());
         return http.build();
     }
 
@@ -105,21 +89,5 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
-    }
-
-    @Bean
-    public JwtDecoder jwtDecoder() {
-        NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withJwkSetUri(issuer + "/.well-known/jwks.json").build();
-
-        OAuth2TokenValidator<org.springframework.security.oauth2.jwt.Jwt> withIssuer = JwtValidators.createDefaultWithIssuer(issuer);
-
-        if (audience != null && !audience.isEmpty()) {
-            OAuth2TokenValidator<org.springframework.security.oauth2.jwt.Jwt> audienceValidator = new AudienceValidator(audience);
-            jwtDecoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(withIssuer, audienceValidator));
-        } else {
-            jwtDecoder.setJwtValidator(withIssuer);
-        }
-
-        return jwtDecoder;
     }
 }

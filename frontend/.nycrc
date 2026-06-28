@@ -1,0 +1,8 @@
+{
+  "include": ["src/**/*.js", "src/**/*.vue"],
+  "exclude": ["src/main.js", "node_modules/**", "dist/**"],
+  "reporter": ["html", "lcov", "text"],
+  "temp-dir": "coverage/e2e-raw",
+  "report-dir": "coverage/e2e-report",
+  "all": false
+}

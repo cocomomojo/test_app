@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from './fixtures/coverage-fixture';
+import type { Page } from '@playwright/test';
 
 const submitLogin = async (page: Page, username: string, password: string) => {
   await page.getByLabel('ユーザ名').fill(username);
@@ -37,3 +38,4 @@ test.describe('ログイン機能', () => {
     await expect(page.getByText('ログインに失敗しました')).toBeVisible();
   });
 });
+

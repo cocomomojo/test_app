@@ -1,84 +1,71 @@
-name: E2E Tests with Playwright and Allure
+name: E2E Tests with Coverage
 
 on:
-  workflow_dispatch:  # 手動実行のみ許可
+  workflow_dispatch:
 
 permissions:
   contents: write
   pages: write
+  id-token: write
 
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Java
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Extract JaCoCo agent from Gradle
+        working-directory: backend
+        run: |
+          chmod +x gradlew
+          ./gradlew copyJacocoAgent
+          mkdir -p ../infra/jacoco ../infra/jacoco-output
+          cp build/jacoco/jacocoagent.jar ../infra/jacoco/jacocoagent.jar
 
       - name: Start Docker Compose services
         working-directory: infra
-        #continue-on-error: true
         run: docker compose -f docker-compose.ci.yml up -d
 
       - name: Wait for services to be healthy
         working-directory: infra
         timeout-minutes: 5
         run: |
-          echo "Waiting for MySQL to be healthy..."
-          docker compose -f docker-compose.ci.yml exec -T mysql mysqladmin ping -h localhost -uroot -proot || exit 1
-          
-          echo "Waiting for Spring Boot to be healthy..."
-          for i in {1..60}; do
-            if curl -f http://localhost:8080/actuator/health > /dev/null 2>&1; then
-              echo "Spring Boot is healthy"
-              break
-            fi
-            if [ $i -eq 60 ]; then
-              echo "Spring Boot failed to start"
-              docker compose -f docker-compose.ci.yml logs springboot
-              exit 1
-            fi
-            echo "Attempt $i/60: Spring Boot not ready yet, waiting..."
-            sleep 2
+          echo "Waiting for MySQL..."
+          for i in $(seq 1 30); do
+            docker compose -f docker-compose.ci.yml exec -T mysql mysqladmin ping -h localhost -uroot -proot 2>/dev/null && break
+            [ "$i" -eq 30 ] && { echo "MySQL failed"; exit 1; }
+            sleep 3
           done
-          
-          echo "Waiting for Frontend to be ready..."
-          for i in {1..30}; do
-            if curl -f http://localhost:8081 > /dev/null 2>&1; then
-              echo "Frontend is ready"
-              break
-            fi
-            if [ $i -eq 30 ]; then
-              echo "Frontend failed to start"
-              docker compose -f docker-compose.ci.yml logs frontend
-              exit 1
-            fi
-            echo "Attempt $i/30: Frontend not ready yet, waiting..."
+
+          echo "Waiting for Spring Boot..."
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:8080/actuator/health > /dev/null && { echo "Spring Boot ready"; break; }
+            [ "$i" -eq 60 ] && { docker compose -f docker-compose.ci.yml logs springboot; exit 1; }
+            sleep 3
+          done
+
+          echo "Waiting for Frontend..."
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8081 > /dev/null && { echo "Frontend ready"; break; }
+            [ "$i" -eq 30 ] && { docker compose -f docker-compose.ci.yml logs frontend; exit 1; }
             sleep 2
           done
 
-      - name: Check service status
-        if: failure()
-        working-directory: infra
-        run: |
-          echo "=== MySQL logs ==="
-          docker compose -f docker-compose.ci.yml logs mysql || true
-          echo -e "\n=== Spring Boot logs ==="
-          docker compose -f docker-compose.ci.yml logs springboot || true
-          echo -e "\n=== Frontend logs ==="
-          docker compose -f docker-compose.ci.yml logs frontend || true
-
-      - name: Verify backend connectivity
-        if: success()
-        working-directory: frontend
-        run: |
-          echo "Testing backend connectivity from host..."
-          curl -v http://localhost:8080/actuator/health || true
-          echo -e "\nTesting login endpoint..."
-          curl -X POST http://localhost:8080/public/login \
-            -H "Content-Type: application/json" \
-            -d '{"username":"testuser","password":"Test1234!"}' || true
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install Node dependencies
         working-directory: frontend
@@ -86,81 +73,109 @@ jobs:
 
       - name: Install Playwright browsers
         working-directory: frontend
-        run: npx playwright install --with-deps
+        run: npx playwright install --with-deps chromium
 
-      - name: Run Playwright E2E tests
-        if: success()
+      - name: Run Playwright E2E tests (with JS coverage)
         working-directory: frontend
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:8081
         run: npm run test:e2e
 
-      - name: Upload Playwright test results (on failure)
+      - name: Generate frontend coverage report
+        working-directory: frontend
+        if: always()
+        run: |
+          if [ -d "coverage/e2e-raw" ] && [ "$(ls -A coverage/e2e-raw)" ]; then
+            npm run coverage:report
+          else
+            echo "No frontend coverage data found, skipping report generation"
+          fi
+
+      - name: Stop services and collect backend coverage
+        if: always()
+        working-directory: infra
+        run: |
+          docker compose -f docker-compose.ci.yml stop springboot
+          sleep 3  # allow JaCoCo file output to flush
+
+      - name: Generate backend E2E coverage report
+        if: always()
+        working-directory: backend
+        run: |
+          if [ -f "../infra/jacoco-output/jacoco.exec" ]; then
+            ./gradlew jacocoE2EReport
+          else
+            echo "No jacoco.exec found, skipping E2E coverage report"
+          fi
+
+      - name: Assemble GitHub Pages coverage site
+        if: always()
+        run: |
+          mkdir -p gh-pages-coverage/frontend gh-pages-coverage/backend
+
+          # Landing page
+          cat > gh-pages-coverage/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html lang="ja">
+          <head><meta charset="UTF-8"><title>E2E Coverage Reports</title>
+          <style>body{font-family:sans-serif;max-width:600px;margin:50px auto}</style></head>
+          <body>
+          <h1>📊 E2E Coverage Reports</h1>
+          <ul>
+            <li><a href="frontend/index.html">🎨 Frontend Coverage (Playwright + Istanbul)</a></li>
+            <li><a href="backend/index.html">☕ Backend Coverage (JaCoCo)</a></li>
+          </ul>
+          </body></html>
+          EOF
+
+          # Copy frontend coverage if available
+          if [ -d "frontend/coverage/e2e-report" ]; then
+            cp -r frontend/coverage/e2e-report/. gh-pages-coverage/frontend/
+          else
+            echo "<h1>No frontend coverage data</h1>" > gh-pages-coverage/frontend/index.html
+          fi
+
+          # Copy backend coverage if available
+          if [ -d "backend/build/reports/jacoco/jacocoE2EReport/html" ]; then
+            cp -r backend/build/reports/jacoco/jacocoE2EReport/html/. gh-pages-coverage/backend/
+          else
+            echo "<h1>No backend E2E coverage data</h1>" > gh-pages-coverage/backend/index.html
+          fi
+
+      - name: Upload coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: e2e-coverage-reports
+          path: gh-pages-coverage/
+          retention-days: 14
+
+      - name: Deploy coverage reports to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@329bcc8f12caed2cefe5a5b80781499a6f3b361b # v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: gh-pages-coverage
+          destination_dir: coverage
+
+      - name: Upload Playwright test results on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: playwright-test-results
           path: frontend/test-results/
           retention-days: 5
 
-      - name: Collect E2E debug artifacts (on failure)
-        if: failure()
-        run: |
-          set -e
-          mkdir -p /tmp/e2e-debug/infra /tmp/e2e-debug/frontend
-
-          cp -R frontend/test-results /tmp/e2e-debug/frontend/test-results 2>/dev/null || true
-          cp -R frontend/allure-results /tmp/e2e-debug/frontend/allure-results 2>/dev/null || true
-
-          docker compose -f infra/docker-compose.ci.yml logs mysql > /tmp/e2e-debug/infra/mysql.log 2>&1 || true
-          docker compose -f infra/docker-compose.ci.yml logs springboot > /tmp/e2e-debug/infra/springboot.log 2>&1 || true
-          docker compose -f infra/docker-compose.ci.yml logs frontend > /tmp/e2e-debug/infra/frontend.log 2>&1 || true
-          docker compose -f infra/docker-compose.ci.yml ps > /tmp/e2e-debug/infra/compose-ps.txt 2>&1 || true
-
-      - name: Upload E2E debug artifacts (on failure)
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-failure-debug
-          path: /tmp/e2e-debug/
-          retention-days: 7
-
-      - name: Print container logs (on failure)
+      - name: Print container logs on failure
         if: failure()
         working-directory: infra
         run: |
           echo "=== MySQL logs ==="
           docker compose -f docker-compose.ci.yml logs mysql || true
-          echo -e "\n=== Spring Boot logs ==="
+          echo "=== Spring Boot logs ==="
           docker compose -f docker-compose.ci.yml logs springboot || true
-          echo -e "\n=== Frontend logs ==="
+          echo "=== Frontend logs ==="
           docker compose -f docker-compose.ci.yml logs frontend || true
-          echo -e "\n=== All containers status ==="
-          docker compose -f docker-compose.ci.yml ps || true
-
-      - name: Install Allure CLI
-        if: success()
-        run: npm install -g allure-commandline
-
-      - name: Generate Allure report
-        if: success()
-        working-directory: frontend
-        run: |
-          npx allure generate allure-results --clean -o allure-report
-
-      - name: Upload Allure report as artifact
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: allure-report
-          path: frontend/allure-report
-
-      - name: Deploy Allure report to GitHub Pages
-        if: success() && github.ref == 'refs/heads/main'
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: frontend/allure-report
 
       - name: Stop Docker Compose services
         if: always()
