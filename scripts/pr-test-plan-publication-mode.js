@@ -27,6 +27,9 @@ function evaluatePublicationMode(options) {
   const isDraft = toBool(options.isDraft);
   const pushEnabled = toBool(options.pushEnabled);
   const tokenConfigured = toBool(options.tokenConfigured);
+  // pushTokenAvailable indicates whether any push-capable token is available.
+  // When not explicitly set (e.g. in simulation), fall back to tokenConfigured so
+  // the simulation no-token scenario keeps working without changes.
   const pushTokenAvailable = options.pushTokenAvailable !== undefined
     ? toBool(options.pushTokenAvailable)
     : tokenConfigured;
