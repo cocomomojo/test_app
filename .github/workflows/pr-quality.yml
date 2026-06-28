@@ -79,46 +79,18 @@ jobs:
       - name: Determine SonarQube availability
         id: sonar_config
         env:
-          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
-          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
-          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           if [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ]; then
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             echo "reason=fork PR では secret を利用できないため SonarQube をスキップ" >> "$GITHUB_OUTPUT"
-          elif [ -z "$SONAR_TOKEN" ] || [ -z "$SONAR_PROJECT_KEY" ]; then
+          elif [ -z "$SONAR_TOKEN" ]; then
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "reason=SONAR_TOKEN または SONAR_PROJECT_KEY が未設定のため SonarQube をスキップ" >> "$GITHUB_OUTPUT"
+            echo "reason=SONAR_TOKEN が未設定のため SonarQube をスキップ" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=true" >> "$GITHUB_OUTPUT"
             echo "reason=configured" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Build SonarQube arguments
-        id: sonar_args
-        if: steps.sonar_config.outputs.enabled == 'true'
-        env:
-          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
-          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
-          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
-        run: |
-          HOST_URL="${SONAR_HOST_URL:-https://sonarcloud.io}"
-          ARGS="-Dsonar.projectKey=${SONAR_PROJECT_KEY}"
-          ARGS="$ARGS -Dsonar.host.url=${HOST_URL}"
-          ARGS="$ARGS -Dsonar.sources=backend/src/main/java,frontend/src"
-          ARGS="$ARGS -Dsonar.tests=backend/src/test/java,frontend/test"
-          ARGS="$ARGS -Dsonar.java.binaries=backend/build/classes/java/main"
-          ARGS="$ARGS -Dsonar.java.test.binaries=backend/build/classes/java/test"
-          ARGS="$ARGS -Dsonar.coverage.jacoco.xmlReportPaths=backend/build/reports/jacoco/test/jacocoTestReport.xml"
-          ARGS="$ARGS -Dsonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info"
-          ARGS="$ARGS -Dsonar.exclusions=frontend/node_modules/**,frontend/dist/**,frontend/tests/e2e/**,frontend/test-results/**,**/*.d.ts"
-          ARGS="$ARGS -Dsonar.test.inclusions=frontend/test/**/*.js,backend/src/test/java/**/*.java"
-          ARGS="$ARGS -Dsonar.qualitygate.wait=true"
-          if [ -n "$SONAR_ORGANIZATION" ]; then
-            ARGS="$ARGS -Dsonar.organization=${SONAR_ORGANIZATION}"
-          fi
-          printf 'value=%s\n' "$ARGS" >> "$GITHUB_OUTPUT"
 
       - name: Cache SonarQube packages
         if: steps.sonar_config.outputs.enabled == 'true'
@@ -134,9 +106,8 @@ jobs:
         continue-on-error: true
         uses: SonarSource/sonarqube-scan-action@c7ee0f9df90b7aa20e8dcf9695dcfe2e7da5b4f2 # v7
         env:
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL || 'https://sonarcloud.io' }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: ${{ steps.sonar_args.outputs.value }}
 
       - name: Finalize quality status
         id: final_status
