@@ -27,6 +27,12 @@ function evaluatePublicationMode(options) {
   const isDraft = toBool(options.isDraft);
   const pushEnabled = toBool(options.pushEnabled);
   const tokenConfigured = toBool(options.tokenConfigured);
+  // pushTokenAvailable indicates whether any push-capable token is available.
+  // When not explicitly set (e.g. in simulation), fall back to tokenConfigured so
+  // the simulation no-token scenario keeps working without changes.
+  const pushTokenAvailable = options.pushTokenAvailable !== undefined
+    ? toBool(options.pushTokenAvailable)
+    : tokenConfigured;
   const sameRepo = (options.headRepo || '') === (options.baseRepo || '');
   const prNumber = String(options.prNumber || 'unknown');
 
@@ -54,8 +60,8 @@ function evaluatePublicationMode(options) {
     result.branchSyncReason = 'PR_TEST_PLAN_PUSH_ENABLED が true ではないため branch 反映をスキップ';
   } else if (!hasRequiredLabel) {
     result.branchSyncReason = `required label (${requiredLabel}) が付いていないため branch 反映をスキップ`;
-  } else if (!tokenConfigured) {
-    result.branchSyncReason = 'PR_TEST_PLAN_GITHUB_TOKEN 未設定のため branch 反映をスキップ';
+  } else if (!tokenConfigured && !pushTokenAvailable) {
+    result.branchSyncReason = 'PR_TEST_PLAN_GITHUB_TOKEN も GITHUB_TOKEN も利用できないため branch 反映をスキップ';
   } else {
     result.branchSyncEnabled = true;
     result.branchSyncReason = '同一リポジトリPRかつ push 条件を満たしたため branch 反映を実施';
@@ -90,6 +96,7 @@ function main() {
     pushEnabled: process.env.PR_TEST_PLAN_PUSH_ENABLED,
     pushLabel: process.env.PR_TEST_PLAN_PUSH_LABEL,
     tokenConfigured: process.env.PR_TEST_PLAN_GITHUB_TOKEN_CONFIGURED,
+    pushTokenAvailable: process.env.PUSH_TOKEN_AVAILABLE,
     labels: process.env.PR_LABELS_JSON,
   });
 
