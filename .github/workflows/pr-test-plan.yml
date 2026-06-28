@@ -57,7 +57,8 @@ jobs:
           BASE_REPO: ${{ github.repository }}
           PR_TEST_PLAN_PUSH_ENABLED: ${{ vars.PR_TEST_PLAN_PUSH_ENABLED }}
           PR_TEST_PLAN_PUSH_LABEL: ${{ vars.PR_TEST_PLAN_PUSH_LABEL }}
-          PR_TEST_PLAN_GITHUB_TOKEN_CONFIGURED: ${{ secrets.PR_TEST_PLAN_GITHUB_TOKEN != '' || true }}
+          PR_TEST_PLAN_GITHUB_TOKEN_CONFIGURED: ${{ secrets.PR_TEST_PLAN_GITHUB_TOKEN != '' }}
+          PUSH_TOKEN_AVAILABLE: 'true'
           PR_LABELS_JSON: ${{ toJson(github.event.pull_request.labels.*.name) }}
           PR_IS_DRAFT: ${{ github.event.pull_request.draft }}
         run: node scripts/pr-test-plan-publication-mode.js
