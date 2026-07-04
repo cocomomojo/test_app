@@ -104,15 +104,15 @@ tasks.register('copyJacocoAgent', Copy) {
     description = 'Copies JaCoCo agent jar to build/jacoco for Docker mounts'
     group = 'build'
 
-    from configurations.jacocoAgent
+    from configurations.jacocoRuntimeAgent
     into layout.buildDirectory.dir('jacoco')
     rename { 'jacocoagent.jar' }
 }
 
 configurations {
-    jacocoAgent
+    jacocoRuntimeAgent
 }
 
 dependencies {
-    jacocoAgent "org.jacoco:org.jacoco.agent:${jacoco.toolVersion}:runtime"
+    jacocoRuntimeAgent "org.jacoco:org.jacoco.agent:${jacoco.toolVersion}:runtime"
 }
