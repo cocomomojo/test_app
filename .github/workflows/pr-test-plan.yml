@@ -6,7 +6,7 @@ name: PR Test Plan Assets
     types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 jobs:
@@ -58,6 +58,9 @@ jobs:
           PR_TEST_PLAN_PUSH_ENABLED: ${{ vars.PR_TEST_PLAN_PUSH_ENABLED }}
           PR_TEST_PLAN_PUSH_LABEL: ${{ vars.PR_TEST_PLAN_PUSH_LABEL }}
           PR_TEST_PLAN_GITHUB_TOKEN_CONFIGURED: ${{ secrets.PR_TEST_PLAN_GITHUB_TOKEN != '' }}
+          # GITHUB_TOKEN is always available in GitHub Actions workflows,
+          # so branch sync can proceed even without PR_TEST_PLAN_GITHUB_TOKEN.
+          PUSH_TOKEN_AVAILABLE: ${{ true }}
           PR_LABELS_JSON: ${{ toJson(github.event.pull_request.labels.*.name) }}
           PR_IS_DRAFT: ${{ github.event.pull_request.draft }}
         run: node scripts/pr-test-plan-publication-mode.js
@@ -139,6 +142,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_TEST_PLAN_GITHUB_TOKEN: ${{ secrets.PR_TEST_PLAN_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
 
@@ -196,7 +200,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add qa/test-management/pr/PR-${PR_NUMBER}-test-plan.md qa/test-management/.meta/pr-${PR_NUMBER}.json qa/test-management/dashboard.md qa/test-management/ai/prompt-pr-${PR_NUMBER}.txt qa/test-management/ai/pr-${PR_NUMBER}-ai-suggestions.md frontend/tests/e2e/generated/pr-${PR_NUMBER}-*.spec.ts
           git commit -m "test: update PR ${PR_NUMBER} test plan assets"
-          git remote set-url origin "https://x-access-token:${PR_TEST_PLAN_GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
+          PUSH_TOKEN="${PR_TEST_PLAN_GITHUB_TOKEN:-$GITHUB_TOKEN}"
+          git remote set-url origin "https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }}.git"
           git push origin "HEAD:${HEAD_REF}"
 
           echo "status=success" >> "$GITHUB_OUTPUT"
