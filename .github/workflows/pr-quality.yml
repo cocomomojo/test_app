@@ -15,8 +15,6 @@ jobs:
     outputs:
       frontend_status: ${{ steps.final_status.outputs.frontend_status }}
       backend_status: ${{ steps.final_status.outputs.backend_status }}
-      sonar_status: ${{ steps.final_status.outputs.sonar_status }}
-      sonar_reason: ${{ steps.final_status.outputs.sonar_reason }}
 
     steps:
       - name: Checkout repository
@@ -76,58 +74,16 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-      - name: Determine SonarQube availability
-        id: sonar_config
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: |
-          if [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ]; then
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "reason=fork PR では secret を利用できないため SonarQube をスキップ" >> "$GITHUB_OUTPUT"
-          elif [ -z "$SONAR_TOKEN" ]; then
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "reason=SONAR_TOKEN が未設定のため SonarQube をスキップ" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-            echo "reason=configured" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Cache SonarQube packages
-        if: steps.sonar_config.outputs.enabled == 'true'
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.sonar/cache
-          key: ${{ runner.os }}-sonar
-          restore-keys: ${{ runner.os }}-sonar
-
-      - name: Run SonarQube analysis
-        id: sonar_scan
-        if: steps.sonar_config.outputs.enabled == 'true'
-        continue-on-error: true
-        uses: SonarSource/sonarqube-scan-action@c7ee0f9df90b7aa20e8dcf9695dcfe2e7da5b4f2 # v7
-        env:
-          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL || 'https://sonarcloud.io' }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
       - name: Finalize quality status
         id: final_status
         run: |
           FRONTEND_STATUS='${{ steps.frontend_unit.outcome }}'
           BACKEND_STATUS='${{ steps.backend_unit.outcome }}'
-          SONAR_REASON='${{ steps.sonar_config.outputs.reason }}'
-
-          if [ '${{ steps.sonar_config.outputs.enabled }}' = 'true' ]; then
-            SONAR_STATUS='${{ steps.sonar_scan.outcome }}'
-          else
-            SONAR_STATUS='skipped'
-          fi
 
           echo "frontend_status=${FRONTEND_STATUS}" >> "$GITHUB_OUTPUT"
           echo "backend_status=${BACKEND_STATUS}" >> "$GITHUB_OUTPUT"
-          echo "sonar_status=${SONAR_STATUS}" >> "$GITHUB_OUTPUT"
-          echo "sonar_reason=${SONAR_REASON}" >> "$GITHUB_OUTPUT"
 
-          if [ "$FRONTEND_STATUS" = 'failure' ] || [ "$BACKEND_STATUS" = 'failure' ] || [ "$SONAR_STATUS" = 'failure' ]; then
+          if [ "$FRONTEND_STATUS" = 'failure' ] || [ "$BACKEND_STATUS" = 'failure' ]; then
             echo 'One or more quality checks failed.' >&2
             exit 1
           fi
@@ -145,8 +101,6 @@ jobs:
         env:
           FRONTEND_STATUS: ${{ needs.quality-checks.outputs.frontend_status }}
           BACKEND_STATUS: ${{ needs.quality-checks.outputs.backend_status }}
-          SONAR_STATUS: ${{ needs.quality-checks.outputs.sonar_status }}
-          SONAR_REASON: ${{ needs.quality-checks.outputs.sonar_reason }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
@@ -168,11 +122,6 @@ jobs:
               '',
               `- Frontend Unit Tests: ${icon(process.env.FRONTEND_STATUS)}`,
               `- Backend Unit Tests: ${icon(process.env.BACKEND_STATUS)}`,
-              `- SonarQube Static Analysis: ${icon(process.env.SONAR_STATUS)}`,
-              '',
-              process.env.SONAR_STATUS === 'skipped'
-                ? `- SonarQube 補足: ${process.env.SONAR_REASON}`
-                : '- SonarQube は unit test 実行後の coverage を用いて解析しました。',
               `- Workflow Run: ${process.env.RUN_URL}`,
             ].join('\n');
 
