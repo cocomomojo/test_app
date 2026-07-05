@@ -7,6 +7,12 @@ export default defineConfig({
     port: 5173,
     strictPort: true
   },
+  build: {
+    // Enable source maps for coverage in CI/E2E testing
+    sourcemap: process.env.ENABLE_COVERAGE === 'true',
+    // Don't minify when collecting coverage for better debugging
+    minify: process.env.ENABLE_COVERAGE === 'true' ? false : 'esbuild'
+  },
   test: {
     environment: 'jsdom',
     setupFiles: './src/test/setup.js',

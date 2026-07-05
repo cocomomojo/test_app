@@ -95,18 +95,46 @@ jobs:
         working-directory: frontend
         if: always()
         run: |
-          if [ -d "coverage/e2e-raw" ] && [ "$(ls -A coverage/e2e-raw)" ]; then
-            npm run coverage:report
+          echo "Checking for frontend coverage data..."
+          if [ -d "coverage/e2e-raw" ]; then
+            echo "✓ coverage/e2e-raw directory exists"
+            echo "Contents:"
+            ls -la coverage/e2e-raw/ || echo "Empty directory"
+            FILE_COUNT=$(ls -1 coverage/e2e-raw/*.json 2>/dev/null | wc -l)
+            echo "Found $FILE_COUNT coverage files"
+            
+            if [ "$FILE_COUNT" -gt 0 ]; then
+              echo "Generating coverage report..."
+              npm run coverage:report
+              echo "✓ Coverage report generated"
+            else
+              echo "✗ WARNING: No coverage JSON files found!"
+              mkdir -p coverage/e2e-report
+              echo "<h1>No frontend E2E coverage data</h1><p>Coverage files were not generated during test execution.</p>" > coverage/e2e-report/index.html
+            fi
           else
-            echo "No frontend coverage data found, skipping report generation"
+            echo "✗ WARNING: coverage/e2e-raw directory does not exist!"
+            mkdir -p coverage/e2e-report
+            echo "<h1>No frontend E2E coverage data</h1><p>Coverage directory was not created during test execution.</p>" > coverage/e2e-report/index.html
           fi
 
       - name: Stop services and collect backend coverage
         if: always()
         working-directory: infra
         run: |
-          docker compose -f docker-compose.ci.yml stop springboot
-          sleep 3  # allow JaCoCo file output to flush
+          # Send SIGTERM to allow graceful shutdown
+          docker compose -f docker-compose.ci.yml stop -t 10 springboot
+          # Wait for JaCoCo to flush coverage data
+          sleep 5
+          
+          # Check if jacoco.exec was created
+          if [ -f "jacoco-output/jacoco.exec" ]; then
+            echo "✓ JaCoCo coverage file found: $(ls -lh jacoco-output/jacoco.exec)"
+          else
+            echo "✗ WARNING: No jacoco.exec file found!"
+            echo "Contents of jacoco-output directory:"
+            ls -la jacoco-output/ || echo "Directory does not exist"
+          fi
 
       - name: Generate backend E2E coverage report
         if: always()
