@@ -1,34 +1,16 @@
 <!DOCTYPE html>
-<html dir="ltr" lang="en">
-<head>
-    <meta charset="utf-8">
-    <title>Allure Report</title>
-    <link rel="icon" href="favicon.ico">
-    <link rel="stylesheet" type="text/css" href="styles.css">
-    <link rel="stylesheet" type="text/css" href="plugin/screen-diff/styles.css">
-</head>
+<html lang="ja">
+<head><meta charset="UTF-8"><title>Test App - Reports</title>
+<style>body{font-family:sans-serif;max-width:800px;margin:50px auto;line-height:1.6}h1{color:#333}.info{background:#f0f0f0;padding:15px;border-radius:5px;margin:20px 0}a{color:#0066cc;text-decoration:none}a:hover{text-decoration:underline}ul{margin:15px 0}li{margin:10px 0}</style></head>
 <body>
-    <div id="alert"></div>
-    <div id="content">
-        <span class="spinner">
-            <span class="spinner__circle"></span>
-        </span>
-    </div>
-    <div id="popup"></div>
-    <script src="app.js"></script>
-    <script src="plugin/behaviors/index.js"></script>
-    <script src="plugin/packages/index.js"></script>
-    <script src="plugin/screen-diff/index.js"></script>
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-FVWC4GKEYS"></script>
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', 'G-FVWC4GKEYS', {
-          'allureVersion': '2.36.0',
-          'reportUuid': 'f229d01f-7b2b-4722-9bd5-ffca4e635022',
-          'single_file': false
-        });
-    </script>
-</body>
-</html>
+<h1>📊 Test App - Reports</h1>
+<div class="info">
+  <p><strong>📍 Location:</strong> This page is deployed to GitHub Pages</p>
+  <p><strong>🔄 Updates:</strong> Reports are updated after each e2e test run on the main branch.</p>
+</div>
+<h2>📋 Available Reports</h2>
+<ul>
+  <li><a href="allure/index.html">📊 Allure E2E Test Report</a></li>
+  <li><a href="coverage/index.html">📈 Coverage Reports</a></li>
+</ul>
+</body></html>

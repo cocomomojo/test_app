@@ -1,0 +1,8 @@
+"DESCRIPTION","DURATION IN MS","NAME","PARENT SUITE","START TIME","STATUS","STOP TIME","SUB SUITE","SUITE","TEST CLASS","TEST METHOD"
+"","1598","サブメニューで TOP⇒TODO⇒memo に遷移できること","chromium","2026-07-05","passed","2026-07-05","","navigation.spec.ts","",""
+"","1274","正しい認証情報でログイン成功","chromium","2026-07-05","passed","2026-07-05","ログイン機能","login.spec.ts","",""
+"","1375","不正なパスワードでエラー表示","chromium","2026-07-05","passed","2026-07-05","ログイン機能","login.spec.ts","",""
+"","1205","空のユーザ名でエラー表示","chromium","2026-07-05","passed","2026-07-05","ログイン機能","login.spec.ts","",""
+"","2313","memoでファイルアップロード画面が表示されること","chromium","2026-07-05","passed","2026-07-05","","memo.spec.ts","",""
+"","2184","TODOで登録できること","chromium","2026-07-05","passed","2026-07-05","","todo.spec.ts","",""
+"","1295","ユーザーID入力欄の上に「こんばんは」が表示される","chromium","2026-07-05","passed","2026-07-05","ログイン機能","login.spec.ts","",""
