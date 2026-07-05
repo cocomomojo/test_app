@@ -8,6 +8,7 @@ export default defineConfig({
   reporter: [
     ['list'],
     ['html', { outputFolder: 'test-results/html', open: 'never' }],
+    ['allure-playwright', { outputFolder: 'allure-results', detail: true, suiteTitle: true }],
   ],
   projects: [
     {

@@ -3,7 +3,8 @@
 > Spring Boot + Vue.js + Playwright による E2E テスト自動化アプリケーション
 
 [![E2E Tests](https://github.com/cocomomojo/test_app/actions/workflows/e2e.yml/badge.svg)](https://github.com/cocomomojo/test_app/actions/workflows/e2e.yml)
-[![GitHub Pages](https://img.shields.io/badge/Allure_Report-Live-green)](https://cocomomojo.github.io/test_app/)
+[![Allure Report](https://img.shields.io/badge/Allure_Report-Live-green)](https://cocomomojo.github.io/test_app/allure/)
+[![Coverage Report](https://img.shields.io/badge/Coverage_Report-Live-blue)](https://cocomomojo.github.io/test_app/coverage/)
 
 ---
 ---
@@ -458,11 +459,15 @@ graph TD
 
 ---
 
-## 📊 GitHub Pages（Allure レポート）
+## 📊 GitHub Pages（テストレポート・カバレッジ）
 
 ### 🌐 公開 URL
 
-**Allure レポート:** https://cocomomojo.github.io/test_app/
+| レポート | URL |
+|---------|-----|
+| **📊 Allure レポート** | https://cocomomojo.github.io/test_app/allure/ |
+| **📈 カバレッジレポート** | https://cocomomojo.github.io/test_app/coverage/ |
+| **🏠 メインページ** | https://cocomomojo.github.io/test_app/ |
 
 ### ⚙️ 初回セットアップ
 
@@ -499,7 +504,7 @@ git push origin main
 
 #### 4️⃣ 確認
 
-- ✅ Actions タブで「Deploy Allure report to GitHub Pages」が成功
+- ✅ Actions タブで「E2E Tests with Coverage」が成功
 - ✅ Settings → Pages で「Your site is live at」が表示
 - ✅ 1-2 分待ってから URL にアクセス
 

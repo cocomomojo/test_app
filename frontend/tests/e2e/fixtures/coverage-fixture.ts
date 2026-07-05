@@ -34,17 +34,28 @@ export const test = base.extend<{ coverageEnabled: void }>({
 
         for (const entry of coverage) {
           // Only process app source files (skip vendor/node_modules)
-          if (!entry.url.includes('node_modules') && entry.url.includes('localhost')) {
-            const converter = v8ToIstanbul(entry.url, 0, { source: entry.source ?? '' });
-            await converter.load();
-            converter.applyCoverage(entry.functions);
-            const istanbulCoverage = converter.toIstanbul();
+          // Also ensure the URL is valid and from localhost
+          if (entry.url && !entry.url.includes('node_modules') && 
+              (entry.url.includes('localhost') || entry.url.startsWith('http'))) {
+            try {
+              // Extract path from URL for v8-to-istanbul
+              const urlObj = new URL(entry.url);
+              const filePath = urlObj.pathname;
+              
+              const converter = v8ToIstanbul(entry.url, 0, { source: entry.source ?? '' });
+              await converter.load();
+              converter.applyCoverage(entry.functions);
+              const istanbulCoverage = converter.toIstanbul();
 
-            const filename = path.join(
-              COVERAGE_DIR,
-              `coverage-${Date.now()}-${Math.random().toString(36).slice(2)}.json`
-            );
-            fs.writeFileSync(filename, JSON.stringify(istanbulCoverage));
+              const filename = path.join(
+                COVERAGE_DIR,
+                `coverage-${Date.now()}-${Math.random().toString(36).slice(2)}.json`
+              );
+              fs.writeFileSync(filename, JSON.stringify(istanbulCoverage));
+            } catch (error) {
+              // Skip files that fail to convert (e.g., vendor files)
+              console.warn(`Failed to convert coverage for ${entry.url}:`, error.message);
+            }
           }
         }
       }
