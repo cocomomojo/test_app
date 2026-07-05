@@ -26,7 +26,7 @@ services:
     environment:
       MOTO_PORT: "5000"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/moto-api/reset"]
+      test: ["CMD", "curl", "-f", "-X", "POST", "http://localhost:5000/moto-api/reset"]
       interval: 5s
       timeout: 3s
       retries: 20
