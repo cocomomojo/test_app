@@ -118,9 +118,14 @@ jobs:
           <!DOCTYPE html>
           <html lang="ja">
           <head><meta charset="UTF-8"><title>E2E Coverage Reports</title>
-          <style>body{font-family:sans-serif;max-width:600px;margin:50px auto}</style></head>
+          <style>body{font-family:sans-serif;max-width:800px;margin:50px auto;line-height:1.6}h1{color:#333}.info{background:#f0f0f0;padding:15px;border-radius:5px;margin:20px 0}a{color:#0066cc;text-decoration:none}a:hover{text-decoration:underline}ul{margin:15px 0}li{margin:10px 0}</style></head>
           <body>
           <h1>📊 E2E Coverage Reports</h1>
+          <div class="info">
+            <p><strong>📍 Location:</strong> This page is deployed to GitHub Pages at: <code>https://cocomomojo.github.io/test_app/coverage/</code></p>
+            <p><strong>🔄 Updates:</strong> Reports are updated after each e2e test run on the main branch.</p>
+          </div>
+          <h2>Reports</h2>
           <ul>
             <li><a href="frontend/index.html">🎨 Frontend Coverage (Playwright + Istanbul)</a></li>
             <li><a href="backend/index.html">☕ Backend Coverage (JaCoCo)</a></li>
@@ -170,6 +175,8 @@ jobs:
         if: failure()
         working-directory: infra
         run: |
+          echo "=== Moto logs ==="
+          docker compose -f docker-compose.ci.yml logs moto || true
           echo "=== MySQL logs ==="
           docker compose -f docker-compose.ci.yml logs mysql || true
           echo "=== Spring Boot logs ==="
