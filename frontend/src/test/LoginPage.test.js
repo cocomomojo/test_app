@@ -25,7 +25,7 @@ describe('LoginPage', () => {
     login.mockResolvedValue('TOKEN');
 
     const wrapper = mount(LoginPage);
-    expect(wrapper.text()).toContain('こんばんわー');
+    expect(wrapper.text()).toContain('こんばんは');
     const greeting = wrapper.find('.mb-2');
     const usernameInput = wrapper.find('input');
     expect(greeting.element.compareDocumentPosition(usernameInput.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

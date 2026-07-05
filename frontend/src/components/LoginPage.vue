@@ -3,7 +3,7 @@
     <v-card class="pa-6" style="width: 100%; max-width: 500px">
       <v-card-title>ログイン</v-card-title>
       <v-card-text>
-        <div class="mb-2">こんばんわー</div>
+        <div class="mb-2">こんばんは</div>
         <v-text-field v-model="username" label="ユーザ名" outlined dense class="mb-4" full-width />
         <v-text-field v-model="password" label="パスワード" type="password" outlined dense full-width />
       </v-card-text>
