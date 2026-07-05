@@ -35,7 +35,7 @@ export const test = base.extend<{ coverageEnabled: void }>({
         for (const entry of coverage) {
           // Only process app source files (skip vendor/node_modules)
           if (!entry.url.includes('node_modules') && entry.url.includes('localhost')) {
-            const converter = v8ToIstanbul('', 0, { source: entry.source ?? '' });
+            const converter = v8ToIstanbul(entry.url, 0, { source: entry.source ?? '' });
             await converter.load();
             converter.applyCoverage(entry.functions);
             const istanbulCoverage = converter.toIstanbul();
