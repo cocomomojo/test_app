@@ -27,6 +27,10 @@ export default defineConfig({
     viewport: { width: 1280, height: 800 },
     actionTimeout: 10000,
     trace: 'on-first-retry',
+    coverage: {
+      include: ['src/**/*.{ts,tsx,js,jsx}'],
+      exclude: ['src/**/*.test.{ts,tsx}', 'src/main.tsx'],
+    },
   },
   webServer: process.env.CI ? undefined : {
     command: 'npm run dev',
