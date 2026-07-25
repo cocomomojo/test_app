@@ -24,30 +24,87 @@ function normalizeFilePath(url: string): string {
   try {
     const urlObj = new URL(url);
     let pathname = urlObj.pathname;
-    
+
     // Remove port number if present (e.g., :8081)
-    pathname = pathname.replace(/:\d+/, '');
-    
-    // Handle different URL patterns
-    if (pathname.includes('/@fs/')) {
-      // Vite /@fs/ prefix for absolute paths
-      pathname = pathname.replace('/@fs/', '');
-    } else if (pathname.startsWith('/src/')) {
-      // Already in correct format
-    } else if (pathname.includes('/node_modules/')) {
-      // Skip node_modules
+    pathname = pathname.replace(/:\d+$/, '');
+
+    // Ignore node_modules and Vite internal runtime files
+    if (pathname.includes('/node_modules/') || pathname.startsWith('/@vite/')) {
       return '';
-    } else {
-      // Assume it's a relative path from src
-      if (!pathname.startsWith('/src/') && pathname !== '/') {
-        pathname = `/src${pathname}`;
-      }
     }
-    
-    return pathname;
+
+    let filePath = pathname;
+    if (filePath.startsWith('/@fs/')) {
+      filePath = filePath.replace('/@fs/', '');
+    } else if (filePath.startsWith('/@id/')) {
+      filePath = filePath.replace('/@id/', '');
+    } else if (filePath.startsWith('/src/')) {
+      filePath = filePath.slice(1);
+    } else if (filePath.startsWith('/')) {
+      filePath = filePath.slice(1);
+    }
+
+    if (!filePath || filePath === '/') {
+      return '';
+    }
+
+    const localSrc = path.resolve(process.cwd(), filePath);
+    if (fs.existsSync(localSrc) && localSrc.startsWith(process.cwd())) {
+      return path.relative(process.cwd(), localSrc);
+    }
+
+    const distFile = path.resolve(process.cwd(), 'dist', filePath);
+    if (fs.existsSync(distFile)) {
+      return path.relative(process.cwd(), distFile);
+    }
+
+    const distSrc = path.resolve(process.cwd(), 'dist', `.${pathname}`);
+    if (fs.existsSync(distSrc)) {
+      return path.relative(process.cwd(), distSrc);
+    }
+
+    // As a last resort, return the original path relative to cwd if the file exists.
+    const fallbackPath = path.resolve(process.cwd(), filePath);
+    if (fs.existsSync(fallbackPath)) {
+      return path.relative(process.cwd(), fallbackPath);
+    }
+
+    return '';
   } catch {
     return '';
   }
+}
+
+function loadCoverageSource(normalizedPath: string): { source: string; sourceMapPath?: string; sourceMap?: string } {
+  const absolutePath = path.resolve(process.cwd(), normalizedPath);
+  if (fs.existsSync(absolutePath)) {
+    const source = fs.readFileSync(absolutePath, 'utf-8');
+    const sourceMapPath = `${absolutePath}.map`;
+    if (fs.existsSync(sourceMapPath)) {
+      return {
+        source,
+        sourceMapPath,
+        sourceMap: fs.readFileSync(sourceMapPath, 'utf-8'),
+      };
+    }
+    return { source };
+  }
+
+  const distPath = path.resolve(process.cwd(), 'dist', normalizedPath);
+  if (fs.existsSync(distPath)) {
+    const source = fs.readFileSync(distPath, 'utf-8');
+    const sourceMapPath = `${distPath}.map`;
+    if (fs.existsSync(sourceMapPath)) {
+      return {
+        source,
+        sourceMapPath,
+        sourceMap: fs.readFileSync(sourceMapPath, 'utf-8'),
+      };
+    }
+    return { source };
+  }
+
+  return { source: '' };
 }
 
 export const test = base.extend<{ coverageEnabled: void }>({
@@ -70,6 +127,7 @@ export const test = base.extend<{ coverageEnabled: void }>({
 
         let successCount = 0;
         const processedUrls = new Set<string>();
+        const processedPaths = new Set<string>();
 
         for (let idx = 0; idx < coverage.length; idx++) {
           const entry = coverage[idx];
@@ -93,7 +151,7 @@ export const test = base.extend<{ coverageEnabled: void }>({
 
           // Skip duplicate URLs
           if (processedUrls.has(entry.url)) {
-            console.log(`  ⊘ Skipped (duplicate)`);
+            console.log(`  ⊘ Skipped (duplicate URL)`);
             continue;
           }
           processedUrls.add(entry.url);
@@ -108,12 +166,27 @@ export const test = base.extend<{ coverageEnabled: void }>({
               continue;
             }
 
-            // Use the source from the coverage entry if available
-            const source = entry.source ?? '';
+            if (processedPaths.has(normalizedPath)) {
+              console.log(`  ⊘ Skipped (duplicate normalized path)`);
+              continue;
+            }
+            processedPaths.add(normalizedPath);
+
+            // Load the source from the file system or dist output, and source map if available.
+            const { source, sourceMapPath, sourceMap } = loadCoverageSource(normalizedPath);
             console.log(`  Source available: ${source.length > 0 ? 'YES' : 'NO'}`);
-            
-            // Create v8-to-istanbul converter with normalized URL
-            const converter = v8ToIstanbul(normalizedPath, 0, { source });
+            if (sourceMapPath) {
+              console.log(`  Source map found: ${sourceMapPath}`);
+            }
+
+            const converterOptions: any = { source };
+            if (sourceMapPath) {
+              converterOptions.sourceMapPath = sourceMapPath;
+            }
+            if (sourceMap) {
+              converterOptions.sourceMap = sourceMap;
+            }
+            const converter = v8ToIstanbul(normalizedPath, 0, converterOptions);
             await converter.load();
             converter.applyCoverage(entry.functions);
             const istanbulCoverage = converter.toIstanbul();
