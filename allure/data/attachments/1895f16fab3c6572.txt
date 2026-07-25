@@ -1,0 +1,11 @@
+🔍 Starting JS coverage collection...
+📊 Collected coverage from 1 entries
+✓ Coverage saved: coverage-1784958785383-r1evfl.json
+  URL: http://localhost:8081/assets/index-DPmOeCyG.js
+  Path: /src/assets/index-DPmOeCyG.js
+  Files: 0
+✅ Saved 1 coverage files to /home/runner/work/test_app/test_app/frontend/coverage/e2e-raw
+📁 Coverage directory now contains 3 files
+   - coverage-1784958783866-3u7l2l.json
+   - coverage-1784958785069-aj3khw.json
+   - coverage-1784958785383-r1evfl.json
