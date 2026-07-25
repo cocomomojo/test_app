@@ -95,22 +95,8 @@ jobs:
         working-directory: frontend
         if: always()
         run: |
-          echo "=== DEBUG: Coverage Report Generation ==="
-          echo "Current directory: $(pwd)"
-          echo "Coverage directories:"
-          find coverage -type d 2>/dev/null || echo "No coverage directory"
-          echo ""
-          echo "Coverage files:"
-          find coverage -type f 2>/dev/null | head -20 || echo "No coverage files"
-          echo ""
-          
           if [ -d "coverage/e2e-raw" ] && [ "$(ls -A coverage/e2e-raw)" ]; then
-            echo "Running coverage report generation..."
             npm run coverage:report
-            echo ""
-            echo "=== Coverage report generated ==="
-            echo "Report directory contents:"
-            ls -la coverage/e2e-report/ || echo "Report directory not found"
           else
             echo "No frontend coverage data found (coverage/e2e-raw is empty or missing)"
             mkdir -p coverage/e2e-report
@@ -122,7 +108,7 @@ jobs:
         working-directory: infra
         run: |
           docker compose -f docker-compose.ci.yml stop springboot
-          sleep 3  # allow JaCoCo file output to flush
+          sleep 3
 
       - name: Generate backend E2E coverage report
         if: always()
@@ -134,18 +120,22 @@ jobs:
             echo "No jacoco.exec found, skipping E2E coverage report"
           fi
 
-      - name: Create HTML files
+      - name: Create GitHub Pages site
         if: always()
         run: |
           mkdir -p gh-pages/allure
           mkdir -p gh-pages/coverage/frontend
           mkdir -p gh-pages/coverage/backend
           
-          echo "✓ Directories created"
+          # Create .nojekyll
+          touch gh-pages/.nojekyll
           
-          # Main landing page
-          cat > gh-pages/index.html << 'EOF1'
-<!DOCTYPE html>
+          # Create main index.html using Python to avoid YAML/heredoc issues
+          python3 << 'PYEOF'
+import os
+os.makedirs('gh-pages', exist_ok=True)
+
+main_html = """<!DOCTYPE html>
 <html lang="ja">
 <head><meta charset="UTF-8"><title>Test App - Reports</title>
 <style>body{font-family:sans-serif;max-width:800px;margin:50px auto;line-height:1.6}h1{color:#333}.info{background:#f0f0f0;padding:15px;border-radius:5px;margin:20px 0}a{color:#0066cc;text-decoration:none}a:hover{text-decoration:underline}ul{list-style-type:none;padding:0}li{padding:8px 0}</style></head>
@@ -160,13 +150,13 @@ jobs:
   <li><a href="allure/index.html">📊 Allure E2E Test Report</a></li>
   <li><a href="coverage/index.html">📈 Coverage Reports</a></li>
 </ul>
-</body></html>
-EOF1
-          echo "✓ Main index.html created"
-          
-          # Coverage landing page
-          cat > gh-pages/coverage/index.html << 'EOF2'
-<!DOCTYPE html>
+</body></html>"""
+
+with open('gh-pages/index.html', 'w') as f:
+    f.write(main_html)
+print("✓ Main index.html created")
+
+coverage_html = """<!DOCTYPE html>
 <html lang="ja">
 <head><meta charset="UTF-8"><title>E2E Coverage Reports</title>
 <style>body{font-family:sans-serif;max-width:800px;margin:50px auto;line-height:1.6}h1{color:#333}.info{background:#f0f0f0;padding:15px;border-radius:5px;margin:20px 0}a{color:#0066cc;text-decoration:none}a:hover{text-decoration:underline}ul{list-style-type:none;padding:0}li{padding:8px 0}</style></head>
@@ -182,21 +172,24 @@ EOF1
   <li><a href="backend/index.html">☕ Backend Coverage (JaCoCo)</a></li>
 </ul>
 <p><a href="../">← Back to main page</a></p>
-</body></html>
-EOF2
-          echo "✓ Coverage index.html created"
+</body></html>"""
+
+with open('gh-pages/coverage/index.html', 'w') as f:
+    f.write(coverage_html)
+print("✓ Coverage index.html created")
+
+# Verify
+if os.path.exists('gh-pages/coverage/index.html'):
+    size = os.path.getsize('gh-pages/coverage/index.html')
+    print(f"✓ VERIFIED: gh-pages/coverage/index.html exists ({size} bytes)")
+else:
+    print("✗ ERROR: gh-pages/coverage/index.html was NOT created!")
+    exit(1)
+PYEOF
           
-          # Verify coverage file
-          if [ -f "gh-pages/coverage/index.html" ]; then
-            echo "✓ VERIFIED: gh-pages/coverage/index.html exists ($(wc -c < gh-pages/coverage/index.html) bytes)"
-          else
-            echo "✗ ERROR: gh-pages/coverage/index.html was NOT created!"
-            exit 1
-          fi
-          
-          # Create .nojekyll
-          touch gh-pages/.nojekyll
-          echo "✓ .nojekyll created"
+          echo ""
+          echo "=== Files created in gh-pages ==="
+          ls -la gh-pages/
 
       - name: Copy reports to GitHub Pages
         if: always()
@@ -231,9 +224,6 @@ EOF2
           echo ""
           echo "=== DEBUG: Final gh-pages structure ==="
           echo "Total files in gh-pages: $(find gh-pages -type f | wc -l)"
-          echo ""
-          echo "Directory tree:"
-          find gh-pages -type f -o -type d | sort
           echo ""
           echo "=== CRITICAL FILES CHECK ==="
           for file in "gh-pages/coverage/index.html" "gh-pages/coverage/frontend/index.html" "gh-pages/coverage/backend/index.html"; do
