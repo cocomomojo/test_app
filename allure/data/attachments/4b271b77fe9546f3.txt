@@ -1,0 +1,5 @@
+🔍 Starting JS coverage collection...
+📊 Collected coverage from 2 entries
+✓ Coverage saved: coverage-1784958018068-4hoohm.json
+✓ Coverage saved: coverage-1784958018115-40yg0n.json
+✅ Saved 2 coverage files to /home/runner/work/test_app/test_app/frontend/coverage/e2e-raw
