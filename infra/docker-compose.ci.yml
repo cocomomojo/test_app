@@ -40,12 +40,12 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: ci
       JAVA_TOOL_OPTIONS: >-
-        -javaagent:/jacoco/jacocoagent.jar=destfile=/jacoco-output/jacoco.exec,output=file,append=false
+        -javaagent:/app/jacoco/jacocoagent.jar=destfile=/app/jacoco-output/jacoco.exec,output=file,append=false
     ports:
       - "8080:8080"
     volumes:
-      - ./jacoco:/jacoco:ro
-      - ./jacoco-output:/jacoco-output
+      - ./jacoco:/app/jacoco:ro
+      - ./jacoco-output:/app/jacoco-output
     depends_on:
       mysql:
         condition: service_healthy
