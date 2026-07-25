@@ -95,10 +95,26 @@ jobs:
         working-directory: frontend
         if: always()
         run: |
+          echo "=== DEBUG: Coverage Report Generation ==="
+          echo "Current directory: $(pwd)"
+          echo "Coverage directories:"
+          find coverage -type d 2>/dev/null || echo "No coverage directory"
+          echo ""
+          echo "Coverage files:"
+          find coverage -type f 2>/dev/null | head -20 || echo "No coverage files"
+          echo ""
+          
           if [ -d "coverage/e2e-raw" ] && [ "$(ls -A coverage/e2e-raw)" ]; then
+            echo "Running coverage report generation..."
             npm run coverage:report
+            echo ""
+            echo "=== Coverage report generated ==="
+            echo "Report directory contents:"
+            ls -la coverage/e2e-report/ || echo "Report directory not found"
           else
-            echo "No frontend coverage data found, skipping report generation"
+            echo "No frontend coverage data found (coverage/e2e-raw is empty or missing)"
+            mkdir -p coverage/e2e-report
+            echo "<h1>No frontend coverage data available</h1>" > coverage/e2e-report/index.html
           fi
 
       - name: Stop services and collect backend coverage
@@ -121,6 +137,8 @@ jobs:
       - name: Assemble GitHub Pages site (Allure + Coverage)
         if: always()
         run: |
+          echo "=== DEBUG: Assembling GitHub Pages Site ==="
+          
           mkdir -p gh-pages/allure
           mkdir -p gh-pages/coverage/frontend gh-pages/coverage/backend
 
@@ -172,6 +190,7 @@ jobs:
 
           # Copy Allure report if available
           if [ -d "frontend/allure-report" ]; then
+            echo "Copying Allure report..."
             cp -r frontend/allure-report/. gh-pages/allure/
           else
             echo "<h1>No Allure report available</h1>" > gh-pages/allure/index.html
@@ -179,17 +198,31 @@ jobs:
 
           # Copy frontend coverage if available
           if [ -d "frontend/coverage/e2e-report" ]; then
+            echo "Copying frontend coverage report..."
+            echo "Frontend coverage files:"
+            ls -la frontend/coverage/e2e-report/ | head -20
             cp -r frontend/coverage/e2e-report/. gh-pages/coverage/frontend/
           else
+            echo "Frontend coverage directory not found or empty"
             echo "<h1>No frontend coverage data</h1>" > gh-pages/coverage/frontend/index.html
           fi
 
           # Copy backend coverage if available
           if [ -d "backend/build/reports/jacoco/jacocoE2EReport/html" ]; then
+            echo "Copying backend coverage report..."
             cp -r backend/build/reports/jacoco/jacocoE2EReport/html/. gh-pages/coverage/backend/
           else
+            echo "Backend coverage directory not found"
             echo "<h1>No backend E2E coverage data</h1>" > gh-pages/coverage/backend/index.html
           fi
+          
+          echo ""
+          echo "=== DEBUG: Final gh-pages structure ==="
+          echo "Total files in gh-pages:"
+          find gh-pages -type f | wc -l
+          echo ""
+          echo "Directory tree:"
+          find gh-pages -type f -o -type d | sort | head -50
 
       - name: Upload test reports artifacts
         if: always()
