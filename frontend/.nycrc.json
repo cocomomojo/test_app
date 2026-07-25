@@ -1,0 +1,27 @@
+{
+  "all": true,
+  "include": [
+    "src/**/*.{js,vue,ts,tsx}"
+  ],
+  "exclude": [
+    "src/main.ts",
+    "src/test/**",
+    "node_modules/**",
+    "dist/**"
+  ],
+  "reporter": [
+    "html",
+    "lcov",
+    "text",
+    "json"
+  ],
+  "report-dir": "coverage/e2e-report",
+  "temp-dir": "coverage/e2e-raw",
+  "skip-full": false,
+  "watermarks": {
+    "lines": [50, 80],
+    "functions": [50, 80],
+    "branches": [50, 80],
+    "statements": [50, 80]
+  }
+}
