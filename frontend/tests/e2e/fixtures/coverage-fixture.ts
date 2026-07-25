@@ -20,7 +20,7 @@ const COVERAGE_DIR = path.resolve(process.cwd(), 'coverage/e2e-raw');
  * Normalize file paths to work correctly with nyc
  * Converts absolute URLs to relative paths from project root
  */
-function normalizeFilePath(url: string): string {
+export function normalizeFilePath(url: string): string {
   try {
     const urlObj = new URL(url);
     let pathname = urlObj.pathname;
@@ -28,19 +28,30 @@ function normalizeFilePath(url: string): string {
     // Remove port number if present (e.g., :8081)
     pathname = pathname.replace(/:\d+$/, '');
 
-    // Ignore node_modules and Vite internal runtime files
+    // Handle Vite /@fs/ and /@id/ prefixes for source files.
+    if (pathname.includes('/@fs/')) {
+      pathname = pathname.replace('/@fs/', '');
+    } else if (pathname.includes('/@id/')) {
+      pathname = pathname.replace('/@id/', '');
+    }
+
+    // Keep Vite-built asset URLs as relative paths so nyc can report them.
+    if (pathname.startsWith('/assets/')) {
+      return pathname.slice(1);
+    }
+
+    // Ignore node_modules and Vite internal runtime files.
     if (pathname.includes('/node_modules/') || pathname.startsWith('/@vite/')) {
       return '';
     }
 
+    // Convert source URLs to repository-relative paths.
+    if (pathname.startsWith('/src/')) {
+      return pathname.slice(1);
+    }
+
     let filePath = pathname;
-    if (filePath.startsWith('/@fs/')) {
-      filePath = filePath.replace('/@fs/', '');
-    } else if (filePath.startsWith('/@id/')) {
-      filePath = filePath.replace('/@id/', '');
-    } else if (filePath.startsWith('/src/')) {
-      filePath = filePath.slice(1);
-    } else if (filePath.startsWith('/')) {
+    if (filePath.startsWith('/')) {
       filePath = filePath.slice(1);
     }
 
@@ -63,13 +74,12 @@ function normalizeFilePath(url: string): string {
       return path.relative(process.cwd(), distSrc);
     }
 
-    // As a last resort, return the original path relative to cwd if the file exists.
-    const fallbackPath = path.resolve(process.cwd(), filePath);
-    if (fs.existsSync(fallbackPath)) {
-      return path.relative(process.cwd(), fallbackPath);
+    // As a last resort, preserve the existing main-branch behavior for local app paths.
+    if (pathname !== '/' && !pathname.startsWith('/src/')) {
+      pathname = `/src${pathname}`;
     }
 
-    return '';
+    return pathname;
   } catch {
     return '';
   }
@@ -157,7 +167,9 @@ export const test = base.extend<{ coverageEnabled: void }>({
           processedUrls.add(entry.url);
 
           try {
-            // Normalize the file path for nyc compatibility
+            // Normalize the file path for nyc compatibility.
+            // We intentionally keep relative asset paths (e.g. assets/index-*.js)
+            // so that nyc can report them even when the source is served from Vite.
             const normalizedPath = normalizeFilePath(entry.url);
             console.log(`  Normalized path: ${normalizedPath}`);
             
