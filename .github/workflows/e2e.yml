@@ -137,82 +137,98 @@ jobs:
       - name: Assemble GitHub Pages site (Allure + Coverage)
         if: always()
         run: |
+          set -e  # Exit on error
           echo "=== DEBUG: Assembling GitHub Pages Site ==="
           
+          # Create base directories
           mkdir -p gh-pages/allure
-          mkdir -p gh-pages/coverage/frontend gh-pages/coverage/backend
-
+          mkdir -p gh-pages/coverage/frontend
+          mkdir -p gh-pages/coverage/backend
+          
+          echo "✓ Directories created"
+          
           # Main landing page
-          cat > gh-pages/index.html <<'EOF'
-          <!DOCTYPE html>
-          <html lang="ja">
-          <head><meta charset="UTF-8"><title>Test App - Reports</title>
-          <style>body{font-family:sans-serif;max-width:800px;margin:50px auto;line-height:1.6}h1{color:#333}.info{background:#f0f0f0;padding:15px;border-radius:5px;margin:20px 0}a{color:#0066cc;text-decoration:none}a:hover{text-decoration:underline}ul{list-style-type:none;padding:0}li{padding:8px 0}.warning{color:#d9534f}</style>
-          </head>
-          <body>
-          <h1>📊 Test App - Reports</h1>
-          <div class="info">
-            <p><strong>📍 Location:</strong> This page is deployed to GitHub Pages</p>
-            <p><strong>🔄 Updates:</strong> Reports are updated after each e2e test run on the main branch.</p>
-          </div>
-          <h2>📋 Available Reports</h2>
-          <ul>
-            <li><a href="allure/index.html">📊 Allure E2E Test Report</a></li>
-            <li><a href="coverage/index.html">📈 Coverage Reports</a></li>
-          </ul>
-          </body></html>
-          EOF
-
-          # Coverage landing page
-          cat > gh-pages/coverage/index.html <<'EOF'
-          <!DOCTYPE html>
-          <html lang="ja">
-          <head><meta charset="UTF-8"><title>E2E Coverage Reports</title>
-          <style>body{font-family:sans-serif;max-width:800px;margin:50px auto;line-height:1.6}h1{color:#333}.info{background:#f0f0f0;padding:15px;border-radius:5px;margin:20px 0}a{color:#0066cc;text-decoration:none}a:hover{text-decoration:underline}ul{list-style-type:none;padding:0}li{padding:8px 0}.warning{color:#d9534f}.status{padding:10px;border-radius:3px;margin:10px 0}.status-success{background:#d4edda;color:#155724}.status-warning{background:#fff3cd;color:#856404}</style>
-          </head>
-          <body>
-          <h1>📊 E2E Coverage Reports</h1>
-          <div class="info">
-            <p><strong>📍 Location:</strong> <code>https://cocomomojo.github.io/test_app/coverage/</code></p>
-            <p><strong>🔄 Updates:</strong> Reports are updated after each e2e test run on the main branch.</p>
-          </div>
-          <h2>Reports</h2>
-          <ul>
-            <li><a href="frontend/index.html">🎨 Frontend Coverage (Playwright + Istanbul)</a></li>
-            <li><a href="backend/index.html">☕ Backend Coverage (JaCoCo)</a></li>
-          </ul>
-          <p><a href="../">← Back to main page</a></p>
-          </body></html>
-          EOF
-
+          cat > gh-pages/index.html << 'MAINEOF'
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8"><title>Test App - Reports</title>
+<style>body{font-family:sans-serif;max-width:800px;margin:50px auto;line-height:1.6}h1{color:#333}.info{background:#f0f0f0;padding:15px;border-radius:5px;margin:20px 0}a{color:#0066cc;text-decoration:none}a:hover{text-decoration:underline}ul{list-style-type:none;padding:0}li{padding:8px 0}.warning{color:#d9534f}</style>
+</head>
+<body>
+<h1>📊 Test App - Reports</h1>
+<div class="info">
+  <p><strong>📍 Location:</strong> This page is deployed to GitHub Pages</p>
+  <p><strong>🔄 Updates:</strong> Reports are updated after each e2e test run on the main branch.</p>
+</div>
+<h2>📋 Available Reports</h2>
+<ul>
+  <li><a href="allure/index.html">📊 Allure E2E Test Report</a></li>
+  <li><a href="coverage/index.html">📈 Coverage Reports</a></li>
+</ul>
+</body></html>
+MAINEOF
+          echo "✓ Main index.html created"
+          
+          # Coverage landing page - THIS IS CRITICAL
+          cat > gh-pages/coverage/index.html << 'COVERAGEEOF'
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8"><title>E2E Coverage Reports</title>
+<style>body{font-family:sans-serif;max-width:800px;margin:50px auto;line-height:1.6}h1{color:#333}.info{background:#f0f0f0;padding:15px;border-radius:5px;margin:20px 0}a{color:#0066cc;text-decoration:none}a:hover{text-decoration:underline}ul{list-style-type:none;padding:0}li{padding:8px 0}.warning{color:#d9534f}</style>
+</head>
+<body>
+<h1>📊 E2E Coverage Reports</h1>
+<div class="info">
+  <p><strong>📍 Location:</strong> <code>https://cocomomojo.github.io/test_app/coverage/</code></p>
+  <p><strong>🔄 Updates:</strong> Reports are updated after each e2e test run on the main branch.</p>
+</div>
+<h2>Reports</h2>
+<ul>
+  <li><a href="frontend/index.html">🎨 Frontend Coverage (Playwright + Istanbul)</a></li>
+  <li><a href="backend/index.html">☕ Backend Coverage (JaCoCo)</a></li>
+</ul>
+<p><a href="../">← Back to main page</a></p>
+</body></html>
+COVERAGEEOF
+          echo "✓ Coverage index.html created"
+          
+          # Verify the file was created
+          if [ -f "gh-pages/coverage/index.html" ]; then
+            echo "✓ VERIFIED: gh-pages/coverage/index.html exists"
+            ls -lh gh-pages/coverage/index.html
+          else
+            echo "✗ ERROR: gh-pages/coverage/index.html was NOT created!"
+            exit 1
+          fi
+          
           # Create .nojekyll to disable Jekyll processing
           touch gh-pages/.nojekyll
+          echo "✓ .nojekyll created"
 
           # Copy Allure report if available
           if [ -d "frontend/allure-report" ]; then
-            echo "Copying Allure report..."
+            echo "✓ Copying Allure report..."
             cp -r frontend/allure-report/. gh-pages/allure/
           else
+            echo "⚠ No Allure report found, creating placeholder..."
             echo "<h1>No Allure report available</h1>" > gh-pages/allure/index.html
           fi
 
           # Copy frontend coverage if available
           if [ -d "frontend/coverage/e2e-report" ]; then
-            echo "Copying frontend coverage report..."
-            echo "Frontend coverage files:"
-            ls -la frontend/coverage/e2e-report/ | head -20
+            echo "✓ Copying frontend coverage report..."
             cp -r frontend/coverage/e2e-report/. gh-pages/coverage/frontend/
           else
-            echo "Frontend coverage directory not found or empty"
+            echo "⚠ No frontend coverage found, creating placeholder..."
             echo "<h1>No frontend coverage data</h1>" > gh-pages/coverage/frontend/index.html
           fi
 
           # Copy backend coverage if available
           if [ -d "backend/build/reports/jacoco/jacocoE2EReport/html" ]; then
-            echo "Copying backend coverage report..."
+            echo "✓ Copying backend coverage report..."
             cp -r backend/build/reports/jacoco/jacocoE2EReport/html/. gh-pages/coverage/backend/
           else
-            echo "Backend coverage directory not found"
+            echo "⚠ No backend coverage found, creating placeholder..."
             echo "<h1>No backend E2E coverage data</h1>" > gh-pages/coverage/backend/index.html
           fi
           
@@ -222,7 +238,16 @@ jobs:
           find gh-pages -type f | wc -l
           echo ""
           echo "Directory tree:"
-          find gh-pages -type f -o -type d | sort | head -50
+          find gh-pages -type f -o -type d | sort
+          echo ""
+          echo "=== CRITICAL FILES CHECK ==="
+          for file in "gh-pages/coverage/index.html" "gh-pages/coverage/frontend/index.html" "gh-pages/coverage/backend/index.html"; do
+            if [ -f "$file" ]; then
+              echo "✓ $file exists ($(wc -c < $file) bytes)"
+            else
+              echo "✗ MISSING: $file"
+            fi
+          done
 
       - name: Upload test reports artifacts
         if: always()
