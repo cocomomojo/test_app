@@ -81,6 +81,25 @@ jobs:
           PLAYWRIGHT_BASE_URL: http://localhost:8081
         run: npm run test:e2e
 
+      - name: Debug - Check Playwright coverage collection
+        if: always()
+        working-directory: frontend
+        run: |
+          echo "=== Playwright test output ==="
+          cat test-results/results.json 2>/dev/null | jq '.tests[0]' || echo "No test results found"
+          echo ""
+          echo "=== Coverage directory structure ==="
+          ls -la coverage/ 2>/dev/null || echo "No coverage directory"
+          echo ""
+          echo "=== E2E raw coverage files ==="
+          ls -la coverage/e2e-raw/ 2>/dev/null || echo "No e2e-raw directory"
+          echo ""
+          echo "=== File count in e2e-raw ==="
+          find coverage/e2e-raw -type f 2>/dev/null | wc -l
+          echo ""
+          echo "=== Sample coverage file (first 100 lines) ==="
+          find coverage/e2e-raw -type f -print -quit | head -1 | xargs cat 2>/dev/null | head -100 || echo "No coverage files found"
+
       - name: Generate Allure report
         if: always()
         working-directory: frontend
@@ -95,10 +114,16 @@ jobs:
         working-directory: frontend
         if: always()
         run: |
+          echo "=== Before coverage:report ==="
+          echo "Coverage directory contents:"
+          ls -la coverage/e2e-raw/ 2>/dev/null | head -20 || echo "Directory is empty or missing"
+          echo ""
+          
           if [ -d "coverage/e2e-raw" ] && [ "$(ls -A coverage/e2e-raw)" ]; then
+            echo "✓ Found coverage files, generating report..."
             npm run coverage:report
           else
-            echo "No frontend coverage data found (coverage/e2e-raw is empty or missing)"
+            echo "✗ No frontend coverage data found (coverage/e2e-raw is empty or missing)"
             mkdir -p coverage/e2e-report
             echo "<h1>No frontend coverage data available</h1>" > coverage/e2e-report/index.html
           fi
