@@ -1,4 +1,4 @@
-import { test as base, chromium } from '@playwright/test';
+import { test as base } from '@playwright/test';
 import path from 'path';
 import fs from 'fs';
 import v8ToIstanbul from 'v8-to-istanbul';
@@ -8,7 +8,7 @@ import v8ToIstanbul from 'v8-to-istanbul';
  *
  * Wraps each test with Chromium's built-in JS coverage collection (page.coverage).
  * After each test the raw V8 coverage is converted to Istanbul format and written
- * as individual JSON files under `coverage/` so they can later be merged and
+ * as individual JSON files under `coverage/e2e-raw/` so they can later be merged and
  * reported with nyc/istanbul.
  *
  * Only works with Chromium (CDP protocol). Other browsers are silently skipped.
@@ -22,6 +22,7 @@ export const test = base.extend<{ coverageEnabled: void }>({
       const isChromium = browserName === 'chromium';
 
       if (isChromium) {
+        console.log('🔍 Starting JS coverage collection...');
         await page.coverage.startJSCoverage({ resetOnNavigation: false });
       }
 
@@ -29,35 +30,48 @@ export const test = base.extend<{ coverageEnabled: void }>({
 
       if (isChromium) {
         const coverage = await page.coverage.stopJSCoverage();
+        console.log(`📊 Collected coverage from ${coverage.length} entries`);
 
         fs.mkdirSync(COVERAGE_DIR, { recursive: true });
 
+        let successCount = 0;
         for (const entry of coverage) {
-          // Only process app source files (skip vendor/node_modules)
-          // Also ensure the URL is valid and from localhost
-          if (entry.url && !entry.url.includes('node_modules') && 
-              (entry.url.includes('localhost') || entry.url.startsWith('http'))) {
-            try {
-              // Extract path from URL for v8-to-istanbul
-              const urlObj = new URL(entry.url);
-              const filePath = urlObj.pathname;
-              
-              const converter = v8ToIstanbul(entry.url, 0, { source: entry.source ?? '' });
-              await converter.load();
-              converter.applyCoverage(entry.functions);
-              const istanbulCoverage = converter.toIstanbul();
+          // Filter out node_modules and vendor code
+          if (!entry.url || entry.url.includes('node_modules')) {
+            continue;
+          }
 
-              const filename = path.join(
-                COVERAGE_DIR,
-                `coverage-${Date.now()}-${Math.random().toString(36).slice(2)}.json`
-              );
-              fs.writeFileSync(filename, JSON.stringify(istanbulCoverage));
-            } catch (error) {
-              // Skip files that fail to convert (e.g., vendor files)
-              console.warn(`Failed to convert coverage for ${entry.url}:`, error.message);
-            }
+          // Only process URLs from localhost (our app)
+          if (!entry.url.includes('localhost') && !entry.url.includes('127.0.0.1')) {
+            continue;
+          }
+
+          try {
+            // Use the source from the coverage entry if available
+            const source = entry.source ?? '';
+            
+            // Create v8-to-istanbul converter
+            const converter = v8ToIstanbul(entry.url, 0, { source });
+            await converter.load();
+            converter.applyCoverage(entry.functions);
+            const istanbulCoverage = converter.toIstanbul();
+
+            // Generate unique filename
+            const timestamp = Date.now();
+            const hash = Math.random().toString(36).slice(2, 8);
+            const filename = path.join(COVERAGE_DIR, `coverage-${timestamp}-${hash}.json`);
+            
+            fs.writeFileSync(filename, JSON.stringify(istanbulCoverage));
+            successCount++;
+            
+            console.log(`✓ Coverage saved: ${path.basename(filename)}`);
+          } catch (error) {
+            // Log but don't fail - some files might not be convertible
+            console.warn(`⚠ Failed to convert coverage for ${entry.url}:`, error instanceof Error ? error.message : String(error));
           }
         }
+
+        console.log(`✅ Saved ${successCount} coverage files to ${COVERAGE_DIR}`);
       }
     },
     { auto: true },
