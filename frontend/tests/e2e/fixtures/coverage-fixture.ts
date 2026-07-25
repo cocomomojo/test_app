@@ -74,7 +74,7 @@ export function normalizeFilePath(url: string): string {
       return path.relative(process.cwd(), distSrc);
     }
 
-    // As a last resort, preserve the existing main-branch behavior for local app paths.
+    // Preserve the existing main-branch behavior for local app paths.
     if (pathname !== '/' && !pathname.startsWith('/src/')) {
       pathname = `/src${pathname}`;
     }
