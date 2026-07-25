@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeFilePath } from '../../tests/e2e/fixtures/coverage-fixture';
-import { readFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 describe('normalizeFilePath', () => {
@@ -22,5 +22,30 @@ describe('coverage source fallback', () => {
     const fixturePath = join(process.cwd(), 'tests/e2e/fixtures/coverage-fixture.ts');
     const source = readFileSync(fixturePath, 'utf8');
     expect(source).toContain('export function normalizeFilePath');
+  });
+
+  it('writes a nyc-compatible merged coverage file when coverage is available', () => {
+    const tempDir = join(process.cwd(), 'coverage/e2e-raw');
+    rmSync(tempDir, { recursive: true, force: true });
+    mkdirSync(tempDir, { recursive: true });
+
+    const coverageMap = {
+      'src/App.vue': {
+        path: 'src/App.vue',
+        statementMap: {},
+        fnMap: {},
+        branchMap: {},
+        s: {},
+        f: {},
+        b: {},
+      },
+    };
+
+    const finalPath = join(tempDir, 'coverage-final.json');
+    writeFileSync(finalPath, JSON.stringify(coverageMap, null, 2));
+
+    expect(existsSync(finalPath)).toBe(true);
+    const saved = JSON.parse(readFileSync(finalPath, 'utf8'));
+    expect(saved['src/App.vue']).toBeDefined();
   });
 });

@@ -16,6 +16,12 @@ import v8ToIstanbul from 'v8-to-istanbul';
 
 const COVERAGE_DIR = path.resolve(process.cwd(), 'coverage/e2e-raw');
 
+function writeCoverageFinalFile(coverageMap: Record<string, any>): void {
+  const finalPath = path.join(COVERAGE_DIR, 'coverage-final.json');
+  fs.mkdirSync(COVERAGE_DIR, { recursive: true });
+  fs.writeFileSync(finalPath, JSON.stringify(coverageMap, null, 2));
+}
+
 /**
  * Normalize file paths to work correctly with nyc
  * Converts absolute URLs to relative paths from project root
@@ -134,11 +140,13 @@ export const test = base.extend<{ coverageEnabled: void }>({
         const coverage = await page.coverage.stopJSCoverage();
         console.log(`📊 Collected coverage from ${coverage.length} entries`);
 
+        fs.rmSync(COVERAGE_DIR, { recursive: true, force: true });
         fs.mkdirSync(COVERAGE_DIR, { recursive: true });
 
         let successCount = 0;
         const processedUrls = new Set<string>();
         const processedPaths = new Set<string>();
+        const mergedCoverage: Record<string, any> = {};
 
         for (let idx = 0; idx < coverage.length; idx++) {
           const entry = coverage[idx];
@@ -207,24 +215,15 @@ export const test = base.extend<{ coverageEnabled: void }>({
 
             console.log(`  Istanbul coverage keys: ${Object.keys(istanbulCoverage).length}`);
 
-            // Ensure the coverage object has the correct structure
-            const coverageData: { [key: string]: any } = {};
+            // Ensure the coverage object has the correct structure and merge it into the
+            // single nyc-compatible output file expected by `nyc report`.
             for (const [filePath, coverageInfo] of Object.entries(istanbulCoverage)) {
-              // Keep the path as-is for now to see what's being generated
-              coverageData[filePath] = coverageInfo;
+              mergedCoverage[filePath] = coverageInfo;
               console.log(`    → ${filePath}: ${JSON.stringify(coverageInfo).length} bytes`);
             }
 
-            // Generate unique filename
-            const timestamp = Date.now();
-            const hash = Math.random().toString(36).slice(2, 8);
-            const filename = path.join(COVERAGE_DIR, `coverage-${timestamp}-${hash}.json`);
-            
-            const fileContent = JSON.stringify(coverageData, null, 2);
-            fs.writeFileSync(filename, fileContent);
             successCount++;
-            
-            console.log(`  ✓ Coverage saved: ${path.basename(filename)} (${fileContent.length} bytes)`);
+            console.log(`  ✓ Coverage merged for report generation`);
           } catch (error) {
             // Log but don't fail - some files might not be convertible
             console.error(
@@ -234,16 +233,19 @@ export const test = base.extend<{ coverageEnabled: void }>({
           }
         }
 
-        console.log(`\n✅ Saved ${successCount} coverage files to ${COVERAGE_DIR}`);
-        
-        // Verify coverage files were created
+        if (successCount > 0) {
+          writeCoverageFinalFile(mergedCoverage);
+        }
+
+        console.log(`\n✅ Merged ${successCount} coverage entries into ${COVERAGE_DIR}`);
+
+        // Verify the nyc-compatible coverage output was created
         const files = fs.readdirSync(COVERAGE_DIR);
         console.log(`📁 Coverage directory now contains ${files.length} files`);
-        files.slice(0, 3).forEach((f) => {
+        files.forEach((f) => {
           const size = fs.statSync(path.join(COVERAGE_DIR, f)).size;
           console.log(`   - ${f} (${size} bytes)`);
         });
-        if (files.length > 3) console.log(`   ... and ${files.length - 3} more`);
       }
     },
     { auto: true },
