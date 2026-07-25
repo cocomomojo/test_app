@@ -1,0 +1,19 @@
+🔍 Starting JS coverage collection...
+📊 Collected coverage from 1 entries
+
+[1/1] Processing entry
+  URL: http://localhost:8081/assets/index-DPmOeCyG.js
+  Functions: 2594
+  Source length: 689846
+  Normalized path: assets/index-DPmOeCyG.js
+  Source available: YES
+  Istanbul coverage keys: 1
+    → assets/index-DPmOeCyG.js: 1029155 bytes
+  ✓ Coverage saved: coverage-1784975643454-okugra.json (2661493 bytes)
+
+✅ Saved 1 coverage files to /home/runner/work/test_app/test_app/frontend/coverage/e2e-raw
+📁 Coverage directory now contains 6 files
+   - coverage-1784975639401-1yd846.json (2574741 bytes)
+   - coverage-1784975640513-m9pw22.json (2903100 bytes)
+   - coverage-1784975640873-ie2nsf.json (2916035 bytes)
+   ... and 3 more
