@@ -89,7 +89,23 @@ tasks.register('jacocoE2EReport', JacocoReport) {
     description = 'Generates JaCoCo coverage report from E2E exec file'
     group = 'verification'
 
-    executionData fileTree(project.rootDir).include('**/jacoco-output/jacoco.exec')
+    // E2E exec file の明示的なパス - ファイルが存在する場合のみ使用
+    def e2eExecFile = file('../infra/jacoco-output/jacoco.exec')
+    if (e2eExecFile.exists()) {
+        executionData files(e2eExecFile)
+        doFirst {
+            println "✓ Using E2E coverage file: ${e2eExecFile.absolutePath}"
+            println "  File size: ${e2eExecFile.length()} bytes"
+        }
+    } else {
+        // フォールバック: ファイルが見つからない場合は空のリストを使用
+        executionData files().builtBy()
+        doFirst {
+            println "✗ E2E coverage file not found: ${e2eExecFile.absolutePath}"
+            println "  Generating report without E2E data"
+        }
+    }
+    
     sourceSets sourceSets.main
 
     reports {
