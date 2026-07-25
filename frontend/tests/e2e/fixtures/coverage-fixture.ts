@@ -39,7 +39,7 @@ function normalizeFilePath(url: string): string {
       return '';
     } else {
       // Assume it's a relative path from src
-      if (!pathname.startsWith('/src/')) {
+      if (!pathname.startsWith('/src/') && pathname !== '/') {
         pathname = `/src${pathname}`;
       }
     }
@@ -71,20 +71,29 @@ export const test = base.extend<{ coverageEnabled: void }>({
         let successCount = 0;
         const processedUrls = new Set<string>();
 
-        for (const entry of coverage) {
+        for (let idx = 0; idx < coverage.length; idx++) {
+          const entry = coverage[idx];
+          
+          console.log(`\n[${idx + 1}/${coverage.length}] Processing entry`);
+          console.log(`  URL: ${entry.url}`);
+          console.log(`  Functions: ${entry.functions ? entry.functions.length : 0}`);
+          console.log(`  Source length: ${entry.source ? entry.source.length : 0}`);
+
           // Filter out node_modules and vendor code
           if (!entry.url || entry.url.includes('node_modules')) {
+            console.log(`  ⊘ Skipped (node_modules)`);
             continue;
           }
 
           // Only process URLs from localhost (our app)
           if (!entry.url.includes('localhost') && !entry.url.includes('127.0.0.1')) {
+            console.log(`  ⊘ Skipped (not localhost)`);
             continue;
           }
 
           // Skip duplicate URLs
           if (processedUrls.has(entry.url)) {
-            console.log(`⊘ Skipping duplicate: ${entry.url}`);
+            console.log(`  ⊘ Skipped (duplicate)`);
             continue;
           }
           processedUrls.add(entry.url);
@@ -92,13 +101,16 @@ export const test = base.extend<{ coverageEnabled: void }>({
           try {
             // Normalize the file path for nyc compatibility
             const normalizedPath = normalizeFilePath(entry.url);
-            if (!normalizedPath) {
-              console.log(`⊘ Skipping (invalid path): ${entry.url}`);
+            console.log(`  Normalized path: ${normalizedPath}`);
+            
+            if (!normalizedPath || normalizedPath === '/') {
+              console.log(`  ⊘ Skipped (invalid normalized path)`);
               continue;
             }
 
             // Use the source from the coverage entry if available
             const source = entry.source ?? '';
+            console.log(`  Source available: ${source.length > 0 ? 'YES' : 'NO'}`);
             
             // Create v8-to-istanbul converter with normalized URL
             const converter = v8ToIstanbul(normalizedPath, 0, { source });
@@ -106,14 +118,14 @@ export const test = base.extend<{ coverageEnabled: void }>({
             converter.applyCoverage(entry.functions);
             const istanbulCoverage = converter.toIstanbul();
 
+            console.log(`  Istanbul coverage keys: ${Object.keys(istanbulCoverage).length}`);
+
             // Ensure the coverage object has the correct structure
             const coverageData: { [key: string]: any } = {};
             for (const [filePath, coverageInfo] of Object.entries(istanbulCoverage)) {
-              // Normalize file paths in the coverage data
-              const normalizedFilePath = normalizeFilePath(filePath);
-              if (normalizedFilePath) {
-                coverageData[normalizedFilePath] = coverageInfo;
-              }
+              // Keep the path as-is for now to see what's being generated
+              coverageData[filePath] = coverageInfo;
+              console.log(`    → ${filePath}: ${JSON.stringify(coverageInfo).length} bytes`);
             }
 
             // Generate unique filename
@@ -121,29 +133,28 @@ export const test = base.extend<{ coverageEnabled: void }>({
             const hash = Math.random().toString(36).slice(2, 8);
             const filename = path.join(COVERAGE_DIR, `coverage-${timestamp}-${hash}.json`);
             
-            fs.writeFileSync(filename, JSON.stringify(coverageData, null, 2));
+            const fileContent = JSON.stringify(coverageData, null, 2);
+            fs.writeFileSync(filename, fileContent);
             successCount++;
             
-            console.log(`✓ Coverage saved: ${path.basename(filename)}`);
-            console.log(`  URL: ${entry.url}`);
-            console.log(`  Path: ${normalizedPath}`);
-            console.log(`  Files: ${Object.keys(coverageData).length}`);
+            console.log(`  ✓ Coverage saved: ${path.basename(filename)} (${fileContent.length} bytes)`);
           } catch (error) {
             // Log but don't fail - some files might not be convertible
-            console.warn(
-              `⚠ Failed to convert coverage for ${entry.url}:`,
+            console.error(
+              `  ✗ Failed to convert:`,
               error instanceof Error ? error.message : String(error)
             );
           }
         }
 
-        console.log(`✅ Saved ${successCount} coverage files to ${COVERAGE_DIR}`);
+        console.log(`\n✅ Saved ${successCount} coverage files to ${COVERAGE_DIR}`);
         
         // Verify coverage files were created
         const files = fs.readdirSync(COVERAGE_DIR);
         console.log(`📁 Coverage directory now contains ${files.length} files`);
-        files.forEach((f, i) => {
-          if (i < 3) console.log(`   - ${f}`);
+        files.slice(0, 3).forEach((f) => {
+          const size = fs.statSync(path.join(COVERAGE_DIR, f)).size;
+          console.log(`   - ${f} (${size} bytes)`);
         });
         if (files.length > 3) console.log(`   ... and ${files.length - 3} more`);
       }
