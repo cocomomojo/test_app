@@ -134,13 +134,9 @@ jobs:
             echo "No jacoco.exec found, skipping E2E coverage report"
           fi
 
-      - name: Assemble GitHub Pages site (Allure + Coverage)
+      - name: Create HTML files
         if: always()
         run: |
-          set -e  # Exit on error
-          echo "=== DEBUG: Assembling GitHub Pages Site ==="
-          
-          # Create base directories
           mkdir -p gh-pages/allure
           mkdir -p gh-pages/coverage/frontend
           mkdir -p gh-pages/coverage/backend
@@ -148,12 +144,11 @@ jobs:
           echo "✓ Directories created"
           
           # Main landing page
-          cat > gh-pages/index.html << 'MAINEOF'
+          cat > gh-pages/index.html << 'EOF1'
 <!DOCTYPE html>
 <html lang="ja">
 <head><meta charset="UTF-8"><title>Test App - Reports</title>
-<style>body{font-family:sans-serif;max-width:800px;margin:50px auto;line-height:1.6}h1{color:#333}.info{background:#f0f0f0;padding:15px;border-radius:5px;margin:20px 0}a{color:#0066cc;text-decoration:none}a:hover{text-decoration:underline}ul{list-style-type:none;padding:0}li{padding:8px 0}.warning{color:#d9534f}</style>
-</head>
+<style>body{font-family:sans-serif;max-width:800px;margin:50px auto;line-height:1.6}h1{color:#333}.info{background:#f0f0f0;padding:15px;border-radius:5px;margin:20px 0}a{color:#0066cc;text-decoration:none}a:hover{text-decoration:underline}ul{list-style-type:none;padding:0}li{padding:8px 0}</style></head>
 <body>
 <h1>📊 Test App - Reports</h1>
 <div class="info">
@@ -166,16 +161,15 @@ jobs:
   <li><a href="coverage/index.html">📈 Coverage Reports</a></li>
 </ul>
 </body></html>
-MAINEOF
+EOF1
           echo "✓ Main index.html created"
           
-          # Coverage landing page - THIS IS CRITICAL
-          cat > gh-pages/coverage/index.html << 'COVERAGEEOF'
+          # Coverage landing page
+          cat > gh-pages/coverage/index.html << 'EOF2'
 <!DOCTYPE html>
 <html lang="ja">
 <head><meta charset="UTF-8"><title>E2E Coverage Reports</title>
-<style>body{font-family:sans-serif;max-width:800px;margin:50px auto;line-height:1.6}h1{color:#333}.info{background:#f0f0f0;padding:15px;border-radius:5px;margin:20px 0}a{color:#0066cc;text-decoration:none}a:hover{text-decoration:underline}ul{list-style-type:none;padding:0}li{padding:8px 0}.warning{color:#d9534f}</style>
-</head>
+<style>body{font-family:sans-serif;max-width:800px;margin:50px auto;line-height:1.6}h1{color:#333}.info{background:#f0f0f0;padding:15px;border-radius:5px;margin:20px 0}a{color:#0066cc;text-decoration:none}a:hover{text-decoration:underline}ul{list-style-type:none;padding:0}li{padding:8px 0}</style></head>
 <body>
 <h1>📊 E2E Coverage Reports</h1>
 <div class="info">
@@ -189,22 +183,24 @@ MAINEOF
 </ul>
 <p><a href="../">← Back to main page</a></p>
 </body></html>
-COVERAGEEOF
+EOF2
           echo "✓ Coverage index.html created"
           
-          # Verify the file was created
+          # Verify coverage file
           if [ -f "gh-pages/coverage/index.html" ]; then
-            echo "✓ VERIFIED: gh-pages/coverage/index.html exists"
-            ls -lh gh-pages/coverage/index.html
+            echo "✓ VERIFIED: gh-pages/coverage/index.html exists ($(wc -c < gh-pages/coverage/index.html) bytes)"
           else
             echo "✗ ERROR: gh-pages/coverage/index.html was NOT created!"
             exit 1
           fi
           
-          # Create .nojekyll to disable Jekyll processing
+          # Create .nojekyll
           touch gh-pages/.nojekyll
           echo "✓ .nojekyll created"
 
+      - name: Copy reports to GitHub Pages
+        if: always()
+        run: |
           # Copy Allure report if available
           if [ -d "frontend/allure-report" ]; then
             echo "✓ Copying Allure report..."
@@ -234,8 +230,7 @@ COVERAGEEOF
           
           echo ""
           echo "=== DEBUG: Final gh-pages structure ==="
-          echo "Total files in gh-pages:"
-          find gh-pages -type f | wc -l
+          echo "Total files in gh-pages: $(find gh-pages -type f | wc -l)"
           echo ""
           echo "Directory tree:"
           find gh-pages -type f -o -type d | sort
