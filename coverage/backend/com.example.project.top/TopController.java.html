@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TopController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">backend</a> &gt; <a href="index.source.html" class="el_package">com.example.project.top</a> &gt; <span class="el_source">TopController.java</span></div><h1>TopController.java</h1><pre class="source lang-java linenums">package com.example.project.top;
+
+import com.example.project.todo.TodoRepository;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
+import java.util.concurrent.atomic.AtomicInteger;
+
+@RestController
+@RequestMapping(&quot;/top&quot;)
+public class TopController {
+
+    private final TodoRepository todoRepository;
+<span class="fc" id="L17">    private final AtomicInteger accessCount = new AtomicInteger(0);</span>
+
+<span class="fc" id="L19">    public TopController(TodoRepository todoRepository) {</span>
+<span class="fc" id="L20">        this.todoRepository = todoRepository;</span>
+<span class="fc" id="L21">    }</span>
+
+    @GetMapping
+    public TopResponse getTop(@AuthenticationPrincipal Object principal, Authentication authentication) {
+
+<span class="fc" id="L26">        String username = &quot;guest&quot;;</span>
+
+<span class="pc bpc" id="L28" title="1 of 2 branches missed.">        if (principal instanceof Jwt jwt) {</span>
+<span class="nc" id="L29">            username = jwt.getClaimAsString(&quot;username&quot;);</span>
+<span class="pc bpc" id="L30" title="3 of 4 branches missed.">        } else if (authentication != null &amp;&amp; authentication.getName() != null) {</span>
+<span class="nc" id="L31">            username = authentication.getName();</span>
+        }
+
+
+<span class="fc" id="L35">        int todoCount = (int) todoRepository.findAll()</span>
+<span class="fc" id="L36">                .stream()</span>
+<span class="pc bnc" id="L37" title="All 2 branches missed.">                .filter(t -&gt; !t.isDone())</span>
+<span class="fc" id="L38">                .count();</span>
+
+<span class="fc" id="L40">        return new TopResponse(</span>
+                username,
+<span class="fc" id="L42">                LocalDateTime.now().toString(),</span>
+<span class="fc" id="L43">                accessCount.incrementAndGet(),</span>
+                todoCount
+        );
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

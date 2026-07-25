@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AuthController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">backend</a> &gt; <a href="index.source.html" class="el_package">com.example.project.controller</a> &gt; <span class="el_source">AuthController.java</span></div><h1>AuthController.java</h1><pre class="source lang-java linenums">package com.example.project.controller;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+@RestController
+@RequestMapping(&quot;/public&quot;)
+<span class="fc" id="L12">public class AuthController {</span>
+
+    @PostMapping(&quot;/login&quot;)
+    public ResponseEntity&lt;?&gt; login(@RequestBody Map&lt;String, String&gt; body) {
+<span class="fc" id="L16">        String username = body.getOrDefault(&quot;username&quot;, &quot;user&quot;);</span>
+<span class="fc" id="L17">        String password = body.getOrDefault(&quot;password&quot;, &quot;&quot;);</span>
+
+        // ローカルでは単純に固定テストユーザを受け入れる（実運用では使わない）
+<span class="fc bfc" id="L20" title="All 4 branches covered.">        if (&quot;testuser&quot;.equals(username) &amp;&amp; &quot;Test1234!&quot;.equals(password)) {</span>
+<span class="fc" id="L21">            String token = &quot;LOCAL-&quot; + username + &quot;-&quot; + UUID.randomUUID();</span>
+<span class="fc" id="L22">            Map&lt;String, String&gt; res = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L23">            res.put(&quot;idToken&quot;, token);</span>
+<span class="fc" id="L24">            return ResponseEntity.ok(res);</span>
+        }
+
+<span class="fc" id="L27">        return ResponseEntity.status(401).body(&quot;invalid credentials&quot;);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

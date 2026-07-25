@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>S3BucketInitializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">backend</a> &gt; <a href="index.source.html" class="el_package">com.example.project.config</a> &gt; <span class="el_source">S3BucketInitializer.java</span></div><h1>S3BucketInitializer.java</h1><pre class="source lang-java linenums">package com.example.project.config;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.stereotype.Component;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.BucketAlreadyExistsException;
+import software.amazon.awssdk.services.s3.model.BucketAlreadyOwnedByYouException;
+import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+
+@Component
+public class S3BucketInitializer implements ApplicationRunner {
+
+<span class="fc" id="L17">    private static final Logger log = LoggerFactory.getLogger(S3BucketInitializer.class);</span>
+
+    private final S3Client s3Client;
+
+    @Value(&quot;${aws.s3.bucket}&quot;)
+    private String bucket;
+
+<span class="fc" id="L24">    public S3BucketInitializer(S3Client s3Client) {</span>
+<span class="fc" id="L25">        this.s3Client = s3Client;</span>
+<span class="fc" id="L26">    }</span>
+
+    @Override
+    public void run(ApplicationArguments args) {
+        try {
+<span class="fc" id="L31">            s3Client.createBucket(CreateBucketRequest.builder().bucket(bucket).build());</span>
+<span class="fc" id="L32">            log.info(&quot;S3 bucket '{}' created&quot;, bucket);</span>
+<span class="nc" id="L33">        } catch (BucketAlreadyOwnedByYouException | BucketAlreadyExistsException e) {</span>
+<span class="nc" id="L34">            log.info(&quot;S3 bucket '{}' already exists&quot;, bucket);</span>
+<span class="nc" id="L35">        } catch (Exception e) {</span>
+<span class="nc" id="L36">            log.warn(&quot;Could not initialize S3 bucket '{}': {}&quot;, bucket, e.getMessage());</span>
+<span class="pc" id="L37">        }</span>
+<span class="fc" id="L38">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
