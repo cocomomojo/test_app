@@ -22,6 +22,56 @@ function writeCoverageFinalFile(coverageMap: Record<string, any>): void {
   fs.writeFileSync(finalPath, JSON.stringify(coverageMap, null, 2));
 }
 
+export function mergeCoverageData(currentCoverage: Record<string, any>, nextCoverage: Record<string, any>): Record<string, any> {
+  const mergedCoverage: Record<string, any> = { ...currentCoverage };
+
+  for (const [filePath, nextEntry] of Object.entries(nextCoverage)) {
+    const currentEntry = mergedCoverage[filePath];
+    if (!currentEntry) {
+      mergedCoverage[filePath] = nextEntry;
+      continue;
+    }
+
+    mergedCoverage[filePath] = {
+      ...currentEntry,
+      ...nextEntry,
+      path: currentEntry.path || nextEntry.path,
+      statementMap: {
+        ...(currentEntry.statementMap || {}),
+        ...(nextEntry.statementMap || {}),
+      },
+      fnMap: {
+        ...(currentEntry.fnMap || {}),
+        ...(nextEntry.fnMap || {}),
+      },
+      branchMap: {
+        ...(currentEntry.branchMap || {}),
+        ...(nextEntry.branchMap || {}),
+      },
+      s: {
+        ...(currentEntry.s || {}),
+        ...(nextEntry.s || {}),
+      },
+      f: {
+        ...(currentEntry.f || {}),
+        ...(nextEntry.f || {}),
+      },
+      b: {
+        ...(currentEntry.b || {}),
+        ...(nextEntry.b || {}),
+      },
+    };
+
+    for (const [key, value] of Object.entries(nextEntry.s || {})) {
+      if ((currentEntry.s || {})[key] === 1 || value === 1) {
+        mergedCoverage[filePath].s[key] = 1;
+      }
+    }
+  }
+
+  return mergedCoverage;
+}
+
 /**
  * Normalize file paths to work correctly with nyc
  * Converts absolute URLs to relative paths from project root
@@ -146,7 +196,7 @@ export const test = base.extend<{ coverageEnabled: void }>({
         let successCount = 0;
         const processedUrls = new Set<string>();
         const processedPaths = new Set<string>();
-        const mergedCoverage: Record<string, any> = {};
+        let mergedCoverage: Record<string, any> = {};
 
         for (let idx = 0; idx < coverage.length; idx++) {
           const entry = coverage[idx];
@@ -217,8 +267,8 @@ export const test = base.extend<{ coverageEnabled: void }>({
 
             // Ensure the coverage object has the correct structure and merge it into the
             // single nyc-compatible output file expected by `nyc report`.
+            mergedCoverage = mergeCoverageData(mergedCoverage, istanbulCoverage);
             for (const [filePath, coverageInfo] of Object.entries(istanbulCoverage)) {
-              mergedCoverage[filePath] = coverageInfo;
               console.log(`    → ${filePath}: ${JSON.stringify(coverageInfo).length} bytes`);
             }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeFilePath } from '../../tests/e2e/fixtures/coverage-fixture';
+import { mergeCoverageData, normalizeFilePath } from '../../tests/e2e/fixtures/coverage-fixture';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
@@ -22,6 +22,35 @@ describe('coverage source fallback', () => {
     const fixturePath = join(process.cwd(), 'tests/e2e/fixtures/coverage-fixture.ts');
     const source = readFileSync(fixturePath, 'utf8');
     expect(source).toContain('export function normalizeFilePath');
+  });
+
+  it('merges coverage data across multiple test runs without losing earlier hits', () => {
+    const firstRun = {
+      'src/App.vue': {
+        path: 'src/App.vue',
+        statementMap: { '0': { start: { line: 1, column: 0 }, end: { line: 1, column: 10 } } },
+        fnMap: {},
+        branchMap: {},
+        s: { '0': 1 },
+        f: {},
+        b: {},
+      },
+    };
+    const secondRun = {
+      'src/App.vue': {
+        path: 'src/App.vue',
+        statementMap: { '0': { start: { line: 1, column: 0 }, end: { line: 1, column: 10 } } },
+        fnMap: {},
+        branchMap: {},
+        s: { '0': 0 },
+        f: {},
+        b: {},
+      },
+    };
+
+    const merged = mergeCoverageData(firstRun, secondRun);
+
+    expect(merged['src/App.vue'].s['0']).toBe(1);
   });
 
   it('writes a nyc-compatible merged coverage file when coverage is available', () => {
