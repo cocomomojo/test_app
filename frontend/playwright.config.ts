@@ -7,7 +7,7 @@ export default defineConfig({
   retries: 0,
   reporter: [
     ['list'],
-    ['html', { outputFolder: 'test-results/html', open: 'never' }],
+    ['html', { outputFolder: 'playwright-report', open: 'never' }],
     ['allure-playwright', { outputFolder: 'allure-results', detail: true, suiteTitle: true }],
   ],
   projects: [
@@ -29,4 +29,3 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
 });
-
