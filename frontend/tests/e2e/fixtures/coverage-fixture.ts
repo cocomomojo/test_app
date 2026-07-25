@@ -85,7 +85,7 @@ export function normalizeFilePath(url: string): string {
   }
 }
 
-function loadCoverageSource(normalizedPath: string): { source: string; sourceMapPath?: string; sourceMap?: string } {
+function loadCoverageSource(normalizedPath: string, entrySource = ''): { source: string; sourceMapPath?: string; sourceMap?: string } {
   const absolutePath = path.resolve(process.cwd(), normalizedPath);
   if (fs.existsSync(absolutePath)) {
     const source = fs.readFileSync(absolutePath, 'utf-8');
@@ -114,7 +114,8 @@ function loadCoverageSource(normalizedPath: string): { source: string; sourceMap
     return { source };
   }
 
-  return { source: '' };
+  // Fall back to the source embedded in the coverage entry when the asset is not present on disk.
+  return { source: entrySource };
 }
 
 export const test = base.extend<{ coverageEnabled: void }>({
@@ -185,7 +186,8 @@ export const test = base.extend<{ coverageEnabled: void }>({
             processedPaths.add(normalizedPath);
 
             // Load the source from the file system or dist output, and source map if available.
-            const { source, sourceMapPath, sourceMap } = loadCoverageSource(normalizedPath);
+            // For Vite assets the source is sometimes only available in the coverage entry itself.
+            const { source, sourceMapPath, sourceMap } = loadCoverageSource(normalizedPath, entry.source ?? '');
             console.log(`  Source available: ${source.length > 0 ? 'YES' : 'NO'}`);
             if (sourceMapPath) {
               console.log(`  Source map found: ${sourceMapPath}`);
