@@ -1,0 +1,4 @@
+🔍 Starting JS coverage collection...
+📊 Collected coverage from 1 entries
+✓ Coverage saved: coverage-1784958462326-rm44f9.json
+✅ Saved 1 coverage files to /home/runner/work/test_app/test_app/frontend/coverage/e2e-raw
