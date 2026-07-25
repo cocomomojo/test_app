@@ -167,6 +167,9 @@ jobs:
           </body></html>
           EOF
 
+          # Create .nojekyll to disable Jekyll processing
+          touch gh-pages/.nojekyll
+
           # Copy Allure report if available
           if [ -d "frontend/allure-report" ]; then
             cp -r frontend/allure-report/. gh-pages/allure/
@@ -203,6 +206,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: gh-pages
           keep_files: true
+          allow_empty_commit: true
 
       - name: Upload Playwright test results on failure
         if: failure()
