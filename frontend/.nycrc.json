@@ -18,6 +18,8 @@
   "report-dir": "coverage/e2e-report",
   "temp-dir": "coverage/e2e-raw",
   "skip-full": false,
+  "sourceMap": true,
+  "produce-source-map": true,
   "watermarks": {
     "lines": [50, 80],
     "functions": [50, 80],

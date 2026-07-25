@@ -13,6 +13,9 @@ export default defineConfig({
       forceBuildInstrument: true,
     })
   ],
+  build: {
+    sourcemap: true,
+  },
   server: {
     port: 5173,
     strictPort: true
