@@ -28,9 +28,9 @@ export default defineConfig({
     actionTimeout: 10000,
     trace: 'on-first-retry',
   },
-  webServer: {
+  webServer: process.env.CI ? undefined : {
     command: 'npm run dev',
-    url: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
+    url: 'http://localhost:5173',
+    reuseExistingServer: true,
   },
 });
