@@ -1,0 +1,12 @@
+🔍 Starting JS coverage collection...
+📊 Collected coverage from 1 entries
+
+[1/1] Processing entry
+  URL: http://localhost:8081/assets/index-DPmOeCyG.js
+  Functions: 2594
+  Source length: 689846
+  Normalized path: 
+  ⊘ Skipped (invalid normalized path)
+
+✅ Saved 0 coverage files to /home/runner/work/test_app/test_app/frontend/coverage/e2e-raw
+📁 Coverage directory now contains 0 files
