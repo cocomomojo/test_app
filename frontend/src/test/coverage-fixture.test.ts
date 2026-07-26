@@ -13,7 +13,7 @@ describe('normalizeFilePath', () => {
   });
 
   it('prefixes plain paths with src for local app modules', () => {
-    expect(normalizeFilePath('http://localhost:8081/components/App.vue')).toBe('/src/components/App.vue');
+    expect(normalizeFilePath('http://localhost:8081/components/App.vue')).toBe('src/components/App.vue');
   });
 });
 
