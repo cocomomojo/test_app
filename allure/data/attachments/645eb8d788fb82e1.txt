@@ -1,0 +1,14 @@
+🔍 Starting JS coverage collection...
+📊 Collected coverage from 1 entries
+
+[1/1] Processing entry
+  URL: http://localhost:8081/assets/index-aWA6liZR.js
+  Functions: 3000
+  Source length: 805863
+  Normalized path: assets/index-aWA6liZR.js
+  Source available: YES
+  Source map found: /home/runner/work/test_app/test_app/frontend/coverage/e2e-raw/.source-map-cache/index-aWA6liZR.js.map
+
+✅ Merged 0 coverage entries into /home/runner/work/test_app/test_app/frontend/coverage/e2e-raw
+📁 Coverage directory now contains 1 files
+   - .source-map-cache (4096 bytes)
