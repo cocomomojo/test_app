@@ -132,7 +132,7 @@ export function normalizeFilePath(url: string): string {
 
     // Preserve the existing main-branch behavior for local app paths.
     if (pathname !== '/' && !pathname.startsWith('/src/')) {
-      pathname = `/src${pathname}`;
+      pathname = `src${pathname}`;
     }
 
     return pathname;
