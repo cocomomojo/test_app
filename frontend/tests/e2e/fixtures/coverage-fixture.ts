@@ -283,6 +283,33 @@ export const test = base.extend<{ coverageEnabled: void }>({
             if (sourceMap) {
               try {
                 const parsed = typeof sourceMap === 'string' ? JSON.parse(sourceMap) : sourceMap;
+                // Emit diagnostic info to aid debugging in CI artifacts.
+                try {
+                  fs.mkdirSync(SOURCE_MAP_CACHE_DIR, { recursive: true });
+                  const inspectPath = path.join(SOURCE_MAP_CACHE_DIR, `${path.basename(entry.url || normalizedPath)}.inspect.json`);
+                  const info: any = {
+                    keys: Object.keys(parsed || {}),
+                    hasSources: Array.isArray((parsed as any).sources),
+                    sourcesLength: Array.isArray((parsed as any).sources) ? (parsed as any).sources.length : 0,
+                    hasSections: Array.isArray((parsed as any).sections),
+                    sectionsLength: Array.isArray((parsed as any).sections) ? (parsed as any).sections.length : 0,
+                    firstSectionKeys: undefined,
+                  };
+                  if (info.hasSections && info.sectionsLength > 0) {
+                    const first = (parsed as any).sections[0];
+                    info.firstSectionKeys = Object.keys(first || {});
+                    if (first && first.map && typeof first.map === 'object') {
+                      info.firstSectionMapKeys = Object.keys(first.map);
+                      info.firstSectionMapHasSources = Array.isArray(first.map.sources);
+                      info.firstSectionMapSourcesLength = info.firstSectionMapHasSources ? first.map.sources.length : 0;
+                    }
+                  }
+                  fs.writeFileSync(inspectPath, JSON.stringify(info, null, 2), 'utf-8');
+                  console.log(`  ℹ Source map inspection written: ${inspectPath}`);
+                } catch (e) {
+                  console.log(`  ⚠ Failed to write source map inspection: ${e instanceof Error ? e.message : String(e)}`);
+                }
+
                 if (parsed && (parsed as any).sections && Array.isArray((parsed as any).sections) && (parsed as any).sections.length > 0) {
                   console.log('  ⚠ Source map is indexed; using first section map for conversion');
                   const first = (parsed as any).sections[0];
