@@ -131,9 +131,9 @@ jobs:
 
             # --------------------------------------------------
             # パス書き換え処理を追加:
-            # json 内のビルド環境絶対パスを CI 上の現在の絶対パスに置換します
+            # コンテナ内の /app パスを CI 上の現在の絶対パス (例: /github/workspace/frontend) に置換
             # --------------------------------------------------
-            sed -i "s|/workspace/frontend|$(pwd)|g" coverage/e2e-raw/coverage-final.json 2>/dev/null || true
+            sed -i "s|\"/app/|\"$(pwd)/|g" coverage/e2e-raw/*.json 2>/dev/null || true
             
             npm run coverage:report
           else
