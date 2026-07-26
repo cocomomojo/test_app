@@ -128,6 +128,13 @@ jobs:
 
           if [ -d "coverage/e2e-raw" ] && [ "$(ls -A coverage/e2e-raw)" ]; then
             echo "✓ Found coverage files, generating report..."
+
+            # --------------------------------------------------
+            # パス書き換え処理を追加:
+            # json 内のビルド環境絶対パスを CI 上の現在の絶対パスに置換します
+            # --------------------------------------------------
+            sed -i "s|/workspace/frontend|$(pwd)|g" coverage/e2e-raw/coverage-final.json 2>/dev/null || true
+            
             npm run coverage:report
           else
             echo "✗ No frontend coverage data found (coverage/e2e-raw is empty or missing)"
