@@ -99,16 +99,14 @@ jobs:
           echo ""
           echo "=== Sample coverage file (first 100 lines) ==="
           find coverage/e2e-raw -type f -print -quit | head -1 | xargs cat 2>/dev/null | head -100 || echo "No coverage files found"
-
       - name: Upload frontend E2E raw coverage (early)
         if: always()
-        working-directory: frontend
-        uses: actions/upload-artifact@v4 # v4 (pinned by tag)
+        uses: actions/upload-artifact@v4
         with:
           name: e2e-raw-coverage-early
-          path: coverage/e2e-raw/**
+          path: frontend/coverage/e2e-raw
           retention-days: 14
-
+          include-hidden-files: true
       - name: Generate Allure report
         if: always()
         working-directory: frontend
@@ -231,8 +229,9 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: e2e-raw-coverage
-          path: frontend/coverage/e2e-raw/**
+          path: frontend/coverage/e2e-raw
           retention-days: 14
+          include-hidden-files: true
 
       - name: Deploy reports to GitHub Pages
         if: github.ref == 'refs/heads/main'
