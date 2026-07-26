@@ -141,7 +141,9 @@ export function normalizeFilePath(url: string): string {
   }
 }
 
-function loadCoverageSource(normalizedPath: string, entrySource = ''): { source: string; sourceMapPath?: string; sourceMap?: string } {
+const SOURCE_MAP_CACHE_DIR = path.resolve(process.cwd(), 'coverage', 'e2e-raw', '.source-map-cache');
+
+async function loadCoverageSource(normalizedPath: string, entryUrl: string, entrySource = ''): Promise<{ source: string; sourceMapPath?: string; sourceMap?: string }> {
   const absolutePath = path.resolve(process.cwd(), normalizedPath);
   if (fs.existsSync(absolutePath)) {
     const source = fs.readFileSync(absolutePath, 'utf-8');
@@ -168,6 +170,29 @@ function loadCoverageSource(normalizedPath: string, entrySource = ''): { source:
       };
     }
     return { source };
+  }
+
+  // When the JS asset is served by Vite in dev mode, the source map may be available over HTTP.
+  if (entryUrl && (entryUrl.startsWith('http://') || entryUrl.startsWith('https://'))) {
+    try {
+      const entryUrlObj = new URL(entryUrl);
+      const mapUrl = new URL(`${entryUrlObj.pathname}.map`, entryUrlObj.origin).toString();
+      const mapResponse = await fetch(mapUrl);
+      if (mapResponse.ok) {
+        const sourceMap = await mapResponse.text();
+        const source = entrySource || await (await fetch(entryUrl)).text();
+        fs.mkdirSync(SOURCE_MAP_CACHE_DIR, { recursive: true });
+        const cacheMapPath = path.join(SOURCE_MAP_CACHE_DIR, `${path.basename(entryUrlObj.pathname)}.map`);
+        fs.writeFileSync(cacheMapPath, sourceMap, 'utf-8');
+        return {
+          source,
+          sourceMapPath: cacheMapPath,
+          sourceMap,
+        };
+      }
+    } catch (error) {
+      console.log(`  ⚠ Could not fetch source map from ${entryUrl}: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   // Fall back to the source embedded in the coverage entry when the asset is not present on disk.
@@ -245,7 +270,7 @@ export const test = base.extend<{ coverageEnabled: void }>({
 
             // Load the source from the file system or dist output, and source map if available.
             // For Vite assets the source is sometimes only available in the coverage entry itself.
-            const { source, sourceMapPath, sourceMap } = loadCoverageSource(normalizedPath, entry.source ?? '');
+            const { source, sourceMapPath, sourceMap } = await loadCoverageSource(normalizedPath, entry.url ?? '', entry.source ?? '');
             console.log(`  Source available: ${source.length > 0 ? 'YES' : 'NO'}`);
             if (sourceMapPath) {
               console.log(`  Source map found: ${sourceMapPath}`);
