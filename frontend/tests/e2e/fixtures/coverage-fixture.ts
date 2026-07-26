@@ -272,14 +272,13 @@ export const test = base.extend<{ coverageEnabled: void }>({
             }
 
             const converterOptions: any = { source };
-            if (sourceMapPath) {
-              converterOptions.sourceMapPath = sourceMapPath;
+            if (sourceMapPath && sourceMap === undefined) {
+              sourceMap = fs.readFileSync(sourceMapPath, 'utf-8');
             }
 
             // Normalize sourceMap: v8-to-istanbul expects a plain sourceMap
-            // object with `sources`/`mappings`. Some Vite/Rollup maps are "indexed"
-            // and contain `sections`. Handle that by using the first section's map
-            // as a best-effort fallback.
+            // object with `sources`/`mappings` under a `sourcemap` wrapper.
+            // Some Vite/Rollup maps are "indexed" and contain `sections`.
             if (sourceMap) {
               try {
                 const parsed = typeof sourceMap === 'string' ? JSON.parse(sourceMap) : sourceMap;
@@ -310,16 +309,19 @@ export const test = base.extend<{ coverageEnabled: void }>({
                   console.log(`  ⚠ Failed to write source map inspection: ${e instanceof Error ? e.message : String(e)}`);
                 }
 
+                let mappedSource = parsed;
                 if (parsed && (parsed as any).sections && Array.isArray((parsed as any).sections) && (parsed as any).sections.length > 0) {
                   console.log('  ⚠ Source map is indexed; using first section map for conversion');
                   const first = (parsed as any).sections[0];
-                  converterOptions.sourceMap = first.map ? first.map : first;
-                } else {
-                  converterOptions.sourceMap = parsed;
+                  mappedSource = first.map ? first.map : first;
                 }
+
+                converterOptions.sourceMap = { sourcemap: mappedSource };
+                converterOptions.originalSource = entry.source || source;
               } catch (e) {
                 console.log(`  ⚠ Failed to parse sourceMap JSON: ${e instanceof Error ? e.message : String(e)}`);
-                converterOptions.sourceMap = sourceMap;
+                converterOptions.sourceMap = { sourcemap: sourceMap };
+                converterOptions.originalSource = entry.source || source;
               }
             }
             const converter = v8ToIstanbul(normalizedPath, 0, converterOptions);
