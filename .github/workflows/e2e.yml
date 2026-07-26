@@ -217,6 +217,14 @@ jobs:
           path: gh-pages/
           retention-days: 14
 
+      - name: Upload frontend E2E raw coverage
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: e2e-raw-coverage
+          path: frontend/coverage/e2e-raw/**
+          retention-days: 14
+
       - name: Deploy reports to GitHub Pages
         if: github.ref == 'refs/heads/main'
         uses: peaceiris/actions-gh-pages@329bcc8f12caed2cefe5a5b80781499a6f3b361b # v4
