@@ -231,15 +231,10 @@ export const test = base.extend<{ coverageEnabled: void }>({
           console.log(`  Functions: ${entry.functions ? entry.functions.length : 0}`);
           console.log(`  Source length: ${entry.source ? entry.source.length : 0}`);
 
-          // Filter out node_modules and vendor code
-          if (!entry.url || entry.url.includes('node_modules')) {
-            console.log(`  ⊘ Skipped (node_modules)`);
-            continue;
-          }
-
-          // Only process URLs from localhost (our app)
-          if (!entry.url.includes('localhost') && !entry.url.includes('127.0.0.1')) {
-            console.log(`  ⊘ Skipped (not localhost)`);
+          // Skip vendor/node_modules entries. If URL is empty but the coverage
+          // entry contains embedded source we should still attempt conversion.
+          if ((entry.url && entry.url.includes('node_modules')) || (!entry.url && !entry.source)) {
+            console.log(`  ⊘ Skipped (node_modules or no source)`);
             continue;
           }
 
