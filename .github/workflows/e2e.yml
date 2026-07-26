@@ -103,7 +103,7 @@ jobs:
       - name: Upload frontend E2E raw coverage (early)
         if: always()
         working-directory: frontend
-        uses: actions/upload-artifact@v4 # v4 (pinned by tag)
+        uses: actions/upload-artifact@v4
         with:
           name: e2e-raw-coverage-early
           path: coverage/e2e-raw/**
