@@ -34,8 +34,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 
     // AWS SDK v2
-    implementation 'software.amazon.awssdk:s3:2.25.60'
-    implementation 'software.amazon.awssdk:url-connection-client:2.25.60'
+    implementation 'software.amazon.awssdk:s3:2.54.0'
+    implementation 'software.amazon.awssdk:url-connection-client:2.54.0'
 
     // Lombok
     compileOnly 'org.projectlombok:lombok'
