@@ -31,7 +31,7 @@
     "allure-commandline": "^2.43.0",
     "allure-playwright": "^3.10.2",
     "flush-promises": "^1.0.2",
-    "jsdom": "^26.1.0",
+    "jsdom": "^30.0.1",
     "nyc": "^17.1.0",
     "sass": "^1.88.0",
     "v8-to-istanbul": "^9.3.0",
