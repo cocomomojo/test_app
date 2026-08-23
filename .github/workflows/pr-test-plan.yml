@@ -63,7 +63,7 @@ jobs:
           PUSH_TOKEN_AVAILABLE: ${{ true }}
           PR_LABELS_JSON: ${{ toJson(github.event.pull_request.labels.*.name) }}
           PR_IS_DRAFT: ${{ github.event.pull_request.draft }}
-        run: node scripts/pr-test-plan-publication-mode.js
+        run: node scripts/dashboard-tools.js publication-mode
 
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -71,20 +71,20 @@ jobs:
           node-version: '20'
 
       - name: Generate PR test assets
-        run: node scripts/generate-pr-test-assets.js
+        run: node scripts/pr-tools.js generate-assets
 
       - name: Collect PR test meta
-        run: node scripts/collect-pr-test-assets-meta.js
+        run: node scripts/pr-tools.js collect-meta
 
       - name: Update test dashboard
-        run: node scripts/update-test-dashboard.js
+        run: node scripts/dashboard-tools.js update-dashboard
 
       - name: Generate AI prompt
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PUSH_LABEL: ${{ steps.publication_mode.outputs.required_label }}
         run: |
-          node scripts/generate-pr-test-plan-ai-prompt.js \
+          node scripts/dashboard-tools.js generate-ai-prompt \
             --simulation-root . \
             --pr-number "$PR_NUMBER" \
             --scenario pull-request \
@@ -114,7 +114,7 @@ jobs:
           AI_STATUS: ${{ steps.copilot.outcome || 'skipped' }}
           AI_REASON: ${{ steps.copilot_secret.outputs.reason }}
         run: |
-          node scripts/ensure-pr-test-plan-ai-output.js \
+          node scripts/dashboard-tools.js ensure-ai-output \
             --simulation-root . \
             --pr-number "$PR_NUMBER" \
             --scenario pull-request \

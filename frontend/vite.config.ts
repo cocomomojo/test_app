@@ -7,7 +7,7 @@ export default defineConfig({
     vue(),
     istanbul({
       include: 'src/**/*.{js,vue,ts,tsx}',
-      exclude: ['src/main.ts', 'src/test/**', 'node_modules'],
+      exclude: ['src/main.ts', 'tests/unit/**', 'node_modules'],
       extension: ['.js', '.vue', '.ts', '.tsx'],
       requireEnv: false,
       forceBuildInstrument: true,
@@ -22,8 +22,8 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
-    setupFiles: './src/test/setup.js',
-    include: ['src/test/**/*.test.{js,ts}'],
+    setupFiles: './tests/unit/setup.js',
+    include: ['tests/unit/**/*.test.{js,ts}'],
     exclude: ['tests/e2e/**', 'node_modules/**'],
     server: {
       deps: {

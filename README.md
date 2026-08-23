@@ -47,7 +47,7 @@ graph TB
         FE[Frontend<br/>Vue.js + Vite<br/>Port: 5173]
         BE[Backend<br/>Spring Boot<br/>Port: 8080]
         DB[(MySQL<br/>Port: 3306)]
-        LS[LocalStack<br/>S3 Mock<br/>Port: 9000]
+        Moto[Moto<br/>S3 Mock<br/>Port: 5000]
     end
 
     subgraph "🔄 CI環境 GitHub Actions"
@@ -99,7 +99,6 @@ test_app/
 ├── 📁 infra/                # インフラ設定
 │   ├── docker-compose.local.yml  # ローカル開発用
 │   ├── docker-compose.ci.yml     # CI 環境用
-│   └── localstack/          # LocalStack 設定
 │
 └── 📁 .github/
     └── workflows/
@@ -195,7 +194,7 @@ docker compose -f docker-compose.local.yml up -d --build
 - ✅ MySQL（Port: 3306）
 - ✅ Spring Boot（Port: 8080）
 - ✅ Frontend（Vite dev server、Port: 5173）
-- ✅ LocalStack（S3 Mock、Port: 9000）
+- ✅ Moto（S3 Mock、Port: 5000）
 
 #### 2️⃣ 動作確認
 
@@ -681,13 +680,13 @@ flowchart LR
 
 ## 📝 注意事項
 
-### 🔴 LocalStack の制限
+### ☁️ Moto について
 
-Cognito をローカルで完全にエミュレートするには **LocalStack Pro（有料）** が必要です。
+AWS S3 のローカルモックとして **Moto** を使用しています（Port: 5000）。
 
-**代替案:**
-1. LocalStack Pro を使用
-2. 実際の AWS Cognito を使用
+**利点:**
+1. 軽量でシンプル（LocalStack 不要）
+2. Python ベースで高い互換性
 3. ローカル用の簡易ログイン実装（現在採用）
 
 ### テストユーザー

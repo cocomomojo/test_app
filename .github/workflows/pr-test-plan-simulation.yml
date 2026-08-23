@@ -129,7 +129,7 @@ jobs:
           SCENARIO: ${{ inputs.scenario }}
           PUSH_LABEL: ${{ inputs.push_label }}
         run: |
-          node scripts/generate-pr-test-plan-ai-prompt.js \
+          node scripts/dashboard-tools.js generate-ai-prompt \
             --simulation-root .tmp/pr-test-plan-simulations/${SCENARIO}-${PR_NUMBER} \
             --pr-number "$PR_NUMBER" \
             --scenario "$SCENARIO" \
@@ -160,7 +160,7 @@ jobs:
           AI_STATUS: ${{ steps.copilot.outcome || 'skipped' }}
           AI_REASON: ${{ steps.copilot_secret.outputs.reason }}
         run: |
-          node scripts/ensure-pr-test-plan-ai-output.js \
+          node scripts/dashboard-tools.js ensure-ai-output \
             --simulation-root .tmp/pr-test-plan-simulations/${SCENARIO}-${PR_NUMBER} \
             --pr-number "$PR_NUMBER" \
             --scenario "$SCENARIO" \

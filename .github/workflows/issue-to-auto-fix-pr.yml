@@ -71,7 +71,7 @@ jobs:
 
       - name: Classify issue
         run: |
-          node scripts/classify-issue-pattern.js \
+          node scripts/issue-tools.js classify \
             --issue-file /tmp/auto-fix/issue.json \
             --repo "$GITHUB_REPOSITORY" \
             --out /tmp/auto-fix/triage.json
@@ -105,7 +105,7 @@ jobs:
       - name: Generate fix brief
         if: steps.eligibility.outputs.supported == 'true'
         run: |
-          node scripts/generate-fix-brief.js \
+          node scripts/issue-tools.js generate-fix-brief \
             --issue-file /tmp/auto-fix/issue.json \
             --triage-file /tmp/auto-fix/triage.json \
             --out-dir /tmp/auto-fix/output
@@ -113,14 +113,14 @@ jobs:
       - name: Generate PR draft
         if: steps.eligibility.outputs.supported == 'true'
         run: |
-          node scripts/generate-pr-draft.js \
+          node scripts/pr-tools.js generate-pr-draft \
             --fix-brief /tmp/auto-fix/output/fix-brief-issue-${ISSUE_NUMBER}.json \
             --out-dir /tmp/auto-fix/output
 
       - name: Generate auto-fix prompt
         if: steps.eligibility.outputs.supported == 'true'
         run: |
-          node scripts/generate-auto-fix-prompt.js \
+          node scripts/issue-tools.js generate-auto-fix-prompt \
             --fix-brief /tmp/auto-fix/output/fix-brief-issue-${ISSUE_NUMBER}.json \
             --out /tmp/auto-fix/output/prompt.txt
 
@@ -145,7 +145,7 @@ jobs:
         id: validate_changes
         if: steps.eligibility.outputs.supported == 'true'
         run: |
-          node scripts/validate-auto-fix-changes.js \
+          node scripts/pr-tools.js validate \
             --fix-brief /tmp/auto-fix/output/fix-brief-issue-${ISSUE_NUMBER}.json \
             --out /tmp/auto-fix/output/validation.json
 
@@ -159,7 +159,7 @@ jobs:
         if: steps.eligibility.outputs.supported == 'true'
         working-directory: frontend
         run: |
-          npx vitest run src/test/LoginPage.test.js
+          npx vitest run tests/unit/LoginPage.test.js
           npm run build
 
       - name: Extract PR metadata
