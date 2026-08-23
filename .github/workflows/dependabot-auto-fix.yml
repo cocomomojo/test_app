@@ -113,7 +113,7 @@ jobs:
         if: |
           steps.pr.outputs.is_dependabot == 'true' &&
           steps.logs.outputs.has_failures == 'true' &&
-          contains(steps.pr.outputs.title, 'frontend')
+          (contains(steps.pr.outputs.title, 'frontend') || contains(steps.pr.outputs.title, 'github-actions'))
         id: fix_frontend
         working-directory: frontend
         run: |
@@ -155,8 +155,8 @@ jobs:
               cat /tmp/test-output-fixed.txt
               echo "fixed=false" >> "$GITHUB_OUTPUT"
             fi
-          elif grep -q "Cannot find module" /tmp/test-output.txt; then
-            echo "Detected missing module issue"
+          elif grep -qE "Cannot find module|Failed to resolve import" /tmp/test-output.txt; then
+            echo "Detected missing module or import resolution issue"
             echo "Attempting to reinstall dependencies..."
             
             rm -rf node_modules package-lock.json

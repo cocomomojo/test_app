@@ -42,9 +42,10 @@
 **動作**:
 - PR Quality Checksワークフローが失敗した場合に自動的にトリガー
 - Dependabot PRの場合のみ処理
+- フロントエンド、バックエンド、GitHub Actionsの更新に対応
 - 一般的なエラーパターンを検出して自動修正を試行:
   - jsdom/undiciの互換性問題 → 互換性のあるバージョンにピン留め
-  - モジュール不足エラー → 依存関係の再インストール
+  - モジュール不足・インポート解決エラー → 依存関係の再インストール
   - Gradle設定エラー → Gradleラッパーの更新
 - 修正が成功した場合、変更をコミットしてPRに追加
 - 修正結果をPRにコメント
@@ -92,14 +93,18 @@ dependabot-auto-merge.yml実行
    - エラー: `webidl.util.markAsUncloneable is not a function`
    - 修正: undiciを互換性のあるバージョン(^6.0.0)にピン留め
 
-2. **モジュール不足エラー**
-   - エラー: `Cannot find module`
+2. **モジュール不足・インポート解決エラー**
+   - エラー: `Cannot find module`, `Failed to resolve import`
    - 修正: 依存関係の再インストール
 
 ### バックエンド
 1. **Gradle設定エラー**
    - エラー: `Could not find method`
    - 修正: Gradleラッパーを推奨バージョンに更新
+
+### GitHub Actions
+- GitHub Actionsの更新によるフロントエンド/バックエンドテスト失敗も自動修正の対象
+- アクション更新が原因で依存関係の問題が発生した場合、上記のパターンで修正を試行
 
 ## 設定
 
