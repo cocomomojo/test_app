@@ -1,0 +1,72 @@
+name: Dependabot Auto-merge
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+jobs:
+  auto-test-and-merge:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check if automerge label exists
+        id: check-label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          if echo "$labels" | grep -q "automerge"; then
+            echo "has_automerge=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_automerge=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node.js
+        if: steps.check-label.outputs.has_automerge == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java
+        if: steps.check-label.outputs.has_automerge == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Run Frontend Tests
+        if: ${{ steps.check-label.outputs.has_automerge == 'true' && contains(github.event.pull_request.labels.*.name, 'frontend') }}
+        run: |
+          cd frontend
+          npm ci
+          npm run test:unit
+
+      - name: Run Backend Tests
+        if: ${{ steps.check-label.outputs.has_automerge == 'true' && contains(github.event.pull_request.labels.*.name, 'backend') }}
+        run: |
+          cd backend
+          ./gradlew test
+
+      - name: Auto-approve PR
+        if: steps.check-label.outputs.has_automerge == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr review ${{ github.event.pull_request.number }} --approve
+
+      - name: Enable auto-merge
+        if: steps.check-label.outputs.has_automerge == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge ${{ github.event.pull_request.number }} --auto --squash
