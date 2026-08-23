@@ -1,0 +1,37 @@
+name: Close Old Dependabot PRs
+
+on:
+  workflow_dispatch:
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  close-prs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close old Dependabot PRs
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const prNumbers = [90, 89, 88, 87, 86, 85, 84, 83, 82, 81, 80];
+            const comment = '依存関係のグループ化設定を更新しました。このPRは新しいグループ化されたPRに置き換えられます。';
+            
+            for (const prNumber of prNumbers) {
+              try {
+                // PRをクローズ
+                await github.rest.pulls.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: prNumber,
+                  state: 'closed'
+                });
+                
+                console.log(`✅ Closed PR #${prNumber}`);
+              } catch (error) {
+                console.log(`❌ Failed to close PR #${prNumber}: ${error.message}`);
+              }
+            }
+            
+            console.log('All PRs processed.');

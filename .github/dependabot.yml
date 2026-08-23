@@ -8,18 +8,30 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Asia/Tokyo"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     groups:
+      # すべてのプロダクション依存関係を1つのPRにまとめる
       production-dependencies:
         dependency-type: "production"
         update-types:
           - "minor"
           - "patch"
+      # すべての開発依存関係を1つのPRにまとめる
       development-dependencies:
         dependency-type: "development"
         update-types:
           - "minor"
           - "patch"
+      # メジャーアップデートもグループ化（プロダクション）
+      production-major:
+        dependency-type: "production"
+        update-types:
+          - "major"
+      # メジャーアップデートもグループ化（開発）
+      development-major:
+        dependency-type: "development"
+        update-types:
+          - "major"
     labels:
       - "dependencies"
       - "frontend"
@@ -35,14 +47,40 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Asia/Tokyo"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     groups:
+      # Spring Boot関連を1つにまとめる
       spring-boot:
         patterns:
           - "org.springframework.boot:*"
+          - "org.springframework:*"
+        update-types:
+          - "minor"
+          - "patch"
+      # AWS SDK関連を1つにまとめる
       aws-sdk:
         patterns:
           - "software.amazon.awssdk:*"
+        update-types:
+          - "minor"
+          - "patch"
+      # その他のマイナー/パッチアップデートをまとめる
+      other-dependencies:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "org.springframework.boot:*"
+          - "org.springframework:*"
+          - "software.amazon.awssdk:*"
+        update-types:
+          - "minor"
+          - "patch"
+      # メジャーアップデート用グループ
+      major-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
     labels:
       - "dependencies"
       - "backend"
@@ -58,7 +96,21 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Asia/Tokyo"
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 2
+    groups:
+      # すべてのGitHub Actionsアップデートを1つのPRにまとめる
+      github-actions-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      # メジャーアップデート用
+      github-actions-major:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
     labels:
       - "dependencies"
       - "github-actions"

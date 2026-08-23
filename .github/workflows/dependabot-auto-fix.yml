@@ -1,0 +1,287 @@
+name: Dependabot Auto-Fix
+
+on:
+  workflow_run:
+    workflows: ["PR Quality Checks"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+  checks: read
+
+jobs:
+  detect-and-fix:
+    if: |
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Get PR details
+        id: pr
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const prNumber = run.pull_requests[0]?.number;
+            
+            if (!prNumber) {
+              core.setFailed('No PR associated with this workflow run');
+              return;
+            }
+            
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            });
+            
+            core.setOutput('number', prNumber);
+            core.setOutput('head_ref', pr.head.ref);
+            core.setOutput('head_sha', pr.head.sha);
+            core.setOutput('author', pr.user.login);
+            core.setOutput('title', pr.title);
+            core.setOutput('is_dependabot', pr.user.login === 'dependabot[bot]');
+
+      - name: Check if Dependabot PR
+        if: steps.pr.outputs.is_dependabot != 'true'
+        run: |
+          echo "This is not a Dependabot PR. Skipping auto-fix."
+          exit 0
+
+      - name: Checkout PR branch
+        if: steps.pr.outputs.is_dependabot == 'true'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ steps.pr.outputs.head_ref }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        if: steps.pr.outputs.is_dependabot == 'true'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Java
+        if: steps.pr.outputs.is_dependabot == 'true'
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Get workflow run logs
+        if: steps.pr.outputs.is_dependabot == 'true'
+        id: logs
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const fs = require('fs');
+            const runId = context.payload.workflow_run.id;
+            
+            // Get jobs for this run
+            const { data: jobs } = await github.rest.actions.listJobsForWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId,
+            });
+            
+            // Find failed jobs
+            const failedJobs = jobs.jobs.filter(job => job.conclusion === 'failure');
+            
+            if (failedJobs.length === 0) {
+              core.info('No failed jobs found');
+              return;
+            }
+            
+            let errorSummary = '';
+            for (const job of failedJobs) {
+              errorSummary += `Job: ${job.name}\n`;
+              errorSummary += `Status: ${job.conclusion}\n\n`;
+            }
+            
+            fs.writeFileSync('/tmp/error-summary.txt', errorSummary);
+            core.setOutput('has_failures', 'true');
+            core.setOutput('failed_job_count', failedJobs.length);
+
+      - name: Analyze and fix frontend issues
+        if: |
+          steps.pr.outputs.is_dependabot == 'true' &&
+          steps.logs.outputs.has_failures == 'true' &&
+          contains(steps.pr.outputs.title, 'frontend')
+        id: fix_frontend
+        working-directory: frontend
+        run: |
+          set +e  # Don't exit on error
+          
+          echo "Installing dependencies..."
+          npm ci
+          
+          echo "Running tests to capture errors..."
+          npm run test:unit > /tmp/test-output.txt 2>&1
+          TEST_EXIT_CODE=$?
+          
+          if [ $TEST_EXIT_CODE -eq 0 ]; then
+            echo "Tests passed! No fix needed."
+            echo "fixed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          
+          cat /tmp/test-output.txt
+          
+          # Check for specific error patterns and apply fixes
+          if grep -q "webidl.util.markAsUncloneable is not a function" /tmp/test-output.txt; then
+            echo "Detected jsdom/undici compatibility issue"
+            echo "Attempting to fix by pinning compatible versions..."
+            
+            # Try pinning undici to a compatible version
+            npm install --save-dev undici@^6.0.0
+            
+            echo "Re-running tests..."
+            npm run test:unit > /tmp/test-output-fixed.txt 2>&1
+            FIXED_EXIT_CODE=$?
+            
+            if [ $FIXED_EXIT_CODE -eq 0 ]; then
+              echo "Fix successful!"
+              echo "fixed=true" >> "$GITHUB_OUTPUT"
+              echo "fix_type=dependency_pin" >> "$GITHUB_OUTPUT"
+            else
+              echo "Fix attempt failed"
+              cat /tmp/test-output-fixed.txt
+              echo "fixed=false" >> "$GITHUB_OUTPUT"
+            fi
+          elif grep -q "Cannot find module" /tmp/test-output.txt; then
+            echo "Detected missing module issue"
+            echo "Attempting to reinstall dependencies..."
+            
+            rm -rf node_modules package-lock.json
+            npm install
+            
+            echo "Re-running tests..."
+            npm run test:unit > /tmp/test-output-fixed.txt 2>&1
+            FIXED_EXIT_CODE=$?
+            
+            if [ $FIXED_EXIT_CODE -eq 0 ]; then
+              echo "Fix successful!"
+              echo "fixed=true" >> "$GITHUB_OUTPUT"
+              echo "fix_type=dependency_reinstall" >> "$GITHUB_OUTPUT"
+            else
+              echo "Fix attempt failed"
+              echo "fixed=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "Unknown error pattern. Cannot auto-fix."
+            echo "fixed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Analyze and fix backend issues
+        if: |
+          steps.pr.outputs.is_dependabot == 'true' &&
+          steps.logs.outputs.has_failures == 'true' &&
+          contains(steps.pr.outputs.title, 'backend')
+        id: fix_backend
+        working-directory: backend
+        run: |
+          set +e  # Don't exit on error
+          
+          echo "Running tests to capture errors..."
+          chmod +x gradlew
+          ./gradlew test > /tmp/gradle-output.txt 2>&1
+          TEST_EXIT_CODE=$?
+          
+          if [ $TEST_EXIT_CODE -eq 0 ]; then
+            echo "Tests passed! No fix needed."
+            echo "fixed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          
+          cat /tmp/gradle-output.txt
+          
+          # Check for common Gradle/Spring Boot issues
+          if grep -q "Could not find method" /tmp/gradle-output.txt; then
+            echo "Detected Gradle configuration issue"
+            echo "Attempting to fix by updating Gradle wrapper..."
+            
+            ./gradlew wrapper --gradle-version=8.14.3
+            
+            echo "Re-running tests..."
+            ./gradlew test > /tmp/gradle-output-fixed.txt 2>&1
+            FIXED_EXIT_CODE=$?
+            
+            if [ $FIXED_EXIT_CODE -eq 0 ]; then
+              echo "Fix successful!"
+              echo "fixed=true" >> "$GITHUB_OUTPUT"
+              echo "fix_type=gradle_update" >> "$GITHUB_OUTPUT"
+            else
+              echo "Fix attempt failed"
+              echo "fixed=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "Unknown error pattern. Cannot auto-fix."
+            echo "fixed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure Git
+        if: |
+          steps.pr.outputs.is_dependabot == 'true' &&
+          (steps.fix_frontend.outputs.fixed == 'true' || steps.fix_backend.outputs.fixed == 'true')
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit fixes
+        if: |
+          steps.pr.outputs.is_dependabot == 'true' &&
+          (steps.fix_frontend.outputs.fixed == 'true' || steps.fix_backend.outputs.fixed == 'true')
+        id: commit
+        run: |
+          git add .
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+          else
+            FIX_TYPE="${{ steps.fix_frontend.outputs.fix_type || steps.fix_backend.outputs.fix_type }}"
+            git commit -m "chore: auto-fix test failures (${FIX_TYPE})"
+            git push origin ${{ steps.pr.outputs.head_ref }}
+            echo "committed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Comment on PR
+        if: steps.pr.outputs.is_dependabot == 'true'
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const prNumber = ${{ steps.pr.outputs.number }};
+            const fixed = '${{ steps.fix_frontend.outputs.fixed || steps.fix_backend.outputs.fixed }}' === 'true';
+            const committed = '${{ steps.commit.outputs.committed }}' === 'true';
+            const fixType = '${{ steps.fix_frontend.outputs.fix_type || steps.fix_backend.outputs.fix_type }}';
+            
+            let body = '### 🤖 Dependabot Auto-Fix\n\n';
+            
+            if (fixed && committed) {
+              body += '✅ Test failures have been automatically fixed!\n\n';
+              body += `**Fix Type:** ${fixType}\n\n`;
+              body += 'The fixes have been committed to this PR. Tests should pass on the next run.\n';
+            } else if (fixed && !committed) {
+              body += '✅ Tests are now passing without any changes needed.\n';
+            } else {
+              body += '❌ Unable to automatically fix the test failures.\n\n';
+              body += 'This PR may require manual intervention. Common issues:\n';
+              body += '- Breaking changes in the updated dependency\n';
+              body += '- Incompatible dependency versions\n';
+              body += '- Code changes required for compatibility\n\n';
+              body += 'Please review the test output and fix manually, or close this PR if the update is not compatible.\n';
+            }
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: body
+            });
