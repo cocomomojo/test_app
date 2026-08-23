@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { execFileSync } = require('child_process');
-const { evaluatePublicationMode } = require('./pr-test-plan-publication-mode');
+const { evaluatePublicationMode } = require('./dashboard-tools');
 
 function parseArgs(argv) {
   const args = {};
@@ -32,8 +32,8 @@ function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
 }
 
-function runNodeScript(scriptPath, env) {
-  execFileSync(process.execPath, [scriptPath], {
+function runNodeScript(scriptPath, env, args = []) {
+  execFileSync(process.execPath, [scriptPath, ...args], {
     cwd: path.resolve(__dirname, '..'),
     env,
     stdio: 'inherit',
@@ -88,9 +88,9 @@ function main() {
     PR_BODY: body,
   };
 
-  runNodeScript(path.join(repoRoot, 'scripts', 'generate-pr-test-assets.js'), env);
-  runNodeScript(path.join(repoRoot, 'scripts', 'collect-pr-test-assets-meta.js'), env);
-  runNodeScript(path.join(repoRoot, 'scripts', 'update-test-dashboard.js'), env);
+  runNodeScript(path.join(repoRoot, 'scripts', 'pr-tools.js'), env, ['generate-assets']);
+  runNodeScript(path.join(repoRoot, 'scripts', 'pr-tools.js'), env, ['collect-meta']);
+  runNodeScript(path.join(repoRoot, 'scripts', 'dashboard-tools.js'), env, ['update-dashboard']);
 
   const relative = (filePath) => path.relative(repoRoot, filePath).replace(/\\/g, '/');
   const outputFiles = {

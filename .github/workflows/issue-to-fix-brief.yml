@@ -46,14 +46,14 @@ jobs:
 
       - name: Classify issue for fix brief
         run: |
-          node scripts/classify-issue-pattern.js \
+          node scripts/issue-tools.js classify \
             --issue-file /tmp/fix-brief/issue.json \
             --repo "$GITHUB_REPOSITORY" \
             --out /tmp/fix-brief/triage.json
 
       - name: Generate fix brief
         run: |
-          node scripts/generate-fix-brief.js \
+          node scripts/issue-tools.js generate-fix-brief \
             --issue-file /tmp/fix-brief/issue.json \
             --triage-file /tmp/fix-brief/triage.json \
             --out-dir /tmp/fix-brief/output
@@ -61,7 +61,7 @@ jobs:
 
       - name: Generate PR draft
         run: |
-          node scripts/generate-pr-draft.js \
+          node scripts/pr-tools.js generate-pr-draft \
             --fix-brief /tmp/fix-brief/output/fix-brief-issue-${ISSUE_NUMBER}.json \
             --out-dir /tmp/fix-brief/output
           find /tmp/fix-brief/output -maxdepth 1 -type f | sort

@@ -59,7 +59,7 @@ jobs:
 
       - name: Classify issue
         run: |
-          node scripts/classify-issue-pattern.js \
+          node scripts/issue-tools.js classify \
             --issue-file /tmp/issue-triage/issue.json \
             --repo "$GITHUB_REPOSITORY" \
             --out /tmp/issue-triage/result.json

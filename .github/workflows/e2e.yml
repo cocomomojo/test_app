@@ -172,7 +172,25 @@ jobs:
 
       - name: Generate GitHub Pages site
         if: always()
-        run: python3 scripts/generate_github_pages.py
+        run: |
+          mkdir -p gh-pages/allure gh-pages/coverage/frontend gh-pages/coverage/backend
+          touch gh-pages/.nojekyll
+          cat > gh-pages/index.html << 'HTML'
+          <!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>Test App - Reports</title></head>
+          <body><h1>📊 Test App - Reports</h1><ul>
+          <li><a href="allure/index.html">📊 Allure E2E Test Report</a></li>
+          <li><a href="coverage/index.html">📈 Coverage Reports</a></li>
+          </ul></body></html>
+          HTML
+          cat > gh-pages/coverage/index.html << 'HTML'
+          <!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>E2E Coverage Reports</title></head>
+          <body><h1>📊 E2E Coverage Reports</h1><ul>
+          <li><a href="frontend/index.html">🎨 Frontend Coverage</a></li>
+          <li><a href="backend/index.html">☕ Backend Coverage</a></li>
+          </ul><p><a href="../">← Back</a></p></body></html>
+          HTML
+          [ -f gh-pages/coverage/frontend/index.html ] || echo '<h1>No frontend coverage report available</h1>' > gh-pages/coverage/frontend/index.html
+          [ -f gh-pages/coverage/backend/index.html ] || echo '<h1>No backend coverage report available</h1>' > gh-pages/coverage/backend/index.html
 
       - name: Copy reports to GitHub Pages
         if: always()
