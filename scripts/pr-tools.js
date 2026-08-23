@@ -338,7 +338,7 @@ function buildPlanMarkdown(meta, e2eItems, manualItems, integrationItems, playwr
 function buildPlaywrightSpec(meta, e2eItems, integrationItems) {
   const merged = uniqueByText([...e2eItems, ...integrationItems]);
   const todos = merged.length ? merged : [{ text: 'PR本文のE2E/総合テスト項目を記入してください。' }];
-  const title = meta.title.replace(/`/g, '\\`');
+  const title = meta.title.replace(/\\/g, '\\\\').replace(/`/g, '\\`');
   return `import { test } from '@playwright/test';\n\ntest.describe('PR #${meta.number}: ${title}', () => {\n` +
     todos.map((it) => `  test.skip(${JSON.stringify(it.text)}, async () => {\n    // Generated placeholder. Replace with a concrete Playwright scenario when ready.\n  });`).join('\n\n') +
     '\n});\n';
