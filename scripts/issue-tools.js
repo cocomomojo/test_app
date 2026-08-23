@@ -134,7 +134,7 @@ function detectPattern(issue) {
   if (labels.includes('feature') || labels.includes('enhancement')) return { pattern: null, reason: 'Feature/enhancement issue is outside the bug triage scope.' };
   if (hasAny(text, ['manual', 'wiki/', 'markdown', '操作マニュアル', 'スクリーンショット', 'readme']) && !hasAny(text, ['playwright', 'gradle', 'stack trace', 'workflow'])) return { pattern: BUG_PATTERNS.DOCS_MANUAL, reason: 'Text focuses on documentation/manual artifacts.' };
   if (body.includes('<!-- automated-e2e-failure-analysis -->') && (hasAny(text, ['getbytext', '表示テキスト', '文言', 'tobevisible', 'locator']) || hasAny(text, ['こんばんは', 'こんばんわー']))) return { pattern: BUG_PATTERNS.FRONTEND_UI_TEXT, reason: 'Automated E2E failure issue suggests a UI text mismatch.' };
-  if (hasAny(text, ['vitest', '@vue/test-utils', 'wrapper.text()', 'test:unit', 'frontend/src/test', 'mount('])) return { pattern: BUG_PATTERNS.FRONTEND_UNIT_TEST, reason: 'Signals point to a frontend unit test failure.' };
+  if (hasAny(text, ['vitest', '@vue/test-utils', 'wrapper.text()', 'test:unit', 'frontend/tests/unit', 'mount('])) return { pattern: BUG_PATTERNS.FRONTEND_UNIT_TEST, reason: 'Signals point to a frontend unit test failure.' };
   if (hasAny(text, ['docker compose', 'health check', 'mysqladmin ping', 'actuator/health', 'frontend failed to start', 'backend connectivity', 'timeout']) && hasAny(text, ['playwright', 'e2e', 'localhost:8080', 'localhost:8081'])) return { pattern: BUG_PATTERNS.E2E_ENVIRONMENT, reason: 'Issue looks like an E2E environment or service readiness failure.' };
   if (hasAny(text, ['workflow', 'github actions', '.github/workflows', 'yaml', 'permissions', 'dockerfile', 'node version', 'sonarqube'])) return { pattern: BUG_PATTERNS.CI_CONFIG, reason: 'Issue appears related to CI or workflow configuration.' };
   if (hasAny(text, ['spring boot', 'gradle', 'jacoco', 'stack trace', 'exception', 'sql', 'endpoint', 'junit', 'backend/src/main'])) return { pattern: BUG_PATTERNS.BACKEND, reason: 'Issue appears related to backend code or API behavior.' };
@@ -279,14 +279,14 @@ function buildPatternDetails(issue, triage) {
 
   const defaults = {
     'frontend-ui-text': {
-      allowedPaths: ['frontend/src/', 'frontend/tests/e2e/', 'frontend/test/'],
+      allowedPaths: ['frontend/src/', 'frontend/tests/e2e/', 'frontend/tests/unit/'],
       candidateFiles: ['frontend/tests/e2e/', 'frontend/src/components/'],
       validationSteps: ['frontend の E2E テストを対象シナリオ中心に再実行する', '必要に応じて frontend unit test で表示文言の整合を確認する'],
       changeConstraints: ['UI 文言不一致の解消に必要な最小変更に留める', '関係ない selector や待機条件の変更を避ける'],
     },
     'frontend-unit-test': {
-      allowedPaths: ['frontend/src/', 'frontend/test/'],
-      candidateFiles: ['frontend/src/', 'frontend/test/'],
+      allowedPaths: ['frontend/src/', 'frontend/tests/unit/'],
+      candidateFiles: ['frontend/src/', 'frontend/tests/unit/'],
       validationSteps: ['frontend unit test を再実行する', 'coverage の大きな後退がないことを確認する'],
       changeConstraints: ['テストだけを都合よく緩めず、実装との整合を優先する'],
     },

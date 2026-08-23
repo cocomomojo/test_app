@@ -4,10 +4,10 @@
  * pr-tools.js — consolidated PR management scripts
  *
  * Subcommands:
- *   generate-pr-draft       generate-pr-draft
- *   collect-meta            collect-pr-test-assets-meta
- *   generate-assets         generate-pr-test-assets
- *   validate               validate-auto-fix-changes
+ *   generate-pr-draft       generate-pr-draft.js
+ *   collect-meta            collect-pr-test-assets-meta.js
+ *   generate-assets         generate-pr-test-assets.js
+ *   validate               validate-auto-fix-changes.js
  */
 
 'use strict';
