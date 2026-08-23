@@ -183,7 +183,7 @@ jobs:
         if: |
           steps.pr.outputs.is_dependabot == 'true' &&
           steps.logs.outputs.has_failures == 'true' &&
-          (contains(steps.pr.outputs.title, 'backend') || contains(steps.pr.outputs.title, 'github-actions'))
+          contains(steps.pr.outputs.title, 'backend')
         id: fix_backend
         working-directory: backend
         run: |
