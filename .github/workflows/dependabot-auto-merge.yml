@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Check if automerge label exists
         id: check-label
@@ -33,13 +33,13 @@ jobs:
 
       - name: Setup Node.js
         if: steps.check-label.outputs.has_automerge == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '20'
 
       - name: Setup Java
         if: steps.check-label.outputs.has_automerge == 'true'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
