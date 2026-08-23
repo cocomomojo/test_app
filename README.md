@@ -20,8 +20,8 @@
   - [🚀 ローカル実行](#-ローカル実行)
   - [🧪 E2E テスト実行](#-e2e-テスト実行)
   - [🔄 GitHub Actions（CI/CD）](#-github-actionscicd)
-  - [📊 GitHub Pages（Allure レポート）](#-github-pagesallure-レポート)  - [� Wiki ドキュメント](#-wiki-ドキュメント)
-  - [�🔒 セキュリティ](#-セキュリティ)
+  - [📊 GitHub Pages（テストレポート・カバレッジ）](#-github-pagesテストレポート・カバレッジ)
+  - [🔒 セキュリティ](#-セキュリティ)
   - [📚 参考資料](#-参考資料)
 
 ---
@@ -456,6 +456,43 @@ graph TD
 
 **合計:** 約 2-3 分
 
+### 📋 ワークフロー一覧と用途
+
+このリポジトリでは以下の GitHub Actions ワークフローを使用しています：
+
+| ワークフロー | トリガー | 用途 | 実行時間 |
+|------------|---------|------|---------|
+| **E2E Tests with Coverage** | 手動実行のみ | E2E テスト実行とカバレッジレポート生成。main ブランチでは GitHub Pages へデプロイ | ~3分 |
+| **PR Quality Checks** | PR作成・更新時 | フロントエンド・バックエンドのユニットテスト実行と品質チェック | ~5分 |
+| **PR Test Plan Assets** | PR作成・更新時 | PR 用のテスト計画とPlaywright雛形を自動生成 | ~2分 |
+| **Issue Triage** | Issue作成・編集時 | Issue を自動分類し、バグパターンと深刻度をラベル付け | ~1分 |
+| **Issue to Fix Brief** | `ai-fixable` ラベル付与時 | Issue から修正案を生成し、PR ドラフトを作成 | ~3分 |
+| **Issue to Auto Fix PR** | 手動実行のみ | 対象Issue（frontend-ui-text、low/medium）の自動修正とDraft PR作成 | ~5分 |
+| **E2E Failure Analysis** | E2E テスト失敗時 | 失敗ログを AI で分析し、Issue を自動作成 | ~3分 |
+| **Dependabot Auto-merge** | Dependabot PR作成時 | `automerge` ラベル付き Dependabot PR の自動テスト・承認・マージ | ~5分 |
+
+#### ワークフローの使い方
+
+**E2E Tests with Coverage の実行:**
+```bash
+# GitHub リポジトリの Actions タブ → "E2E Tests with Coverage" → "Run workflow"
+# ブランチを選択して実行
+```
+
+**Issue から自動修正PRまでのフロー:**
+1. Issue を作成（エラー内容を記載）
+2. `issue-to-triage.yml` が自動実行され、Issue を分類
+3. `ai-fixable` ラベルが自動付与される
+4. `issue-to-fix-brief.yml` が自動実行され、修正案を生成
+5. 対象範囲（frontend-ui-text × low/medium）の場合、`issue-to-auto-fix-pr.yml` が自動 dispatch
+6. Draft PR が作成される
+
+**Dependabot PR の自動マージ:**
+1. Dependabot が PR を作成
+2. PR に `automerge` ラベルを手動で付与
+3. `dependabot-auto-merge.yml` が自動実行
+4. テストが成功すれば自動承認・マージ
+
 ---
 
 ## 📊 GitHub Pages（テストレポート・カバレッジ）
@@ -614,38 +651,6 @@ flowchart LR
 
 ---
 
-## �📚 Wiki ドキュメント
-
-本プロジェクトの詳細なドキュメントは [wiki/](./wiki/) ディレクトリに格納されています。
-
-以下のドキュメントを参照してください：
-
-| ドキュメント | 説明 |
-|-----------|------|
-| [00-目次](./wiki/00-目次.md) | ドキュメント全体の目次 |
-| [01-概要](./wiki/01-概要.md) | プロジェクトの概要と技術スタック |
-| [02-クイックスタート](./wiki/02-クイックスタート.md) | セットアップと起動方法 |
-| [03-アーキテクチャ](./wiki/03-アーキテクチャ.md) | システムアーキテクチャの詳細 |
-| [04-リポジトリ構造](./wiki/04-リポジトリ構造.md) | ディレクトリ構成と各コンポーネント |
-| [05-データモデル](./wiki/05-データモデル.md) | データベーススキーマと ER 図 |
-| [06-コアコンポーネント](./wiki/06-コアコンポーネント.md) | バックエンド各層の実装詳細 |
-| [07-APIドキュメント](./wiki/07-APIドキュメント.md) | API エンドポイント仕様 |
-| [08-テスト戦略](./wiki/08-テスト戦略.md) | E2E テスト設計とテスト実行方法 |
-| [09-デプロイメント](./wiki/09-デプロイメント.md) | 本番環境へのデプロイ手順 |
-| [10-コントリビューションガイド](./wiki/10-コントリビューションガイド.md) | 開発者向けガイドライン |
-| [11-まとめ](./wiki/11-まとめ.md) | プロジェクト全体のまとめ |
-
-### 🔄 ドキュメント生成
-
-このプロジェクトのドキュメントは、以下の方法で生成されています：
-
-- **生成ツール**: deepwiki
-- **参考サイト**: [deepwiki を試す](https://qiita.com/a32-suzuki/items/c3540da3e009dab1bf97)
-- **生成指示**: [生成指示書/ドキュメント指示書.md](./生成指示書/ドキュメント指示書.md)
-- **ドキュメント構成**: [生成指示書/ドキュメント構成.md](./生成指示書/ドキュメント構成.md)
-
----
-
 ## 📚 参考資料
 
 ### 📖 公式ドキュメント
@@ -653,7 +658,8 @@ flowchart LR
 | 技術 | URL |
 |------|-----|
 | Spring Boot | https://spring.io/projects/spring-boot |
-| React | https://react.dev/ |
+| Vue.js | https://vuejs.org/ |
+| Vuetify | https://vuetifyjs.com/ |
 | Playwright | https://playwright.dev/ |
 | Allure | https://docs.qameta.io/allure/ |
 | GitHub Actions | https://docs.github.com/ja/actions |
@@ -704,5 +710,5 @@ AWS S3 のローカルモックとして **Moto** を使用しています（Por
 
 ---
 
-**作成日:** 2025-12-30
-**最終更新:** 2025-12-30
+**作成日:** 2025-12-30  
+**最終更新:** 2026-08-23
