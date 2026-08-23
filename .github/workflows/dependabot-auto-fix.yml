@@ -155,7 +155,7 @@ jobs:
               cat /tmp/test-output-fixed.txt
               echo "fixed=false" >> "$GITHUB_OUTPUT"
             fi
-          elif grep -q "Cannot find module\|Failed to resolve import" /tmp/test-output.txt; then
+          elif grep -qE "Cannot find module|Failed to resolve import" /tmp/test-output.txt; then
             echo "Detected missing module or import resolution issue"
             echo "Attempting to reinstall dependencies..."
             
