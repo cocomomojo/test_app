@@ -1,10 +1,10 @@
 import { mount } from '@vue/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import flushPromises from 'flush-promises';
-import MemoUpload from '../components/MemoUpload.vue';
-import { uploadImage, fetchMemos, deleteMemo, updateMemo } from '../api/memo';
+import MemoUpload from '../../src/components/MemoUpload.vue';
+import { uploadImage, fetchMemos, deleteMemo, updateMemo } from '../../src/api/memo';
 
-vi.mock('../api/memo', () => ({
+vi.mock('../../src/api/memo', () => ({
   uploadImage: vi.fn(),
   fetchMemos: vi.fn(),
   deleteMemo: vi.fn(),

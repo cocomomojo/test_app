@@ -1,10 +1,10 @@
 import { mount } from '@vue/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import flushPromises from 'flush-promises';
-import TopPage from '../components/TopPage.vue';
-import { fetchTop } from '../api/top';
+import TopPage from '../../src/components/TopPage.vue';
+import { fetchTop } from '../../src/api/top';
 
-vi.mock('../api/top', () => ({
+vi.mock('../../src/api/top', () => ({
   fetchTop: vi.fn()
 }));
 

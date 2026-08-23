@@ -31,14 +31,14 @@ describe('memo api', () => {
   it('adds Authorization header when token exists', async () => {
     localStorage.setItem('idToken', 'TOKEN');
 
-    await import('../../api/memo');
+    await import('../../../src/api/memo');
 
     const config = requestInterceptor({ headers: {} });
     expect(config.headers.Authorization).toBe('Bearer TOKEN');
   });
 
   it('calls correct endpoints', async () => {
-    const apiModule = await import('../../api/memo');
+    const apiModule = await import('../../../src/api/memo');
 
     await apiModule.fetchMemos();
     await apiModule.deleteMemo(1);
@@ -50,7 +50,7 @@ describe('memo api', () => {
   });
 
   it('uploads image with form data', async () => {
-    const apiModule = await import('../../api/memo');
+    const apiModule = await import('../../../src/api/memo');
     apiInstance.post.mockResolvedValue({ data: { ok: true } });
 
     const file = new File(['abc'], 'memo.png', { type: 'image/png' });

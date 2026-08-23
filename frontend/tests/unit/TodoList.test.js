@@ -1,10 +1,10 @@
 import { mount } from '@vue/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import flushPromises from 'flush-promises';
-import TodoList from '../components/TodoList.vue';
-import { fetchTodos, createTodo, updateTodo, deleteTodo } from '../api/todo';
+import TodoList from '../../src/components/TodoList.vue';
+import { fetchTodos, createTodo, updateTodo, deleteTodo } from '../../src/api/todo';
 
-vi.mock('../api/todo', () => ({
+vi.mock('../../src/api/todo', () => ({
   fetchTodos: vi.fn(),
   createTodo: vi.fn(),
   updateTodo: vi.fn(),

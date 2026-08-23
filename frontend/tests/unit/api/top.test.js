@@ -28,14 +28,14 @@ describe('top api', () => {
   it('adds Authorization header when token exists', async () => {
     localStorage.setItem('idToken', 'TOKEN');
 
-    await import('../../api/top');
+    await import('../../../src/api/top');
 
     const config = requestInterceptor({ headers: {} });
     expect(config.headers.Authorization).toBe('Bearer TOKEN');
   });
 
   it('calls correct endpoint', async () => {
-    const apiModule = await import('../../api/top');
+    const apiModule = await import('../../../src/api/top');
 
     await apiModule.fetchTop();
 

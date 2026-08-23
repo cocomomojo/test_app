@@ -31,14 +31,14 @@ describe('todo api', () => {
   it('adds Authorization header when token exists', async () => {
     localStorage.setItem('idToken', 'TOKEN');
 
-    await import('../../api/todo');
+    await import('../../../src/api/todo');
 
     const config = requestInterceptor({ headers: {} });
     expect(config.headers.Authorization).toBe('Bearer TOKEN');
   });
 
   it('calls correct endpoints', async () => {
-    const apiModule = await import('../../api/todo');
+    const apiModule = await import('../../../src/api/todo');
 
     await apiModule.fetchTodos();
     await apiModule.createTodo({ title: 'a' });
