@@ -2,6 +2,28 @@
 
 このディレクトリには、Dependabotの依存関係更新PRを自動的に処理するワークフローが含まれています。
 
+## Dependabotグループ化設定
+
+すべての依存関係更新はエコシステムごとにグループ化されます：
+
+### フロントエンド (npm)
+- **production-dependencies**: プロダクション依存関係のマイナー/パッチアップデート
+- **development-dependencies**: 開発依存関係のマイナー/パッチアップデート  
+- **production-major**: プロダクション依存関係のメジャーアップデート
+- **development-major**: 開発依存関係のメジャーアップデート
+
+### バックエンド (Gradle)
+- **spring-boot**: Spring Boot関連のマイナー/パッチアップデート
+- **aws-sdk**: AWS SDK関連のマイナー/パッチアップデート
+- **other-dependencies**: その他の依存関係のマイナー/パッチアップデート
+- **major-updates**: すべてのメジャーアップデート
+
+### GitHub Actions
+- **github-actions-dependencies**: すべてのアクションのマイナー/パッチアップデート
+- **github-actions-major**: すべてのアクションのメジャーアップデート
+
+これにより、個別のPRではなく、まとまったPRが作成されます。
+
 ## ワークフロー概要
 
 ### 1. dependabot-auto-merge.yml
