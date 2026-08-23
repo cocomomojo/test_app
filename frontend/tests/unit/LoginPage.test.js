@@ -1,8 +1,8 @@
 import { mount } from '@vue/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import flushPromises from 'flush-promises';
-import LoginPage from '../components/LoginPage.vue';
-import { login } from '../api/auth';
+import LoginPage from '../../src/components/LoginPage.vue';
+import { login } from '../../src/api/auth';
 
 let push = vi.fn();
 
@@ -10,7 +10,7 @@ vi.mock('vue-router', () => ({
   useRouter: () => ({ push })
 }));
 
-vi.mock('../api/auth', () => ({
+vi.mock('../../src/api/auth', () => ({
   login: vi.fn()
 }));
 

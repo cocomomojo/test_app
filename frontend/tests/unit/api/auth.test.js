@@ -16,7 +16,7 @@ describe('auth api', () => {
       json: async () => ({ AuthenticationResult: { IdToken: 'COGNITO' } })
     });
 
-    const { login } = await import('../../api/auth');
+    const { login } = await import('../../../src/api/auth');
 
     const token = await login('user', 'pass');
 
@@ -33,7 +33,7 @@ describe('auth api', () => {
       json: async () => ({ idToken: 'LOCAL' })
     });
 
-    const { login } = await import('../../api/auth');
+    const { login } = await import('../../../src/api/auth');
 
     const token = await login('user', 'pass');
 
