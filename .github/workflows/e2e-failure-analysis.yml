@@ -29,7 +29,7 @@ jobs:
 
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@48e5fa3ff52294d91d97715017a9f8693a48387f
+        uses: github/gh-aw/actions/setup@466b8ad27fcfaaa861da3f16ba7c01272df25f46
         with:
           destination: /opt/gh-aw/actions
 
