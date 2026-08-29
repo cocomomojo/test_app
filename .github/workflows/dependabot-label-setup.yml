@@ -1,0 +1,78 @@
+name: Dependabot Label Setup
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  setup-labels:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Add labels to Dependabot PR
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const prBody = context.payload.pull_request.body || '';
+            const prTitle = context.payload.pull_request.title || '';
+            
+            // Determine which labels to add based on PR content
+            const labelsToAdd = ['automerge', 'dependencies'];
+            
+            // Add ecosystem-specific labels
+            if (prBody.includes('/frontend') || prTitle.includes('frontend')) {
+              labelsToAdd.push('frontend');
+            } else if (prBody.includes('/backend') || prTitle.includes('backend')) {
+              labelsToAdd.push('backend');
+            } else if (prBody.includes('github-actions') || prBody.includes('.github/workflows')) {
+              labelsToAdd.push('github-actions');
+            }
+            
+            // Ensure all required labels exist
+            const requiredLabels = [
+              { name: 'automerge', color: '0e8a16', description: 'Auto-merge enabled for Dependabot PRs' },
+              { name: 'dependencies', color: '0366d6', description: 'Pull requests that update a dependency file' },
+              { name: 'frontend', color: '1d76db', description: 'Frontend related changes' },
+              { name: 'backend', color: '5319e7', description: 'Backend related changes' },
+              { name: 'github-actions', color: '000000', description: 'GitHub Actions workflow related changes' }
+            ];
+            
+            for (const label of requiredLabels) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name
+                });
+                console.log(`Label '${label.name}' already exists`);
+              } catch (error) {
+                if (error.status === 404) {
+                  console.log(`Creating label '${label.name}'`);
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: label.name,
+                    color: label.color,
+                    description: label.description
+                  });
+                } else {
+                  throw error;
+                }
+              }
+            }
+            
+            // Add labels to the PR
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              labels: labelsToAdd
+            });
+            
+            console.log(`Added labels to PR #${prNumber}: ${labelsToAdd.join(', ')}`);
