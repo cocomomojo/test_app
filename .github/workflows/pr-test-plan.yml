@@ -11,6 +11,8 @@ permissions:
 
 jobs:
   generate-pr-test-assets:
+    # Skip for Dependabot PRs as they don't need test plan assets
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 

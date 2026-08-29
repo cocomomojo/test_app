@@ -3,6 +3,9 @@ name: Dependabot Auto-merge
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  workflow_run:
+    workflows: ["PR Quality Checks"]
+    types: [completed]
 
 permissions:
   contents: write
@@ -11,97 +14,151 @@ permissions:
 
 jobs:
   auto-test-and-merge:
-    if: github.actor == 'dependabot[bot]'
+    # Run on Dependabot PRs either when they are opened/updated OR when PR Quality Checks completes
+    if: |
+      (github.event_name == 'pull_request' && github.actor == 'dependabot[bot]') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request')
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
+      - name: Get PR details
+        id: pr_info
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            let prNumber, prData;
+            
+            if (context.eventName === 'pull_request') {
+              prNumber = context.payload.pull_request.number;
+              prData = context.payload.pull_request;
+            } else if (context.eventName === 'workflow_run') {
+              const run = context.payload.workflow_run;
+              prNumber = run.pull_requests[0]?.number;
+              
+              if (!prNumber) {
+                core.info('No PR associated with this workflow run');
+                return;
+              }
+              
+              const { data: pr } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+              });
+              prData = pr;
+            }
+            
+            core.setOutput('number', prNumber);
+            core.setOutput('is_dependabot', prData.user.login === 'dependabot[bot]');
+            core.setOutput('head_ref', prData.head.ref);
+            core.setOutput('state', prData.state);
+
+      - name: Skip if not Dependabot PR
+        if: steps.pr_info.outputs.is_dependabot != 'true'
+        run: |
+          echo "This is not a Dependabot PR. Skipping auto-merge workflow."
+          exit 0
+
+      - name: Check if PR is still open
+        if: steps.pr_info.outputs.is_dependabot == 'true' && steps.pr_info.outputs.state != 'open'
+        run: |
+          echo "PR is not open (state: ${{ steps.pr_info.outputs.state }}). Skipping."
+          exit 0
+
       - name: Checkout code
+        if: steps.pr_info.outputs.is_dependabot == 'true' && steps.pr_info.outputs.state == 'open'
         uses: actions/checkout@v7
 
-      - name: Check if automerge label exists
+      - name: Check automerge label
+        if: steps.pr_info.outputs.is_dependabot == 'true' && steps.pr_info.outputs.state == 'open'
         id: check-label
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+          labels=$(gh pr view ${{ steps.pr_info.outputs.number }} --json labels --jq '.labels[].name')
           if echo "$labels" | grep -q "automerge"; then
             echo "has_automerge=true" >> $GITHUB_OUTPUT
           else
             echo "has_automerge=false" >> $GITHUB_OUTPUT
+            echo "⏭️ Skipping: PR does not have 'automerge' label"
           fi
 
-      - name: Setup Node.js
-        if: steps.check-label.outputs.has_automerge == 'true'
-        uses: actions/setup-node@v7
-        with:
-          node-version: '20'
-
-      - name: Setup Java
-        if: steps.check-label.outputs.has_automerge == 'true'
-        uses: actions/setup-java@v5
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Run Frontend Tests
-        if: ${{ steps.check-label.outputs.has_automerge == 'true' && contains(github.event.pull_request.labels.*.name, 'frontend') }}
-        id: frontend_test
-        continue-on-error: true
+      - name: Check PR Quality Checks status
+        if: |
+          steps.pr_info.outputs.is_dependabot == 'true' &&
+          steps.pr_info.outputs.state == 'open' &&
+          steps.check-label.outputs.has_automerge == 'true' &&
+          github.event_name == 'workflow_run'
+        id: quality_check
         run: |
-          cd frontend
-          npm ci
-          npm run test:unit
-
-      - name: Run Backend Tests
-        if: ${{ steps.check-label.outputs.has_automerge == 'true' && contains(github.event.pull_request.labels.*.name, 'backend') }}
-        id: backend_test
-        continue-on-error: true
-        run: |
-          cd backend
-          ./gradlew test
-
-      - name: Check test results
-        if: steps.check-label.outputs.has_automerge == 'true'
-        id: test_results
-        run: |
-          FRONTEND_RESULT="${{ steps.frontend_test.outcome }}"
-          BACKEND_RESULT="${{ steps.backend_test.outcome }}"
+          CONCLUSION="${{ github.event.workflow_run.conclusion }}"
+          echo "quality_status=${CONCLUSION}" >> $GITHUB_OUTPUT
           
-          # If both are skipped or both succeeded, tests pass
-          if ( [ "$FRONTEND_RESULT" = "success" ] || [ "$FRONTEND_RESULT" = "skipped" ] ) && \
-             ( [ "$BACKEND_RESULT" = "success" ] || [ "$BACKEND_RESULT" = "skipped" ] ); then
-            echo "tests_passed=true" >> "$GITHUB_OUTPUT"
+          if [ "$CONCLUSION" = "success" ]; then
+            echo "✅ PR Quality Checks passed"
           else
-            echo "tests_passed=false" >> "$GITHUB_OUTPUT"
-            echo "Tests failed. Auto-fix workflow will be triggered."
+            echo "⚠️ PR Quality Checks status: ${CONCLUSION}"
           fi
 
       - name: Auto-approve PR
         if: |
+          steps.pr_info.outputs.is_dependabot == 'true' &&
+          steps.pr_info.outputs.state == 'open' &&
           steps.check-label.outputs.has_automerge == 'true' &&
-          steps.test_results.outputs.tests_passed == 'true'
+          (steps.quality_check.outputs.quality_status == 'success' || github.event_name == 'pull_request')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr review ${{ github.event.pull_request.number }} --approve
+          # Check if already approved
+          REVIEWS=$(gh pr view ${{ steps.pr_info.outputs.number }} --json reviews --jq '[.reviews[] | select(.state == "APPROVED")] | length')
+          if [ "$REVIEWS" -eq 0 ]; then
+            gh pr review ${{ steps.pr_info.outputs.number }} --approve
+            echo "✅ PR approved"
+          else
+            echo "✅ PR already approved"
+          fi
 
       - name: Enable auto-merge
         if: |
+          steps.pr_info.outputs.is_dependabot == 'true' &&
+          steps.pr_info.outputs.state == 'open' &&
           steps.check-label.outputs.has_automerge == 'true' &&
-          steps.test_results.outputs.tests_passed == 'true'
+          (steps.quality_check.outputs.quality_status == 'success' || github.event_name == 'pull_request')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr merge ${{ github.event.pull_request.number }} --auto --squash
-          echo "✅ Auto-merge enabled for PR #${{ github.event.pull_request.number }}"
+          gh pr merge ${{ steps.pr_info.outputs.number }} --auto --squash
+          echo "✅ Auto-merge enabled for PR #${{ steps.pr_info.outputs.number }}"
 
-      - name: Comment on test failure
+      - name: Comment on PR
         if: |
-          steps.check-label.outputs.has_automerge == 'true' &&
-          steps.test_results.outputs.tests_passed == 'false'
+          steps.pr_info.outputs.is_dependabot == 'true' &&
+          steps.pr_info.outputs.state == 'open' &&
+          steps.check-label.outputs.has_automerge == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr comment ${{ github.event.pull_request.number }} --body \
-            "⚠️ Tests failed. The auto-fix workflow will attempt to resolve the issues automatically."
+          QUALITY_STATUS="${{ steps.quality_check.outputs.quality_status }}"
+          
+          if [ "$QUALITY_STATUS" = "success" ] || [ "${{ github.event_name }}" = "pull_request" ]; then
+            COMMENT="🤖 **Dependabot Auto-merge**
+
+✅ Auto-merge has been enabled for this PR.
+
+The PR will be automatically merged once:
+- All required checks pass
+- PR is approved (already done ✓)
+
+If tests fail, the auto-fix workflow will attempt to fix the issues automatically."
+          else
+            COMMENT="🤖 **Dependabot Auto-merge**
+
+⏸️ Auto-merge is pending.
+
+Current status: PR Quality Checks - ${QUALITY_STATUS}
+
+The auto-fix workflow will attempt to resolve any test failures automatically."
+          fi
+          
+          gh pr comment ${{ steps.pr_info.outputs.number }} --body "$COMMENT"

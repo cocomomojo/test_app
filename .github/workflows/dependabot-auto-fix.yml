@@ -29,7 +29,8 @@ jobs:
             const prNumber = run.pull_requests[0]?.number;
             
             if (!prNumber) {
-              core.setFailed('No PR associated with this workflow run');
+              core.info('No PR associated with this workflow run. This is expected when running on main branch after merge.');
+              core.setOutput('is_dependabot', 'false');
               return;
             }
             
