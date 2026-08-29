@@ -489,11 +489,11 @@ graph TB
 
     subgraph "📦 依存関係管理"
         DEPENDABOT[Dependabot PR] --> LABEL[👤 automerge<br/>ラベル付与]
-        LABEL --> AUTO_MERGE[Dependabot Auto-merge<br/>🤖 自動テスト・マージ]
+        LABEL --> VALIDATE[Dependabot Validation<br/>🤖 テスト検証]
     end
 
     REVIEW --> MERGE[👤 マージ]
-    AUTO_MERGE --> MERGE
+    VALIDATE --> REVIEW
     MERGE --> DEV
 
     style DEV fill:#e3f2fd
@@ -526,7 +526,7 @@ graph TB
 | **Issue to Fix Brief** | `ai-fixable` ラベル付与時 | Issue から修正案を生成し、PR ドラフトを作成 | ~3分 | 🤖 自動 |
 | **Issue to Auto Fix PR** | 手動実行（またはFix Brief後の自動dispatch） | 対象Issue（frontend-ui-text、low/medium）の自動修正とDraft PR作成 | ~5分 | 🤖 自動 |
 | **E2E Failure Analysis** | E2E テスト失敗時 | 失敗ログを AI で分析し、Issue を自動作成 | ~3分 | 🤖 自動 |
-| **Dependabot Auto-merge** | Dependabot PR作成時 | `automerge` ラベル付き Dependabot PR の自動テスト・承認・マージ | ~5分 | 🤖 自動 |
+| **Dependabot Validation** | Dependabot PR作成時 | `automerge` ラベル付き Dependabot PR のテスト検証と手動マージ案内 | ~5分 | 🤖 自動 |
 
 #### 🎯 開発フェーズ別ワークフロー利用マトリックス
 
@@ -539,7 +539,7 @@ graph TB
 | **バグ報告** | Issue Triage | 🤖 | Issue作成時に自動 |
 | **修正計画** | Issue to Fix Brief | 🤖 | ai-fixableラベル付与時に自動 |
 | **自動修正（Pilot）** | Issue to Auto Fix PR | 🤖 | pilot対象の場合に自動dispatch |
-| **依存関係更新** | Dependabot Auto-merge | 🤖 | automergeラベル付与時に自動 |
+| **依存関係更新** | Dependabot Validation | 🤖 | automergeラベル付与時に自動 |
 
 #### 💡 主要ワークフローの使い方
 
@@ -629,13 +629,13 @@ sequenceDiagram
    - 必要に応じて調整
    - レビュー・承認してマージ
 
-##### 3. Dependabot PR の自動マージ
+##### 3. Dependabot PR のテスト検証と手動マージ
 
 ```mermaid
 sequenceDiagram
     participant 🤖D as Dependabot
     participant 👤 as 開発者
-    participant 🤖M as Auto-merge
+    participant 🤖M as Validation
 
     🤖D->>👤: PR 作成
     👤->>👤: PR 内容確認
@@ -643,8 +643,7 @@ sequenceDiagram
     🤖D->>🤖M: ワークフロー起動
     🤖M->>🤖M: テスト実行
     alt テスト成功
-        🤖M->>🤖M: 自動承認
-        🤖M->>🤖M: 自動マージ
+        🤖M-->>👤: 成功通知（レビュー後に手動マージ）
     else テスト失敗
         🤖M-->>👤: 失敗通知（マージしない）
     end
@@ -654,7 +653,8 @@ sequenceDiagram
 1. Dependabot が PR を作成
 2. PR の内容を確認
 3. 問題なければ `automerge` ラベルを手動で付与
-4. ワークフローが自動実行されテスト・マージ
+4. ワークフローが自動実行されテスト検証
+5. テスト成功時はレビュー後に手動でマージ
 
 ---
 
@@ -764,13 +764,13 @@ GitHub リポジトリ → Settings → Secrets and variables → Actions → Ne
   3. Issue を自動作成（原因・対応案を含む）
 - **前提条件:** `COPILOT_GITHUB_TOKEN`
 
-#### Dependabot Auto-merge
+#### Dependabot Validation
 - **ファイル:** `.github/workflows/dependabot-auto-merge.yml`
 - **トリガー:** `automerge` ラベル付与時
 - **処理内容:**
   1. テストを実行
-  2. テスト成功時に自動承認
-  3. 自動マージ
+  2. テスト成功時に手動マージの案内をコメント
+  3. テスト失敗時は auto-fix フローへ誘導
 - **対象:** Dependabot が作成した PR のみ
 
 </details>
