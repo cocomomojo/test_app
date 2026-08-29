@@ -21,7 +21,8 @@ jobs:
         run: |
           gh issue create \
             --title "[FEATURE] 週次タスク: Webアプリの機能改修（規模：低）" \
-            --label "enhancement,feature" \
+            --label "enhancement" \
+            --label "feature" \
             --body "## 背景
           週1回の定期的なWebアプリ機能改修タスク（規模：低）です。
 
