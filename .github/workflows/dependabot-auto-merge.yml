@@ -1,4 +1,4 @@
-name: Dependabot Validation
+name: Dependabot Auto-merge
 
 on:
   pull_request:
@@ -10,7 +10,7 @@ permissions:
   checks: read
 
 jobs:
-  auto-test-and-validate:
+  auto-test-and-merge:
     if: github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -77,15 +77,24 @@ jobs:
             echo "Tests failed. Auto-fix workflow will be triggered."
           fi
 
-      - name: Notify manual merge requirement
+      - name: Auto-approve PR
         if: |
           steps.check-label.outputs.has_automerge == 'true' &&
           steps.test_results.outputs.tests_passed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr comment ${{ github.event.pull_request.number }} --body \
-            "✅ 依存関係更新のテストが成功しました。自動マージは行わず、レビュー後に手動でマージしてください。"
+          gh pr review ${{ github.event.pull_request.number }} --approve
+
+      - name: Enable auto-merge
+        if: |
+          steps.check-label.outputs.has_automerge == 'true' &&
+          steps.test_results.outputs.tests_passed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge ${{ github.event.pull_request.number }} --auto --squash
+          echo "✅ Auto-merge enabled for PR #${{ github.event.pull_request.number }}"
 
       - name: Comment on test failure
         if: |
