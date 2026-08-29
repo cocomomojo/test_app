@@ -1,0 +1,43 @@
+name: Weekly Feature Improvement Issue
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  create-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create Issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "[FEATURE] 週次タスク: Webアプリの機能改修（規模：低）" \
+            --label "enhancement,feature" \
+            --body "## 背景
+          週1回の定期的なWebアプリ機能改修タスク（規模：低）です。
+
+          ## 作業フロー
+          このIssueは、以下のフローに沿って進行します。
+
+          1. **作業の依頼**: ユーザー（私）がIssueの内容を確認し、Copilotに作業を依頼します。
+          2. **Copilotの作業**: Copilotは以下の作業を順に行います。
+             - テスト設計
+             - テスト項目作成
+             - 実装
+             - 自動テスト（unittest, e2e）作成
+             - 全件テストOKなら、PR作成
+          3. **確認とマージ**: ユーザー（私）がPRを確認し、マージします。
+
+          ## 受け入れ条件
+          - テスト設計、テスト項目が明確にされていること
+          - 自動テスト（unittest, e2e）が実装され、すべてPassしていること
+          - 機能改修のPRが作成されていること"
