@@ -19,6 +19,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # 既存のOpen状態の同名Issueがあるかチェック
+          EXISTING_ISSUE=$(gh issue list --search "in:title \"[FEATURE] 週次タスク: Webアプリの機能改修（規模：低）\" state:open" --json number -q '.[0].number')
+          if [ -n "$EXISTING_ISSUE" ]; then
+            echo "既に同じタイトルの未解決Issueが存在します（#$EXISTING_ISSUE）。作成をスキップします。"
+            exit 0
+          fi
+
+          # ラベルが存在しない場合は作成（エラーを無視）
+          gh label create "enhancement" --description "New feature or request" --color a2eeef --force || true
+          gh label create "feature" --description "New feature" --color a2eeef --force || true
+
           gh issue create \
             --title "[FEATURE] 週次タスク: Webアプリの機能改修（規模：低）" \
             --label "enhancement" \
