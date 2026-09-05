@@ -42,16 +42,30 @@ jobs:
         if: steps.pr_info.outputs.is_dependabot == 'true'
         id: check_status
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_NUMBER: ${{ steps.pr_info.outputs.number }}
         with:
           script: |
-            const prNumber = ${{ steps.pr_info.outputs.number }};
+            const prNumber = parseInt(process.env.PR_NUMBER, 10);
             
-            // Get comments on the PR
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-            });
+            // Get comments on the PR with pagination
+            let comments = [];
+            let page = 1;
+            let hasMore = true;
+            
+            while (hasMore) {
+              const { data: pageComments } = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                per_page: 100,
+                page: page
+              });
+              
+              comments = comments.concat(pageComments);
+              hasMore = pageComments.length === 100;
+              page++;
+            }
             
             // Find the auto-fix comment
             const autoFixComment = comments.find(c => c.body && c.body.includes('🤖 Dependabot Auto-Fix'));
@@ -73,12 +87,14 @@ jobs:
           steps.check_status.outputs.auto_fix_failed == 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
+          PR_NUMBER: ${{ steps.pr_info.outputs.number }}
           PR_TITLE: ${{ steps.pr_info.outputs.title }}
+          WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}
         with:
           script: |
-            const prNumber = ${{ steps.pr_info.outputs.number }};
+            const prNumber = parseInt(process.env.PR_NUMBER, 10);
             const prTitle = process.env.PR_TITLE || 'Unknown';
-            const workflowRunUrl = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}';
+            const workflowRunUrl = process.env.WORKFLOW_RUN_URL;
             
             let body = '## 🚨 Dependabot Auto-Fix Failed - Operator Attention Required\n\n';
             body += '### Affected PR\n';
@@ -122,7 +138,7 @@ jobs:
               repo: context.repo.repo,
               state: 'open',
               labels: ['dependabot', 'auto-fix-failed'],
-              per_page: 100  // Increase to 100 to reduce pagination issues
+              per_page: 100
             });
             
             // Check if issue already exists for this PR number
