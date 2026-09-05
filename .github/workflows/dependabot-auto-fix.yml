@@ -273,7 +273,17 @@ jobs:
               body += '✅ Tests are now passing without any changes needed.\n';
             } else {
               body += '❌ Unable to automatically fix the test failures.\n\n';
-              body += 'This PR may require manual intervention. Common issues:\n';
+              body += 'This PR may require manual intervention. Here is what you should do:\n\n';
+              body += '#### Troubleshooting Steps:\n';
+              body += '1. **Review the Workflow Logs:** Check the auto-fix workflow run for detailed error messages\n';
+              body += '2. **Investigate Dependency Issues:** Use `npm ls` or `./gradlew dependencies` to inspect the dependency tree\n';
+              body += '3. **Check for Breaking Changes:** Review the dependency changelog for compatibility issues\n';
+              body += '4. **Decide on Resolution:** Choose one of these options:\n';
+              body += '   - Manual fix: Apply code changes if the update is compatible\n';
+              body += '   - Close PR: If the update introduces breaking changes\n';
+              body += '   - Wait: If waiting for a dependency patch\n';
+              body += '   - Downgrade: If the current version is more stable\n\n';
+              body += '#### Common Issues:\n';
               body += '- Breaking changes in the updated dependency\n';
               body += '- Incompatible dependency versions\n';
               body += '- Code changes required for compatibility\n\n';
