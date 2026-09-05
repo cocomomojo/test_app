@@ -133,16 +133,27 @@ jobs:
             body += '**Auto-Fix Workflow:** [View Details](' + workflowRunUrl + ')\n';
             
             // Check if an issue already exists for this PR
-            const { data: issues } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              labels: ['dependabot', 'auto-fix-failed'],
-              per_page: 100
-            });
+            let allIssues = [];
+            let page = 1;
+            let hasMore = true;
+            
+            while (hasMore) {
+              const { data: issues } = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                labels: ['dependabot', 'auto-fix-failed'],
+                per_page: 100,
+                page: page
+              });
+              
+              allIssues = allIssues.concat(issues);
+              hasMore = issues.length === 100;
+              page++;
+            }
             
             // Check if issue already exists for this PR number
-            const existingIssue = issues.find(i => 
+            const existingIssue = allIssues.find(i => 
               i.body && i.body.includes('#' + prNumber) && 
               i.title.includes('Dependabot Auto-Fix Failed')
             );
