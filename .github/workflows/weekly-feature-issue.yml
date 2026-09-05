@@ -270,6 +270,7 @@ jobs:
               exit 1
               ;;
           esac
+          echo "issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
           echo "issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
           echo "✓ Issue created: $ISSUE_URL"
 
