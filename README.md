@@ -69,11 +69,6 @@ graph TB
     FE_CI -->|API| BE_CI
     BE_CI -->|Query| DB_CI
     PW -->|Generate| GHP
-
-    style FE fill:#61dafb
-    style BE fill:#6db33f
-    style DB fill:#4479a1
-    style GHP fill:#ff6b6b
 ```
 
 ### 📂 ディレクトリ構造
@@ -147,16 +142,10 @@ test_app/
 
 ```mermaid
 graph LR
-    A[💻 開発環境] --> B[🐳 Docker]
+   A[💻 開発環境] --> B[🐳 Docker]
     A --> C[🐙 Git]
     A --> D[📦 Node.js 18+]
     A --> E[☕ Java 17+]
-
-    style A fill:#e1f5fe
-    style B fill:#bbdefb
-    style C fill:#90caf9
-    style D fill:#64b5f6
-    style E fill:#42a5f5
 ```
 
 | ツール | 必須/推奨 | バージョン | 確認コマンド |
@@ -418,11 +407,6 @@ graph TD
     
     E --> I[カバレッジレポート生成]
     I --> J[📦 Artifact 保存]
-    
-    style A fill:#e3f2fd
-    style B fill:#fff3e0
-    style G fill:#e8f5e9
-    style H fill:#ffebee
 ```
 
 ### 🎯 ワークフローの実行方法
@@ -534,18 +518,6 @@ graph TB
     REVIEW --> MERGE[👤 マージ]
     AUTO_MERGE --> MERGE
     MERGE --> DEV
-
-    style DEV fill:#e3f2fd
-    style E2E_RUN fill:#fff3e0
-    style TRIAGE fill:#e8f5e9
-    style FIX_BRIEF fill:#e8f5e9
-    style AUTO_FIX fill:#e8f5e9
-    style E2E_ANALYSIS fill:#e8f5e9
-    style REVIEW fill:#fce4ec
-    style MERGE fill:#fce4ec
-    style E2E_MANUAL fill:#fce4ec
-    style MANUAL_ISSUE fill:#fce4ec
-    style LABEL fill:#fce4ec
 ```
 
 **凡例:**
@@ -904,11 +876,6 @@ graph LR
 
     D --> D1[30分で強制終了]
     D --> D2[リソース不正使用防止]
-
-    style A fill:#ffebee
-    style B fill:#fce4ec
-    style C fill:#f3e5f5
-    style D fill:#ede7f6
 ```
 
 ### セキュリティマトリックス
