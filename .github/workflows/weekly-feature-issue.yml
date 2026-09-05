@@ -4,57 +4,270 @@ on:
   schedule:
     - cron: '0 9 * * 1'
   workflow_dispatch:
+    inputs:
+      category:
+        description: 'Feature Category (Frontend/Backend/Both)'
+        required: false
+        type: choice
+        default: 'Both'
+        options:
+          - Frontend
+          - Backend
+          - Both
+      difficulty:
+        description: 'Implementation Difficulty (Low/Medium/High)'
+        required: false
+        type: choice
+        default: 'Medium'
+        options:
+          - Low
+          - Medium
+          - High
 
 permissions:
   issues: write
+  contents: read
 
 jobs:
   create-issue:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Create Issue
+      - name: Setup Scripts
+        uses: github/gh-aw/actions/setup@466b8ad27fcfaaa861da3f16ba7c01272df25f46
+        with:
+          destination: /opt/gh-aw/actions
+
+      - name: Validate COPILOT_GITHUB_TOKEN secret
+        run: /opt/gh-aw/actions/validate_multi_secret.sh COPILOT_GITHUB_TOKEN 'GitHub Copilot CLI' https://github.github.com/gh-aw/reference/engines/#github-copilot-default
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+
+      - name: Install GitHub Copilot CLI
+        run: /opt/gh-aw/actions/install_copilot_cli.sh 0.0.421
+
+      - name: Create Copilot prompt
+        env:
+          FEATURE_CATEGORY: ${{ github.event.inputs.category || 'Both' }}
+          DIFFICULTY_LEVEL: ${{ github.event.inputs.difficulty || 'Medium' }}
+        run: |
+          python3 <<'PY'
+          import os
+
+          category = os.environ.get('FEATURE_CATEGORY', 'Both')
+          difficulty = os.environ.get('DIFFICULTY_LEVEL', 'Medium')
+
+          prompt = f"""Analyze this Vue 3 + Spring Boot project and propose ONE useful feature improvement.
+
+          ## Context
+          - Feature Category: {category}
+          - Difficulty Level: {difficulty}
+          - Project Structure: Frontend (Vue 3 + Vuetify), Backend (Spring Boot 3)
+
+          ## Requirements
+          Output ONLY valid JSON in this exact format (no other text, no markdown):
+          {{
+            "title": "[FEATURE] Feature Name",
+            "background": "Why this feature is needed, considering current system state",
+            "feature_description": "Detailed description of what should be implemented",
+            "acceptance_criteria": ["Criterion 1", "Criterion 2", "Criterion 3"],
+            "estimated_effort": "XS/S/M/L/XL"
+          }}"""
+
+          with open('./copilot-prompt.txt', 'w') as f:
+            f.write(prompt)
+          print("✓ Prompt created")
+          PY
+
+      - name: Execute Copilot for feature proposal
+        env:
+          COPILOT_AGENT_RUNNER_TYPE: STANDALONE
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          XDG_CONFIG_HOME: /home/runner
+        run: |
+          /usr/local/bin/copilot \
+            --add-dir "${GITHUB_WORKSPACE}" \
+            --model claude-haiku-4.5 \
+            --disable-builtin-mcps \
+            --allow-all-tools \
+            --allow-all-paths \
+            --prompt "$(cat ./copilot-prompt.txt)" \
+            > ./copilot-response.txt 2>&1
+
+      - name: Extract and validate proposal JSON
+        run: |
+          python3 <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          response_file = Path('./copilot-response.txt')
+          response_text = response_file.read_text(encoding='utf-8', errors='replace')
+
+          # Extract JSON from response (try code block first, then direct match)
+          json_text = None
+
+          # Try to extract JSON from code block
+          match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)
+          if match:
+            json_text = match.group(1).strip()
+          else:
+            # Try to find JSON object directly
+            match = re.search(r'\{(?:[^{}]|(?:\{[^{}]*\}))*\}', response_text, re.DOTALL)
+            if match:
+              json_text = match.group(0).strip()
+
+          if not json_text:
+            print('ERROR: JSON not found in response')
+            print('Response:', response_text[:500])
+            exit(1)
+
+          try:
+            proposal = json.loads(json_text)
+
+            # Validate required fields
+            required_fields = ['title', 'background', 'feature_description', 'acceptance_criteria']
+            for field in required_fields:
+              if field not in proposal:
+                print(f'ERROR: Missing required field: {field}')
+                exit(1)
+
+            # Validate acceptance_criteria is a list
+            if not isinstance(proposal.get('acceptance_criteria'), list):
+              print('ERROR: acceptance_criteria must be a list')
+              exit(1)
+
+            if not proposal.get('acceptance_criteria'):
+              print('ERROR: acceptance_criteria must not be empty')
+              exit(1)
+
+            # Ensure title starts with [FEATURE]
+            if not proposal['title'].startswith('[FEATURE]'):
+              proposal['title'] = f"[FEATURE] {proposal['title']}"
+
+            # Write validated proposal
+            Path('./proposal.json').write_text(
+              json.dumps(proposal, ensure_ascii=False, indent=2),
+              encoding='utf-8'
+            )
+            print('✓ Proposal validated and saved')
+
+          except json.JSONDecodeError as e:
+            print(f'ERROR: Invalid JSON: {e}')
+            print('JSON text:', json_text[:200])
+            exit(1)
+          except Exception as e:
+            print(f'ERROR: {e}')
+            exit(1)
+          PY
+
+      - name: Build Issue content from proposal
+        run: |
+          python3 <<'PY'
+          import json
+          from pathlib import Path
+
+          proposal = json.loads(Path('./proposal.json').read_text(encoding='utf-8'))
+
+          # Build issue title and body
+          title = proposal['title']
+
+          body_parts = [
+            '## Background',
+            proposal['background'],
+            '',
+            '## Feature Description',
+            proposal['feature_description'],
+            '',
+            '## Acceptance Criteria'
+          ]
+
+          for criterion in proposal.get('acceptance_criteria', []):
+            body_parts.append(f'- [ ] {criterion}')
+
+          body_parts.extend([
+            '',
+            '## Estimated Effort',
+            proposal.get('estimated_effort', 'N/A'),
+            '',
+            '## Implementation Workflow',
+            'This issue will be implemented following this workflow:',
+            '1. Review the issue requirements and scope',
+            '2. Request Copilot to implement the feature',
+            '3. Copilot will:',
+            '   - Design test cases and create tests',
+            '   - Implement the feature according to specs',
+            '   - Run unit and E2E tests',
+            '   - Create a PR when all tests pass',
+            '4. Review, approve, and merge the PR'
+          ])
+
+          # Save title and body
+          Path('./issue-title.txt').write_text(title, encoding='utf-8')
+          Path('./issue-body.md').write_text('\n'.join(body_parts), encoding='utf-8')
+
+          print(f'✓ Issue content prepared')
+          print(f'  Title: {title}')
+          PY
+
+      - name: Check for existing issue
+        id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 既存のOpen状態の同名Issueがあるかチェック
-          EXISTING_ISSUE=$(gh issue list --search "in:title \"[FEATURE] 週次タスク: Webアプリの機能改修（規模：低）\"" --state open --json number -q '.[0].number')
-          if [ -n "$EXISTING_ISSUE" ]; then
-            echo "既に同じタイトルの未解決Issueが存在します（#$EXISTING_ISSUE）。作成をスキップします。"
-            exit 0
+          TITLE=$(cat ./issue-title.txt)
+          EXISTING=$(gh issue list --search "in:title \"$TITLE\"" --state open --json number -q '.[0].number' 2>/dev/null || echo "")
+          if [ -n "$EXISTING" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "number=$EXISTING" >> "$GITHUB_OUTPUT"
+            echo "ℹ️ Issue #$EXISTING already exists with this title"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-          # ラベルが存在しない場合は作成（エラーを無視）
+      - name: Create GitHub labels
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
           gh label create "enhancement" --description "New feature or request" --color a2eeef --force || true
           gh label create "feature" --description "New feature" --color a2eeef --force || true
+          gh label create "auto-generated" --description "Automatically generated by workflow" --color cccccc --force || true
 
-          # Bodyを一時ファイルに書き出す
-          cat << 'BODY_EOF' > /tmp/issue_body.md
-## 背景
-週1回の定期的なWebアプリ機能改修タスク（規模：低）です。
-
-## 作業フロー
-このIssueは、以下のフローに沿って進行します。
-
-1. **作業の依頼**: ユーザー（私）がIssueの内容を確認し、Copilotに作業を依頼します。
-2. **Copilotの作業**: Copilotは以下の作業を順に行います。
-   - テスト設計
-   - テスト項目作成
-   - 実装
-   - 自動テスト（unittest, e2e）作成
-   - 全件テストOKなら、PR作成
-3. **確認とマージ**: ユーザー（私）がPRを確認し、マージします。
-
-## 受け入れ条件
-- テスト設計、テスト項目が明確にされていること
-- 自動テスト（unittest, e2e）が実装され、すべてPassしていること
-- 機能改修のPRが作成されていること
-BODY_EOF
-
-          gh issue create \
-            --title "[FEATURE] 週次タスク: Webアプリの機能改修（規模：低）" \
+      - name: Create GitHub Issue
+        if: steps.check.outputs.exists == 'false'
+        id: create
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE=$(cat ./issue-title.txt)
+          ISSUE_URL=$(gh issue create \
+            --title "$TITLE" \
             --label "enhancement" \
             --label "feature" \
-            --body-file /tmp/issue_body.md
+            --label "auto-generated" \
+            --body-file ./issue-body.md \
+            --json url -q '.url')
+          echo "issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
+          echo "✓ Issue created: $ISSUE_URL"
+
+      - name: Report results
+        if: always()
+        run: |
+          if [ "${{ steps.check.outputs.exists }}" == "true" ]; then
+            echo "### ℹ️ Issue Already Exists" >> $GITHUB_STEP_SUMMARY
+            echo "Issue #${{ steps.check.outputs.number }} already exists with this proposal title." >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.create.outcome }}" == "success" ]; then
+            echo "### ✓ Issue Created Successfully" >> $GITHUB_STEP_SUMMARY
+            echo "New feature proposal issue has been created:" >> $GITHUB_STEP_SUMMARY
+            echo "[View Issue](${{ steps.create.outputs.issue_url }})" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ⚠️ Issue Creation Failed" >> $GITHUB_STEP_SUMMARY
+            echo "Failed to create the issue. Check the workflow logs for details." >> $GITHUB_STEP_SUMMARY
+          fi
