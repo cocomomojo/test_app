@@ -93,6 +93,8 @@ jobs:
     timeout-minutes: 40
     outputs:
       e2e_status: ${{ steps.e2e_final_status.outputs.e2e_status }}
+    env:
+      MYSQL_ROOT_PASSWORD: root
 
     steps:
       - name: Checkout repository
@@ -128,7 +130,7 @@ jobs:
         run: |
           echo "Waiting for MySQL..."
           for i in $(seq 1 30); do
-            docker compose -f docker-compose.ci.yml exec -T mysql mysqladmin ping -h localhost -uroot -proot 2>/dev/null && break
+            docker compose -f docker-compose.ci.yml exec -T mysql mysqladmin ping -h localhost -uroot -p"${MYSQL_ROOT_PASSWORD}" 2>/dev/null && break
             [ "$i" -eq 30 ] && { echo "MySQL failed"; exit 1; }
             sleep 3
           done
@@ -218,9 +220,20 @@ jobs:
 
       - name: Finalize E2E test status
         id: e2e_final_status
+        env:
+          DOCKER_STATUS: ${{ steps.docker_start.outcome }}
+          HEALTH_STATUS: ${{ steps.health_check.outcome }}
+          E2E_OUTCOME: ${{ steps.e2e_run.outcome }}
         run: |
-          E2E_STATUS='${{ steps.e2e_run.outcome }}'
-          echo "e2e_status=${E2E_STATUS}" >> "$GITHUB_OUTPUT"
+          # If docker or health check failed, report failure
+          if [ "$DOCKER_STATUS" = "failure" ] || [ "$HEALTH_STATUS" = "failure" ]; then
+            echo "e2e_status=failure" >> "$GITHUB_OUTPUT"
+          else
+            # Otherwise, use E2E test outcome (or skipped if empty)
+            E2E_STATUS="${E2E_OUTCOME}"
+            [ -z "$E2E_STATUS" ] && E2E_STATUS="skipped"
+            echo "e2e_status=${E2E_STATUS}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Stop Docker Compose services
         if: always()
