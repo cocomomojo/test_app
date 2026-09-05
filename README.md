@@ -698,6 +698,144 @@ GitHub リポジトリ → Settings → Secrets and variables → Actions → Ne
 
 ---
 
+### 🔄 ワークフロー関連性図
+
+ワークフロー間の依存関係と実行フローを以下に示します。
+
+#### 1️⃣ 週次機能改修フロー
+
+```
+┌─────────────────────────┐
+│ weekly-feature-issue.yml │  ← 毎週月曜 09:00 UTC
+│ (Issue 自動作成)        │
+└────────────┬────────────┘
+             │
+             ↓
+┌─────────────────────────┐
+│ weekly-feature-fix.yml   │  ← 毎週月曜 10:00 UTC
+│ (Copilot 実装、最大3回  │    または weekly-feature-issue 完了後
+│  リトライ)              │
+└─────────────────────────┘
+```
+
+#### 2️⃣ Dependabot 自動修正フロー
+
+```
+┌──────────────────────────┐
+│ Dependabot PR 作成        │
+└────────────┬─────────────┘
+             │
+             ↓
+┌──────────────────────────┐
+│ dependabot-label-setup   │  ← PR作成時
+│ (自動ラベル付与)        │
+└────────────┬─────────────┘
+             │
+             ↓
+┌──────────────────────────┐
+│ PR Quality Checks        │  ← テスト実行
+│ (失敗時に次へ)          │
+└────────────┬─────────────┘
+             │
+             ↓
+┌──────────────────────────┐
+│ dependabot-auto-fix      │  ← PR Quality Checks 失敗時
+│ (自動修正試行)          │
+└────────────┬─────────────┘
+             │
+             ↓
+┌──────────────────────────┐
+│ dependabot-notification  │  ← auto-fix 完了時
+│ (失敗時に通知Issue作成)  │
+└──────────────────────────┘
+             ↓
+┌──────────────────────────┐
+│ dependabot-auto-merge    │  ← automerge ラベル付与時
+│ (テスト成功時に自動マージ)│
+└──────────────────────────┘
+```
+
+#### 3️⃣ PR テスト・品質チェックフロー
+
+```
+┌──────────────────────────┐
+│ PR 作成・更新            │
+└────────────┬─────────────┘
+             │
+      ┌──────┴──────┐
+      ↓             ↓
+┌─────────────┐ ┌──────────────┐
+│ pr-quality  │ │ pr-test-plan │
+│ .yml        │ │ .yml         │
+│ (テスト実行) │ │ (テスト計画  │
+│             │ │ 自動生成)    │
+└─────────────┘ └──────────────┘
+```
+
+#### 4️⃣ E2E テスト失敗フロー
+
+```
+┌──────────────────────────┐
+│ e2e.yml (テスト実行)     │
+│ 失敗
+└────────────┬─────────────┘
+             │
+             ↓
+┌──────────────────────────┐
+│ e2e-failure-analysis.yml │
+│ (Copilot 分析、Issue作成) │
+└──────────────────────────┘
+             │
+             ↓
+┌──────────────────────────┐
+│ issue-to-triage.yml      │  ← Issue 自動振り分け
+│ (自動トリアージ)        │
+└──────────────────────────┘
+```
+
+#### 5️⃣ Issue 自動修正フロー
+
+```
+┌──────────────────────────┐
+│ Issue 作成 or 編集       │
+│ ai-fixable ラベル付与    │
+└────────────┬─────────────┘
+             │
+             ↓
+┌──────────────────────────┐
+│ issue-to-fix-brief.yml   │
+│ (修正案・PR案生成)      │
+└────────────┬─────────────┘
+             │
+             ↓
+┌──────────────────────────┐
+│ issue-to-auto-fix-pr.yml │  ← 手動実行 または自動dispatch
+│ (Copilot 実装、Draft PR) │
+└──────────────────────────┘
+```
+
+#### 📋 ワークフロー分類
+
+| 分類 | ワークフロー | 実行タイプ | 用途 |
+|------|-----------|---------|------|
+| **定期実行** | weekly-feature-issue | スケジュール | 週次タスク Issue 作成 |
+| | weekly-feature-fix | スケジュール | 週次タスク実装 |
+| **Dependabot 自動化** | dependabot-label-setup | イベント | ラベル自動付与 |
+| | dependabot-auto-fix | イベント | テスト失敗時修正 |
+| | dependabot-notification | イベント | 失敗時通知 |
+| | dependabot-auto-merge | イベント | テスト成功時自動マージ |
+| **PR チェック** | pr-quality | イベント | ユニットテスト実行 |
+| | pr-test-plan | イベント | テスト計画生成 |
+| | pr-test-plan-simulation | 手動 | ワークフローテスト（開発用） |
+| **Issue 処理** | issue-to-triage | イベント | Issue 自動分類 |
+| | issue-to-fix-brief | イベント | 修正案生成 |
+| | issue-to-auto-fix-pr | 手動/自動 | 自動修正実装 |
+| **E2E テスト** | e2e | 手動 | E2E テスト実行 |
+| | e2e-failure-analysis | イベント | 失敗分析・Issue作成 |
+| **メンテナンス** | close-old-dependabot-prs | 手動 | PR クリーンアップ（ワンタイム） |
+
+---
+
 ### 📚 ワークフロー詳細リファレンス
 
 <details>
@@ -783,6 +921,82 @@ GitHub リポジトリ → Settings → Secrets and variables → Actions → Ne
   2. テスト成功時に自動承認
   3. 自動マージ
 - **対象:** Dependabot が作成した PR のみ
+
+#### Weekly Feature Improvement Issue
+- **ファイル:** `.github/workflows/weekly-feature-issue.yml`
+- **トリガー:** 毎週月曜日 09:00 UTC（または手動実行）
+- **処理内容:**
+  1. 既存のOpen状態の同名Issueをチェック
+  2. ラベルが存在しない場合は作成
+  3. 定期的なWebアプリ機能改修タスクのIssueを自動作成
+- **成果物:** Issue タイトル: `[FEATURE] 週次タスク: Webアプリの機能改修（規模：低）`
+- **関連ワークフロー:** `weekly-feature-fix.yml` が次に実行
+
+#### Weekly Feature Fix with Retry
+- **ファイル:** `.github/workflows/weekly-feature-fix.yml`
+- **トリガー:** 毎週月曜日 10:00 UTC（または手動実行、Issue番号指定可能）
+- **処理内容:**
+  1. 最新のFEATUREラベル付きIssueを自動検出
+  2. GitHub Copilot CLI で実装を実行
+  3. テスト失敗時に最大3回までリトライ
+  4. 進捗状況をIssueコメントに記録
+- **前提条件:** `COPILOT_GITHUB_TOKEN` secret
+- **関連ワークフロー:** `weekly-feature-issue.yml` で作成されたIssueを対象
+
+#### Dependabot Auto-Fix
+- **ファイル:** `.github/workflows/dependabot-auto-fix.yml`
+- **トリガー:** `PR Quality Checks` ワークフロー失敗時（Dependabot PR のみ）
+- **処理内容:**
+  1. 失敗したテストログを解析
+  2. 依存関係の互換性問題を自動診断
+  3. 修正パターンマッチングで自動修正を試行
+  4. テスト再実行して成功時はコミット
+  5. PR にコメント投稿
+- **対象:** Dependabot が作成した PR のみ
+- **関連ワークフロー:** `dependabot-label-setup.yml` → `dependabot-auto-fix.yml` → `dependabot-notification.yml`
+
+#### Dependabot Label Setup
+- **ファイル:** `.github/workflows/dependabot-label-setup.yml`
+- **トリガー:** Dependabot PR 作成時
+- **処理内容:**
+  1. PR内容からエコシステムを検出（frontend/backend/github-actions等）
+  2. 必要なラベルを自動作成（存在しない場合）
+  3. PR に自動ラベル付与（`automerge`, `dependencies`, エコシステム別ラベル）
+- **成果物:** 自動ラベル付与
+- **関連ワークフロー:** `dependabot-auto-merge.yml` のトリガーになる
+
+#### Dependabot Notification
+- **ファイル:** `.github/workflows/dependabot-notification.yml`
+- **トリガー:** `Dependabot Auto-Fix` ワークフロー完了時
+- **処理内容:**
+  1. Auto-Fix ワークフローの結果を確認
+  2. 自動修正失敗時に通知Issue を自動作成
+  3. 対応方法（マニュアルフィックス、クローズ、ダウングレード等）をガイド
+- **成果物:** 失敗時に通知Issue 作成
+- **関連ワークフロー:** `dependabot-auto-fix.yml` の結果に依存
+
+#### PR Test Plan Simulation
+- **ファイル:** `.github/workflows/pr-test-plan-simulation.yml`
+- **トリガー:** 手動実行のみ（`workflow_dispatch`）
+- **入力パラメータ:**
+  - `pr_number`: シミュレーション対象のPR番号
+  - `scenario`: テストシナリオ（normal/fork/draft/no-label/no-token）
+  - `push_label`: 必須ラベル名
+- **処理内容:**
+  1. 指定したシナリオで PR Test Plan ワークフローをシミュレーション
+  2. 異なる条件下での動作を検証
+  3. AI提案の生成（Copilot利用可能な場合）
+  4. テスト結果をアーティファクトとしてアップロード
+- **成果物:** テスト計画、AI提案、シミュレーションレポート
+- **用途:** `pr-test-plan.yml` ワークフローの開発・テスト
+
+#### Close Old Dependabot PRs
+- **ファイル:** `.github/workflows/close-old-dependabot-prs.yml`
+- **トリガー:** 手動実行のみ（`workflow_dispatch`）
+- **処理内容:**
+  - ハードコードされた PR 番号（90～81）をクローズ
+- **用途:** 一時的なクリーンアップスクリプト（Dependabot グループ化設定更新時のみ使用）
+- **ステータス:** ⚠️ 不要に なった場合は削除推奨
 
 </details>
 
