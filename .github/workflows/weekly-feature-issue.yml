@@ -260,13 +260,6 @@ jobs:
             exit 1
           fi
           ISSUE_NUMBER=${ISSUE_URL##*/}
-          case "$ISSUE_NUMBER" in
-            ''|*[!0-9]*)
-              echo "Failed to parse numeric issue number from gh output:"
-              printf '%s\n' "$ISSUE_OUTPUT"
-              exit 1
-              ;;
-          esac
           echo "issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
           echo "issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
           echo "✓ Issue created: $ISSUE_URL"
