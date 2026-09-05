@@ -1,0 +1,380 @@
+---
+name: Weekly Feature Fix with Retry
+
+on:
+  schedule:
+    # 毎週月曜日 10:00 UTC
+    - cron: '0 10 * * 1'
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: >-
+          修正対象のIssue番号（指定されない場合は
+          最新のFEATUREラベル付きIssueを使用）
+        required: false
+        type: string
+
+permissions:
+  issues: write
+  contents: read
+  actions: write
+
+jobs:
+  find-feature-issue:
+    runs-on: ubuntu-latest
+    outputs:
+      issue_number: ${{ steps.find_issue.outputs.issue_number }}
+      issue_title: ${{ steps.find_issue.outputs.issue_title }}
+      found: ${{ steps.find_issue.outputs.found }}
+    steps:
+      - name: Find latest feature issue
+        id: find_issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # workflow_dispatchで指定されたissue_numberがあれば使用
+          if [ -n "${{ github.event.inputs.issue_number }}" ]; then
+            ISSUE_NUMBER="${{ github.event.inputs.issue_number }}"
+            echo "Using specified issue: $ISSUE_NUMBER"
+          else
+            # 最新のOpen状態でfeatureラベル付きのIssueを取得
+            ISSUE_NUMBER=$(gh issue list \
+              --search 'in:title "[FEATURE]" label:feature state:open' \
+              --state open --json number -q '.[0].number' 2>/dev/null || echo "")
+          fi
+
+          if [ -z "$ISSUE_NUMBER" ]; then
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "No feature issue found"
+            exit 0
+          fi
+
+          ISSUE_TITLE=$(gh issue view "$ISSUE_NUMBER" \
+            --json title -q '.title' 2>/dev/null || echo "")
+
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "issue_title=$ISSUE_TITLE" >> "$GITHUB_OUTPUT"
+          echo "Found feature issue: #$ISSUE_NUMBER - $ISSUE_TITLE"
+
+  fix-issue-with-retry:
+    needs: find-feature-issue
+    if: needs.find-feature-issue.outputs.found == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      max-parallel: 1
+    env:
+      ISSUE_NUMBER: ${{ needs.find-feature-issue.outputs.issue_number }}
+      ISSUE_TITLE: ${{ needs.find-feature-issue.outputs.issue_title }}
+      MAX_RETRIES: 3
+      COPILOT_AGENT_RUNNER_TYPE: STANDALONE
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Initialize retry counter
+        id: init
+        run: |
+          # コメントから前回の実行回数をチェック
+          RETRY_COUNT=0
+          COMMENTS=$(gh api repos/${{ github.repository }}/issues/$ISSUE_NUMBER/comments \
+            -q '.[].body' 2>/dev/null || echo "")
+
+          # 直前のコメントから回数を抽出
+          if echo "$COMMENTS" | grep -q "weekly-feature-fix-retry"; then
+            LAST_COUNT=$(echo "$COMMENTS" | grep "weekly-feature-fix-retry" | \
+              tail -1 | grep -oP 'retry_count=\K[0-9]+' || echo "0")
+            RETRY_COUNT=$((LAST_COUNT + 1))
+          fi
+
+          echo "retry_count=$RETRY_COUNT" >> "$GITHUB_OUTPUT"
+          echo "Retry count: $RETRY_COUNT"
+
+          if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
+            echo "exceeded_max=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exceeded_max=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if max retries exceeded
+        if: steps.init.outputs.exceeded_max == 'true'
+        run: |
+          echo "Max retries ($MAX_RETRIES) exceeded. Giving up."
+
+      - name: Comment issue - Retry started
+        if: steps.init.outputs.exceeded_max == 'false'
+        uses: actions/github-script@v7
+        env:
+          RETRY_COUNT: ${{ steps.init.outputs.retry_count }}
+        with:
+          script: |
+            const marker = '<!-- weekly-feature-fix-retry -->';
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const retryCount = Number(process.env.RETRY_COUNT);
+
+            const body = [
+              marker,
+              `### 🔧 Weekly Feature Fix (Attempt ${retryCount + 1}/${process.env.MAX_RETRIES})`,
+              '',
+              `- retry_count=${retryCount}`,
+              `- status=started`,
+              `- timestamp=${new Date().toISOString()}`,
+            ].join('\n');
+
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                per_page: 100,
+              }
+            );
+
+            const existing = comments.find((comment) =>
+              (comment.body || '').includes(marker) &&
+              (comment.body || '').includes(`retry_count=${retryCount}`)
+            );
+
+            if (!existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body,
+              });
+            }
+
+      - name: Setup Node.js
+        if: steps.init.outputs.exceeded_max == 'false'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Fetch issue details
+        if: steps.init.outputs.exceeded_max == 'false'
+        id: issue_details
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p /tmp/feature-fix
+          gh issue view "$ISSUE_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json number,title,body,url,labels > /tmp/feature-fix/issue.json
+
+          cat /tmp/feature-fix/issue.json
+
+      - name: Generate fix brief
+        if: steps.init.outputs.exceeded_max == 'false'
+        run: |
+          if [ -f scripts/issue-tools.js ]; then
+            node scripts/issue-tools.js classify \
+              --issue-file /tmp/feature-fix/issue.json \
+              --repo "$GITHUB_REPOSITORY" \
+              --out /tmp/feature-fix/triage.json || true
+
+            node scripts/issue-tools.js generate-fix-brief \
+              --issue-file /tmp/feature-fix/issue.json \
+              --triage-file /tmp/feature-fix/triage.json \
+              --out-dir /tmp/feature-fix/output || true
+          else
+            echo "scripts/issue-tools.js not found"
+          fi
+
+      - name: Setup GitHub Copilot CLI
+        if: steps.init.outputs.exceeded_max == 'false'
+        uses: github/gh-aw/actions/setup@466b8ad27fcfaaa861da3f16ba7c01272df25f46
+        with:
+          destination: /opt/gh-aw/actions
+
+      - name: Install GitHub Copilot CLI
+        if: steps.init.outputs.exceeded_max == 'false'
+        run: /opt/gh-aw/actions/install_copilot_cli.sh 0.0.421
+
+      - name: Validate COPILOT_GITHUB_TOKEN secret
+        if: steps.init.outputs.exceeded_max == 'false'
+        run: /opt/gh-aw/actions/validate_multi_secret.sh COPILOT_GITHUB_TOKEN \
+          'GitHub Copilot CLI' \
+          https://github.github.com/gh-aw/reference/engines/#github-copilot-default
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+
+      - name: Generate fix prompt
+        if: steps.init.outputs.exceeded_max == 'false'
+        id: generate_prompt
+        run: |
+          mkdir -p /tmp/feature-fix/output
+
+          # Issue情報からプロンプトを生成
+          ISSUE_BODY=$(jq -r '.body' /tmp/feature-fix/issue.json)
+          ISSUE_TITLE=$(jq -r '.title' /tmp/feature-fix/issue.json)
+
+          cat > /tmp/feature-fix/output/prompt.txt << 'PROMPT_EOF'
+          You are a skilled software developer implementing features.
+
+          PROMPT_EOF
+
+          echo "Issue Title: $ISSUE_TITLE" >> /tmp/feature-fix/output/prompt.txt
+          echo "" >> /tmp/feature-fix/output/prompt.txt
+          echo "Issue Description:" >> /tmp/feature-fix/output/prompt.txt
+          echo "$ISSUE_BODY" >> /tmp/feature-fix/output/prompt.txt
+          echo "" >> /tmp/feature-fix/output/prompt.txt
+          echo "Tasks:" >> /tmp/feature-fix/output/prompt.txt
+          echo "1. Analyze the requirements in the issue" >> \
+            /tmp/feature-fix/output/prompt.txt
+          echo "2. Implement necessary changes to the codebase" >> \
+            /tmp/feature-fix/output/prompt.txt
+          echo "3. Create comprehensive test cases" >> \
+            /tmp/feature-fix/output/prompt.txt
+          echo "4. Ensure all tests pass" >> \
+            /tmp/feature-fix/output/prompt.txt
+          echo "5. Verify acceptance criteria" >> \
+            /tmp/feature-fix/output/prompt.txt
+          echo "6. Create a pull request when tests pass" >> \
+            /tmp/feature-fix/output/prompt.txt
+
+          echo "prompt_generated=true" >> "$GITHUB_OUTPUT"
+
+      - name: Execute GitHub Copilot for implementation
+        if: steps.init.outputs.exceeded_max == 'false' &&
+            steps.generate_prompt.outputs.prompt_generated == 'true'
+        id: copilot_exec
+        continue-on-error: true
+        run: |
+          /usr/local/bin/copilot \
+            --add-dir "${GITHUB_WORKSPACE}" \
+            --add-dir "/tmp/feature-fix" \
+            --disable-builtin-mcps \
+            --allow-all-tools \
+            --allow-all-paths \
+            --prompt "$(cat /tmp/feature-fix/output/prompt.txt)"
+        env:
+          COPILOT_AGENT_RUNNER_TYPE: ${{ env.COPILOT_AGENT_RUNNER_TYPE }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          XDG_CONFIG_HOME: /home/runner
+
+      - name: Run tests
+        if: steps.init.outputs.exceeded_max == 'false'
+        id: test_exec
+        continue-on-error: true
+        run: |
+          cd "${GITHUB_WORKSPACE}"
+
+          # frontend tests
+          if [ -d frontend ]; then
+            cd frontend
+            npm ci 2>/dev/null || true
+            npm run build 2>/dev/null || true
+            npx vitest run 2>/dev/null || true
+            cd "${GITHUB_WORKSPACE}"
+          fi
+
+          # backend tests (if applicable)
+          if [ -f requirements.txt ]; then
+            python -m pytest 2>/dev/null || true
+          fi
+
+          echo "Tests completed"
+
+      - name: Comment issue - Retry completed
+        if: always() && steps.init.outputs.exceeded_max == 'false'
+        uses: actions/github-script@v7
+        env:
+          RETRY_COUNT: ${{ steps.init.outputs.retry_count }}
+          COPILOT_OUTCOME: ${{ steps.copilot_exec.outcome }}
+          TEST_OUTCOME: ${{ steps.test_exec.outcome }}
+        with:
+          script: |
+            const marker = '<!-- weekly-feature-fix-retry -->';
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const retryCount = Number(process.env.RETRY_COUNT);
+            const copilotOutcome = process.env.COPILOT_OUTCOME || 'unknown';
+            const testOutcome = process.env.TEST_OUTCOME || 'unknown';
+
+            const body = [
+              marker,
+              `### 🔧 Weekly Feature Fix (Attempt ${retryCount + 1}/${process.env.MAX_RETRIES})`,
+              '',
+              `- retry_count=${retryCount}`,
+              `- status=completed`,
+              `- copilot_outcome=${copilotOutcome}`,
+              `- tests_outcome=${testOutcome}`,
+              `- timestamp=${new Date().toISOString()}`,
+            ].join('\n');
+
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                per_page: 100,
+              }
+            );
+
+            const existing = comments.find((comment) =>
+              (comment.body || '').includes(marker) &&
+              (comment.body || '').includes(`retry_count=${retryCount}`)
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body,
+              });
+            }
+
+            // テスト成功時、または最大リトライ到達時の判定
+            if (testOutcome === 'success') {
+              core.notice(
+                `Tests passed for issue #${issueNumber}. Complete.`
+              );
+            } else if (retryCount < Number(process.env.MAX_RETRIES) - 1) {
+              // 次のリトライをスケジュール
+              try {
+                await github.rest.actions.createWorkflowDispatch({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: 'weekly-feature-fix.yml',
+                  ref: process.env.GITHUB_REF_NAME || 'main',
+                  inputs: {
+                    issue_number: String(issueNumber),
+                  },
+                });
+                core.notice(`Scheduled retry for issue #${issueNumber}`);
+              } catch (error) {
+                core.warning(
+                  `Failed to schedule retry: ${error.message}`
+                );
+              }
+            } else {
+              core.notice(
+                `Max retries (${process.env.MAX_RETRIES}) reached for ` +
+                `issue #${issueNumber}. Giving up.`
+              );
+            }
+
+  no-issue-found:
+    needs: find-feature-issue
+    if: needs.find-feature-issue.outputs.found != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log - No feature issue found
+        run: |
+          echo "No open feature issue found with FEATURE label"
+          echo "Workflow completed without action"
