@@ -6,6 +6,9 @@ on:
   workflow_run:
     workflows: ["PR Quality Checks"]
     types: [completed]
+  push:
+    branches:
+      - 'dependabot/**'
 
 permissions:
   contents: write
@@ -14,10 +17,11 @@ permissions:
 
 jobs:
   auto-test-and-merge:
-    # Run on Dependabot PRs either when they are opened/updated OR when PR Quality Checks completes
+    # Run on Dependabot PRs: when they are opened/updated/reopened, when PR Quality Checks completes, or when push events occur on dependabot branches
     if: |
       (github.event_name == 'pull_request' && github.actor == 'dependabot[bot]') ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request')
+      (github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request') ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/dependabot/'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -47,12 +51,37 @@ jobs:
                 pull_number: prNumber,
               });
               prData = pr;
+            } else if (context.eventName === 'push') {
+              // For push events on dependabot branches, find the associated PR
+              const ref = context.payload.ref;
+              const branchName = ref.replace('refs/heads/', '');
+              
+              if (!branchName.startsWith('dependabot/')) {
+                core.info('Not a Dependabot branch, skipping');
+                return;
+              }
+              
+              // Search for PR with this branch
+              const { data: pulls } = await github.rest.pulls.list({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                head: `${context.repo.owner}:${branchName}`,
+                state: 'open',
+              });
+              
+              if (pulls.length === 0) {
+                core.info('No open PR found for this Dependabot branch');
+                return;
+              }
+              
+              prNumber = pulls[0].number;
+              prData = pulls[0];
             }
             
             core.setOutput('number', prNumber);
-            core.setOutput('is_dependabot', prData.user.login === 'dependabot[bot]');
-            core.setOutput('head_ref', prData.head.ref);
-            core.setOutput('state', prData.state);
+            core.setOutput('is_dependabot', prData?.user?.login === 'dependabot[bot]');
+            core.setOutput('head_ref', prData?.head?.ref);
+            core.setOutput('state', prData?.state);
 
       - name: Skip if not Dependabot PR
         if: steps.pr_info.outputs.is_dependabot != 'true'
