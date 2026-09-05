@@ -72,10 +72,12 @@ jobs:
           steps.pr_info.outputs.is_dependabot == 'true' &&
           steps.check_status.outputs.auto_fix_failed == 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_TITLE: ${{ steps.pr_info.outputs.title }}
         with:
           script: |
             const prNumber = ${{ steps.pr_info.outputs.number }};
-            const prTitle = '${{ steps.pr_info.outputs.title }}';
+            const prTitle = process.env.PR_TITLE || 'Unknown';
             const workflowRunUrl = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}';
             
             let body = '## 🚨 Dependabot Auto-Fix Failed - Operator Attention Required\n\n';
@@ -120,6 +122,7 @@ jobs:
               repo: context.repo.repo,
               state: 'open',
               labels: ['dependabot', 'auto-fix-failed'],
+              per_page: 100  // Increase to 100 to reduce pagination issues
             });
             
             // Check if issue already exists for this PR number
@@ -133,11 +136,13 @@ jobs:
               return;
             }
             
-            // Create new issue
+            // Create new issue with sanitized title
+            const issueTitle = '🤖 Dependabot Auto-Fix Failed: ' + prTitle;
+            
             const { data: newIssue } = await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: '🤖 Dependabot Auto-Fix Failed: ' + prTitle,
+              title: issueTitle,
               body: body,
               labels: ['dependabot', 'auto-fix-failed', 'needs-investigation']
             });
