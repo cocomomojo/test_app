@@ -254,14 +254,11 @@ jobs:
             --label "auto-generated" \
             --body-file ./issue-body.md)
           ISSUE_URL=$(printf '%s\n' "$ISSUE_OUTPUT" | tail -n 1)
-          case "$ISSUE_URL" in
-            https://github.com/*/*/issues/[0-9]*) ;;
-            *)
+          if [[ ! "$ISSUE_URL" =~ ^https://github\.com/[^/]+/[^/]+/issues/[0-9]+$ ]]; then
             echo "Failed to parse issue URL from gh output:"
             printf '%s\n' "$ISSUE_OUTPUT"
             exit 1
-            ;;
-          esac
+          fi
           ISSUE_NUMBER=${ISSUE_URL##*/}
           case "$ISSUE_NUMBER" in
             ''|*[!0-9]*)
