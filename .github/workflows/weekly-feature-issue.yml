@@ -255,7 +255,7 @@ jobs:
             --body-file ./issue-body.md)
           ISSUE_URL=$(printf '%s\n' "$ISSUE_OUTPUT" | tail -n 1)
           case "$ISSUE_URL" in
-            https://github.com/*/issues/*) ;;
+            https://github.com/*/*/issues/[0-9]*) ;;
             *)
             echo "Failed to parse issue URL from gh output:"
             printf '%s\n' "$ISSUE_OUTPUT"
