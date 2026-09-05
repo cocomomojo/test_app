@@ -247,13 +247,18 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TITLE=$(cat ./issue-title.txt)
-          ISSUE_URL=$(gh issue create \
+          ISSUE_OUTPUT=$(gh issue create \
             --title "$TITLE" \
             --label "enhancement" \
             --label "feature" \
             --label "auto-generated" \
-            --body-file ./issue-body.md \
-            --json url -q '.url')
+            --body-file ./issue-body.md)
+          ISSUE_URL=$(printf '%s\n' "$ISSUE_OUTPUT" | grep -Eo 'https://github\.com/[^[:space:]]+/issues/[0-9]+' | tail -n 1)
+          if [ -z "$ISSUE_URL" ]; then
+            echo "Failed to parse issue URL from gh output:"
+            printf '%s\n' "$ISSUE_OUTPUT"
+            exit 1
+          fi
           echo "issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
           echo "✓ Issue created: $ISSUE_URL"
 
