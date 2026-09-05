@@ -253,12 +253,15 @@ jobs:
             --label "feature" \
             --label "auto-generated" \
             --body-file ./issue-body.md)
-          ISSUE_URL=$(printf '%s\n' "$ISSUE_OUTPUT" | grep -Eo 'https://github\.com/[^[:space:]]+/issues/[0-9]+' | tail -n 1)
-          if [ -z "$ISSUE_URL" ]; then
+          ISSUE_URL=$(printf '%s\n' "$ISSUE_OUTPUT" | tail -n 1)
+          case "$ISSUE_URL" in
+            https://github.com/*/issues/*) ;;
+            *)
             echo "Failed to parse issue URL from gh output:"
             printf '%s\n' "$ISSUE_OUTPUT"
             exit 1
-          fi
+            ;;
+          esac
           echo "issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
           echo "✓ Issue created: $ISSUE_URL"
 
