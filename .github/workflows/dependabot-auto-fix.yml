@@ -253,312 +253,41 @@ jobs:
             echo "committed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Prepare auto-fix report
-        if: steps.pr.outputs.is_dependabot == 'true'
-        id: report
-        run: |
-          FIXED="${{ steps.fix_frontend.outputs.fixed || steps.fix_backend.outputs.fixed }}"
-          COMMITTED="${{ steps.commit.outputs.committed }}"
-          FIX_TYPE="${{ steps.fix_frontend.outputs.fix_type || steps.fix_backend.outputs.fix_type }}"
-          
-          if [ "$FIXED" = "true" ] && [ "$COMMITTED" = "true" ]; then
-            echo "status=fixed_with_commit" >> "$GITHUB_OUTPUT"
-          elif [ "$FIXED" = "true" ] && [ "$COMMITTED" != "true" ]; then
-            echo "status=already_passing" >> "$GITHUB_OUTPUT"
-          else
-            echo "status=fix_failed" >> "$GITHUB_OUTPUT"
-          fi
-          echo "fix_type=$FIX_TYPE" >> "$GITHUB_OUTPUT"
-
-      - name: Create companion PR on fix failure
-        if: |
-          steps.pr.outputs.is_dependabot == 'true' &&
-          steps.report.outputs.status == 'fix_failed'
-        id: companion_pr
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        with:
-          script: |
-            const prNumber = ${{ steps.pr.outputs.number }};
-            const prTitle = '${{ steps.pr.outputs.title }}';
-            const headRef = '${{ steps.pr.outputs.head_ref }}';
-            
-            // Generate unique branch name for companion PR
-            const timestamp = Date.now();
-            const companionBranch = `dependabot-fix-companion/${prNumber}-${timestamp}`;
-            
-            core.setOutput('companion_branch', companionBranch);
-            core.setOutput('original_pr', prNumber);
-
-      - name: Checkout base branch for companion PR
-        if: |
-          steps.pr.outputs.is_dependabot == 'true' &&
-          steps.report.outputs.status == 'fix_failed'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-          ref: main
-
-      - name: Create companion branch
-        if: |
-          steps.pr.outputs.is_dependabot == 'true' &&
-          steps.report.outputs.status == 'fix_failed'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b ${{ steps.companion_pr.outputs.companion_branch }}
-
-      - name: Apply alternative fixes to companion PR
-        if: |
-          steps.pr.outputs.is_dependabot == 'true' &&
-          steps.report.outputs.status == 'fix_failed'
-        id: companion_fixes
-        run: |
-          set +e
-          
-          echo "Attempting alternative fix strategies..."
-          
-          # Try update lockfiles strategy for both frontend and backend
-          echo "Strategy 1: Regenerate lockfiles..."
-          
-          # Frontend
-          if [ -d "frontend" ]; then
-            cd frontend
-            rm -f package-lock.json
-            npm install > /tmp/npm-install.log 2>&1
-            RESULT=$?
-            cd ..
-            
-            if [ $RESULT -eq 0 ]; then
-              echo "companion_fix_type=lockfile_regeneration" >> "$GITHUB_OUTPUT"
-              echo "companion_fix_applied=true" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-          fi
-          
-          # Backend
-          if [ -d "backend" ]; then
-            cd backend
-            ./gradlew clean > /tmp/gradle-clean.log 2>&1
-            RESULT=$?
-            cd ..
-            
-            if [ $RESULT -eq 0 ]; then
-              echo "companion_fix_type=gradle_clean" >> "$GITHUB_OUTPUT"
-              echo "companion_fix_applied=true" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-          fi
-          
-          echo "companion_fix_applied=false" >> "$GITHUB_OUTPUT"
-          echo "companion_fix_type=none" >> "$GITHUB_OUTPUT"
-
-      - name: Commit companion PR changes
-        if: |
-          steps.pr.outputs.is_dependabot == 'true' &&
-          steps.report.outputs.status == 'fix_failed' &&
-          steps.companion_fixes.outputs.companion_fix_applied == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          git add .
-          
-          if ! git diff --cached --quiet; then
-            git commit -m "chore: companion fixes for Dependabot PR #${{ steps.companion_pr.outputs.original_pr }}
-
-This PR attempts alternative fixes for the dependency update that couldn't be
-auto-fixed directly in the Dependabot PR. Changes include:
-- Regenerated lockfiles
-- Cleaned up build artifacts
-- Updated dependency resolution"
-            git push origin ${{ steps.companion_pr.outputs.companion_branch }}
-            echo "Companion PR changes committed successfully"
-          else
-            echo "No changes to commit in companion branch"
-          fi
-
-      - name: Create companion PR pull request
-        if: |
-          steps.pr.outputs.is_dependabot == 'true' &&
-          steps.report.outputs.status == 'fix_failed' &&
-          steps.companion_fixes.outputs.companion_fix_applied == 'true'
-        id: create_pr
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        with:
-          script: |
-            const prNumber = ${{ steps.companion_pr.outputs.original_pr }};
-            const companionBranch = '${{ steps.companion_pr.outputs.companion_branch }}';
-            const fixType = '${{ steps.companion_fixes.outputs.companion_fix_type }}';
-            
-            // Create companion PR
-            const { data: companionPr } = await github.rest.pulls.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `[Companion Fix] Dependabot PR #${prNumber} - Alternative fixes`,
-              body: `## Companion Fix for Dependabot PR #${prNumber}
-
-This PR attempts alternative fixes for the dependency update in PR #${prNumber} that couldn't be auto-fixed directly.
-
-### Fix Strategy
-**${fixType}** - Regenerated lockfiles and cleaned up build artifacts to resolve dependency conflicts.
-
-### Related PR
-This PR is a companion to #${prNumber}. Please review both PRs together.
-
-### Testing
-Please verify that:
-1. Tests pass with these changes
-2. Dependencies are properly resolved
-3. No functionality is broken
-
-### Next Steps
-- [ ] Run tests to verify fixes
-- [ ] Review changes carefully
-- [ ] If successful, merge both this PR and #${prNumber}
-- [ ] If unsuccessful, investigate further or close both PRs
-`,
-              head: companionBranch,
-              base: 'main',
-              draft: false
-            });
-            
-            core.setOutput('companion_pr_number', companionPr.number);
-            core.setOutput('companion_pr_url', companionPr.html_url);
-
-      - name: Create operator notification issue
-        if: |
-          steps.pr.outputs.is_dependabot == 'true' &&
-          steps.report.outputs.status == 'fix_failed'
-        id: notification_issue
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        with:
-          script: |
-            const prNumber = ${{ steps.pr.outputs.number }};
-            const prTitle = '${{ steps.pr.outputs.title }}';
-            const companionPrNumber = '${{ steps.create_pr.outputs.companion_pr_number }}';
-            const companionPrUrl = '${{ steps.create_pr.outputs.companion_pr_url }}';
-            const companionFixApplied = '${{ steps.companion_fixes.outputs.companion_fix_applied }}';
-            
-            let body = `## ⚠️ Dependabot Auto-Fix Failed - Operator Attention Required
-
-### Issue Summary
-Automatic fixes could not be applied to Dependabot PR #${prNumber}:
-- **Title:** ${prTitle}
-- **Issue:** Tests failed and automated fix strategies were unsuccessful
-
-### Action Taken
-`;
-            
-            if (companionFixApplied === 'true') {
-              body += `✅ A **companion PR #${companionPrNumber}** has been created with alternative fixes:
-- ${companionPrUrl}
-- Contains alternative fix strategies (lockfile regeneration, build cleanup)
-- Please review and test the companion PR
-
-### Required Action by Operator
-1. **Review Companion PR #${companionPrNumber}**
-   - Examine the alternative fixes
-   - Run tests if needed
-2. **Evaluate Both PRs**
-   - Original Dependabot PR: #${prNumber}
-   - Companion PR: #${companionPrNumber}
-3. **Decide Next Steps**
-   - [ ] If companion PR fixes work: Merge both PRs
-   - [ ] If companion PR also fails: Investigate underlying compatibility issue
-   - [ ] If update is breaking: Close both PRs and wait for patch/workaround
-`;
-            } else {
-              body += `❌ Even alternative fix strategies could not be applied.
-
-### Why Auto-Fix Failed
-- Standard fix attempts (dependency pinning, reinstall) did not resolve the issue
-- Alternative strategies (lockfile regeneration, build cleanup) were also unsuccessful
-- This indicates a deeper compatibility issue with the dependency update
-
-### Required Action by Operator
-1. **Investigate the Root Cause**
-   - Review the test failure logs in Dependabot PR #${prNumber}
-   - Check if this is a known breaking change
-   - Determine if the update is compatible with the current codebase
-
-2. **Choose Resolution Path**
-   - Manual fix: Apply patches to the codebase if compatible
-   - Close PR: If the update is not compatible or requires major changes
-   - Wait: If waiting for a patch to the dependency
-
-3. **Notify the Team**
-   - Link this investigation to the Dependabot PR
-   - Update team on the status
-`;
-            }
-            
-            body += `
-
-### Troubleshooting Guide
-- **Check Test Logs:** Review test output in the PR Quality Checks workflow
-- **Inspect Dependencies:** Use \`npm ls\` or \`./gradlew dependencies\` to investigate
-- **Check Changelog:** Review the dependency changelog for breaking changes
-- **Search Issues:** Look for similar issues in the dependency's GitHub repository
-
----
-*This notification was automatically generated by the Dependabot Auto-Fix workflow.*
-`;
-            
-            // Create issue with notification
-            const { data: issue } = await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `🤖 Dependabot Auto-Fix Failed: ${prTitle}`,
-              body: body,
-              labels: ['dependabot', 'auto-fix-failed', 'needs-investigation']
-            });
-            
-            core.setOutput('notification_issue_number', issue.number);
-            core.setOutput('notification_issue_url', issue.html_url);
-
       - name: Comment on PR
         if: steps.pr.outputs.is_dependabot == 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const prNumber = ${{ steps.pr.outputs.number }};
-            const status = '${{ steps.report.outputs.status }}';
-            const fixType = '${{ steps.report.outputs.fix_type }}';
-            const notificationIssueNumber = '${{ steps.notification_issue.outputs.notification_issue_number }}';
-            const companionPrNumber = '${{ steps.create_pr.outputs.companion_pr_number }}';
+            const fixed = '${{ steps.fix_frontend.outputs.fixed || steps.fix_backend.outputs.fixed }}' === 'true';
+            const committed = '${{ steps.commit.outputs.committed }}' === 'true';
+            const fixType = '${{ steps.fix_frontend.outputs.fix_type || steps.fix_backend.outputs.fix_type }}';
             
-            let body = '### 🤖 Dependabot Auto-Fix Report\n\n';
+            let body = '### 🤖 Dependabot Auto-Fix\n\n';
             
-            if (status === 'fixed_with_commit') {
-              body += '✅ **Status:** Test failures have been automatically fixed!\n\n';
+            if (fixed && committed) {
+              body += '✅ Test failures have been automatically fixed!\n\n';
               body += `**Fix Type:** ${fixType}\n\n`;
               body += 'The fixes have been committed to this PR. Tests should pass on the next run.\n';
-            } else if (status === 'already_passing') {
-              body += '✅ **Status:** Tests are now passing without any changes needed.\n';
-            } else if (status === 'fix_failed') {
-              body += '❌ **Status:** Unable to automatically fix the test failures.\n\n';
-              body += '**What happened:**\n';
-              body += '- Standard auto-fix strategies did not resolve the issue\n';
-              body += '- An operator notification issue has been created: #' + notificationIssueNumber + '\n';
-              
-              if (companionPrNumber) {
-                body += '- A companion PR with alternative fixes has been created: #' + companionPrNumber + '\n';
-              }
-              
-              body += '\n**Possible causes:**\n';
+            } else if (fixed && !committed) {
+              body += '✅ Tests are now passing without any changes needed.\n';
+            } else {
+              body += '❌ Unable to automatically fix the test failures.\n\n';
+              body += 'This PR may require manual intervention. Here is what you should do:\n\n';
+              body += '#### Troubleshooting Steps:\n';
+              body += '1. **Review the Workflow Logs:** Check the auto-fix workflow run for detailed error messages\n';
+              body += '2. **Investigate Dependency Issues:** Use `npm ls` or `./gradlew dependencies` to inspect the dependency tree\n';
+              body += '3. **Check for Breaking Changes:** Review the dependency changelog for compatibility issues\n';
+              body += '4. **Decide on Resolution:** Choose one of these options:\n';
+              body += '   - Manual fix: Apply code changes if the update is compatible\n';
+              body += '   - Close PR: If the update introduces breaking changes\n';
+              body += '   - Wait: If waiting for a dependency patch\n';
+              body += '   - Downgrade: If the current version is more stable\n\n';
+              body += '#### Common Issues:\n';
               body += '- Breaking changes in the updated dependency\n';
               body += '- Incompatible dependency versions\n';
               body += '- Code changes required for compatibility\n\n';
-              body += '**Next steps:**\n';
-              body += '1. Review the operator notification: #' + notificationIssueNumber + '\n';
-              
-              if (companionPrNumber) {
-                body += '2. Check the companion PR: #' + companionPrNumber + '\n';
-              }
-              
-              body += '3. Investigate the test failure logs\n';
-              body += '4. Manual intervention may be required\n';
+              body += 'Please review the test output and fix manually, or close this PR if the update is not compatible.\n';
             }
             
             await github.rest.issues.createComment({

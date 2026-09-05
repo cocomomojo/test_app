@@ -1,0 +1,145 @@
+name: Dependabot Notification
+
+on:
+  workflow_run:
+    workflows: ["Dependabot Auto-Fix"]
+    types: [completed]
+
+permissions:
+  issues: write
+  pull-requests: read
+
+jobs:
+  notify-operator:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Get PR details
+        id: pr_info
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const prNumber = run.pull_requests[0]?.number;
+            
+            if (!prNumber) {
+              core.info('No PR associated with workflow run');
+              return;
+            }
+            
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            });
+            
+            core.setOutput('number', prNumber);
+            core.setOutput('title', pr.title);
+            core.setOutput('is_dependabot', pr.user.login === 'dependabot[bot]');
+
+      - name: Check PR comments for auto-fix status
+        if: steps.pr_info.outputs.is_dependabot == 'true'
+        id: check_status
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const prNumber = ${{ steps.pr_info.outputs.number }};
+            
+            // Get comments on the PR
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+            
+            // Find the auto-fix comment
+            const autoFixComment = comments.find(c => c.body && c.body.includes('🤖 Dependabot Auto-Fix'));
+            
+            if (!autoFixComment) {
+              core.info('No auto-fix comment found');
+              core.setOutput('auto_fix_failed', 'false');
+              return;
+            }
+            
+            // Check if the comment indicates failure
+            const isFailed = autoFixComment.body.includes('❌ Unable to automatically fix');
+            core.setOutput('auto_fix_failed', isFailed ? 'true' : 'false');
+            core.setOutput('found_comment', 'true');
+
+      - name: Create notification issue
+        if: |
+          steps.pr_info.outputs.is_dependabot == 'true' &&
+          steps.check_status.outputs.auto_fix_failed == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const prNumber = ${{ steps.pr_info.outputs.number }};
+            const prTitle = '${{ steps.pr_info.outputs.title }}';
+            const workflowRunUrl = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}';
+            
+            let body = '## 🚨 Dependabot Auto-Fix Failed - Operator Attention Required\n\n';
+            body += '### Affected PR\n';
+            body += '- **PR #' + prNumber + ':** ' + prTitle + '\n';
+            body += '- **Status:** Automated fix attempts were unsuccessful\n';
+            body += '- **Workflow:** [View Auto-Fix Logs](' + workflowRunUrl + ')\n\n';
+            body += '### Summary\n';
+            body += 'The Dependabot Auto-Fix workflow was unable to resolve test failures in this dependency update PR. All automatic fix strategies were attempted but none resolved the issue.\n\n';
+            body += '### Investigation Steps\n\n';
+            body += '**1. Review the PR Comment**\n';
+            body += '- The auto-fix workflow has left a detailed comment on PR #' + prNumber + '\n';
+            body += '- Check the troubleshooting steps and recommendations provided\n\n';
+            body += '**2. Check Test Logs**\n';
+            body += '- Review the test output from the auto-fix workflow\n';
+            body += '- Identify specific error messages and failure patterns\n\n';
+            body += '**3. Investigate Root Cause**\n';
+            body += '- Look for breaking changes in the dependency changelog\n';
+            body += '- Check for peer dependency conflicts\n';
+            body += '- Review API changes that might require code updates\n\n';
+            body += '### Decision Options\n\n';
+            body += '| Option | When to Use |\n';
+            body += '|--------|-------------|\n';
+            body += '| **Manual Fix** | If the dependency is compatible but requires code changes |\n';
+            body += '| **Close PR** | If the update introduces breaking changes not easily fixed |\n';
+            body += '| **Wait** | If waiting for the dependency maintainer to release a patch |\n';
+            body += '| **Downgrade** | If the current version is more stable or compatible |\n';
+            body += '| **Pin Version** | If a specific version works better with your codebase |\n\n';
+            body += '### Recommendation\n';
+            body += '1. First, visit PR #' + prNumber + ' and review the auto-fix comment for specific troubleshooting steps\n';
+            body += '2. Then, investigate using the commands and steps above\n';
+            body += '3. Choose the appropriate resolution path\n';
+            body += '4. Document the decision for future reference\n\n';
+            body += '---\n';
+            body += '**Created:** Automatically by Dependabot Notification workflow\n';
+            body += '**Related PR:** #' + prNumber + '\n';
+            body += '**Auto-Fix Workflow:** [View Details](' + workflowRunUrl + ')\n';
+            
+            // Check if an issue already exists for this PR
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: ['dependabot', 'auto-fix-failed'],
+            });
+            
+            // Check if issue already exists for this PR number
+            const existingIssue = issues.find(i => 
+              i.body && i.body.includes('#' + prNumber) && 
+              i.title.includes('Dependabot Auto-Fix Failed')
+            );
+            
+            if (existingIssue) {
+              core.info('Issue already exists: #' + existingIssue.number);
+              return;
+            }
+            
+            // Create new issue
+            const { data: newIssue } = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🤖 Dependabot Auto-Fix Failed: ' + prTitle,
+              body: body,
+              labels: ['dependabot', 'auto-fix-failed', 'needs-investigation']
+            });
+            
+            core.info('Created notification issue #' + newIssue.number);
