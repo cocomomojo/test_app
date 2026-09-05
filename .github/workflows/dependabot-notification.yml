@@ -154,7 +154,7 @@ jobs:
             
             // Check if issue already exists for this PR number
             const existingIssue = allIssues.find(i => 
-              i.body && i.body.includes('#' + prNumber) && 
+              i.body && i.body.includes('**PR #' + prNumber + ':**') && 
               i.title.includes('Dependabot Auto-Fix Failed')
             );
             
