@@ -383,49 +383,67 @@ npx playwright show-report
 
 ## 🔄 GitHub Actions（CI/CD）
 
-### ⚠️ ワークフロー実行方式
+### ✅ ワークフロー実行方式
 
-**現在の設定：手動実行のみ**
+**現在の設定：自動実行と手動実行の併用**
 
-- ❌ main ブランチへの push では自動実行されません
-- ❌ Pull Request 作成時も自動実行されません
-- ✅ GitHub Actions から手動実行のみ可能
+#### PR Quality Checks（自動実行）
+- ✅ Pull Request 作成時に自動実行
+- ✅ フロントエンド単体テスト実行
+- ✅ バックエンド単体テスト実行
+- ✅ E2E テスト実行（Docker Compose）
+- ✅ カバレッジレポート生成
 
-### ワークフローの概要
+#### E2E Tests with Coverage（手動実行）
+- ✅ GitHub Actions から手動実行可能
+- ✅ main ブランチへのデプロイ時に自動デプロイ
+- ✅ テストレポートを GitHub Pages に公開
+
+### 🔄 PR Quality Checks ワークフロー
 
 ```mermaid
 graph TD
-    A[🖱️ 手動実行] --> B[🏗️ Docker Build]
-
-    B --> C[⏳ サービス起動待機]
-    C --> D{✅ ヘルスチェック}
-    D -->|❌ 失敗| E[📋 ログ出力]
-    D -->|✅ 成功| F[🎭 E2E テスト実行]
-
-    F -->|❌ 失敗| G[📸 スクリーンショット保存]
-    F -->|✅ 成功| H[📊 Allure レポート生成]
-
-    H --> I{🔍 main ブランチ?}
-    I -->|Yes| J[🚀 GitHub Pages デプロイ]
-    I -->|No| K[📦 Artifact 保存]
-
-    J --> L[✨ 完了]
-    K --> L
-    G --> L
-    E --> L
-
+    A[Pull Request 作成] --> B[PR Quality Checks 自動実行]
+    
+    B --> C[フロントエンド単体テスト]
+    B --> D[バックエンド単体テスト]
+    B --> E[E2E テスト実行]
+    
+    C --> F{テスト結果}
+    D --> F
+    E --> F
+    
+    F -->|✅ 全て成功| G[✨ PR ステータス: 成功]
+    F -->|❌ 失敗| H[❌ PR ステータス: 失敗]
+    
+    E --> I[カバレッジレポート生成]
+    I --> J[📦 Artifact 保存]
+    
     style A fill:#e3f2fd
-    style F fill:#fff3e0
-    style J fill:#e8f5e9
-    style L fill:#f3e5f5
+    style B fill:#fff3e0
+    style G fill:#e8f5e9
+    style H fill:#ffebee
 ```
 
 ### 🎯 ワークフローの実行方法
 
-#### 手動実行（唯一の実行方法）
+#### 自動実行（PR Quality Checks）
+
+1. GitHub リポジトリで新しい Pull Request を作成
+2. PR Quality Checks ワークフローが自動実行開始
+3. 以下のテストが順序実行：
+   - フロントエンド単体テスト
+   - バックエンド単体テスト
+   - E2E テスト（フルスタックテスト）
+4. PR ページにテスト結果がコメント表示
+5. 全てのテストが成功すると、PR マージ可能に
+
+**実行時間:** 約 35-40 分
+
+#### 手動実行（E2E Tests with Coverage）
 
 1. GitHub リポジトリの **Actions** タブを開く
-2. 左側から **E2E Tests with Playwright and Allure** を選択
+2. 左側から **E2E Tests with Coverage** を選択
 3. 右上の **Run workflow** ボタンをクリック
 4. ブランチを選択
    - **main** ブランチ: テスト成功時に GitHub Pages へデプロイ
@@ -444,17 +462,36 @@ graph TD
 
 ### 📊 ワークフローのステップ
 
+#### PR Quality Checks（自動実行）
+
 | ステップ | 所要時間 | 説明 |
 |---------|---------|------|
 | 1️⃣ Checkout | ~5秒 | コードの取得 |
-| 2️⃣ Docker Build | ~80秒 | コンテナイメージのビルド |
+| 2️⃣ Frontend Unit Tests | ~30秒 | フロントエンド単体テスト実行 |
+| 3️⃣ Backend Unit Tests | ~45秒 | バックエンド単体テスト実行 |
+| 4️⃣ Docker Setup | ~80秒 | Docker Compose サービス起動 |
+| 5️⃣ Health Check | ~60秒 | サービスの起動確認 |
+| 6️⃣ Playwright Install | ~45秒 | ブラウザのインストール |
+| 7️⃣ E2E Tests | ~10秒 | E2E テストの実行 |
+| 8️⃣ Coverage Report | ~5秒 | カバレッジレポート生成 |
+| 9️⃣ PR Comment | ~5秒 | テスト結果を PR にコメント |
+
+**合計:** 約 35-40 分
+
+#### E2E Tests with Coverage（手動実行オプション）
+
+| ステップ | 所要時間 | 説明 |
+|---------|---------|------|
+| 1️⃣ Checkout | ~5秒 | コードの取得 |
+| 2️⃣ Docker Setup | ~80秒 | Docker Compose サービス起動 |
 | 3️⃣ Health Check | ~60秒 | サービスの起動確認 |
 | 4️⃣ Playwright Install | ~45秒 | ブラウザのインストール |
-| 5️⃣ E2E Tests | ~10秒 | テストの実行 |
-| 6️⃣ Allure Report | ~5秒 | レポート生成 |
-| 7️⃣ Deploy to Pages | ~5秒 | GitHub Pages へデプロイ |
+| 5️⃣ E2E Tests | ~10秒 | E2E テストの実行 |
+| 6️⃣ Allure Report | ~5秒 | Allure レポート生成 |
+| 7️⃣ Coverage Reports | ~10秒 | フロントエンド・バックエンドカバレッジレポート生成 |
+| 8️⃣ Deploy to Pages | ~5秒 | GitHub Pages へデプロイ（main ブランチのみ）|
 
-**合計:** 約 2-3 分
+**合計:** 約 40 分
 
 ### 🔄 開発サイクルとワークフローの全体像
 

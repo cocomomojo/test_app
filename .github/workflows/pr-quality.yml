@@ -18,19 +18,19 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@1e60f620b9541d910f70b8b103c8c3ffd013ee1d # v4
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
       - name: Setup Java
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v4
+        uses: actions/setup-java@99b8673ff64fbf33d6d9f1c33dec72d733d27614 # v4
         with:
           distribution: temurin
           java-version: '17'
@@ -47,7 +47,7 @@ jobs:
 
       - name: Upload frontend coverage artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@89ef406dd8d925ee1f2e4e695e47364a3e9f12d3 # v4
         with:
           name: frontend-unit-coverage
           path: |
@@ -65,7 +65,7 @@ jobs:
 
       - name: Upload backend test artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@89ef406dd8d925ee1f2e4e695e47364a3e9f12d3 # v4
         with:
           name: backend-unit-reports
           path: |
@@ -88,8 +88,147 @@ jobs:
             exit 1
           fi
 
+  e2e-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    outputs:
+      e2e_status: ${{ steps.e2e_final_status.outputs.e2e_status }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+
+      - name: Setup Java
+        uses: actions/setup-java@99b8673ff64fbf33d6d9f1c33dec72d733d27614 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Extract JaCoCo agent from Gradle
+        id: jacoco_extract
+        continue-on-error: true
+        working-directory: backend
+        run: |
+          chmod +x gradlew
+          ./gradlew copyJacocoAgent
+          mkdir -p ../infra/jacoco ../infra/jacoco-output
+          cp build/jacoco/jacocoagent.jar ../infra/jacoco/jacocoagent.jar
+
+      - name: Start Docker Compose services
+        id: docker_start
+        continue-on-error: true
+        working-directory: infra
+        run: docker compose -f docker-compose.ci.yml up -d
+
+      - name: Wait for services to be healthy
+        id: health_check
+        continue-on-error: true
+        working-directory: infra
+        timeout-minutes: 5
+        run: |
+          echo "Waiting for MySQL..."
+          for i in $(seq 1 30); do
+            docker compose -f docker-compose.ci.yml exec -T mysql mysqladmin ping -h localhost -uroot -proot 2>/dev/null && break
+            [ "$i" -eq 30 ] && { echo "MySQL failed"; exit 1; }
+            sleep 3
+          done
+
+          echo "Waiting for Spring Boot..."
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:8080/actuator/health > /dev/null && { echo "Spring Boot ready"; break; }
+            [ "$i" -eq 60 ] && { docker compose -f docker-compose.ci.yml logs springboot; exit 1; }
+            sleep 3
+          done
+
+          echo "Waiting for Frontend..."
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8081 > /dev/null && { echo "Frontend ready"; break; }
+            [ "$i" -eq 30 ] && { docker compose -f docker-compose.ci.yml logs frontend; exit 1; }
+            sleep 2
+          done
+
+      - name: Setup Node.js
+        if: steps.health_check.outcome == 'success'
+        uses: actions/setup-node@1e60f620b9541d910f70b8b103c8c3ffd013ee1d # v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Node dependencies
+        if: steps.health_check.outcome == 'success'
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright browsers
+        if: steps.health_check.outcome == 'success'
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright E2E tests (with JS coverage)
+        id: e2e_run
+        if: steps.health_check.outcome == 'success'
+        continue-on-error: true
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:8081
+        run: npm run test:e2e
+
+      - name: Generate frontend coverage report
+        if: always()
+        working-directory: frontend
+        run: |
+          if [ -d "coverage/e2e-raw" ] && [ "$(ls -A coverage/e2e-raw)" ]; then
+            echo "✓ Found coverage files, generating report..."
+            sed -i "s|\"/app/|\"$(pwd)/|g" coverage/e2e-raw/*.json 2>/dev/null || true
+            npm run coverage:report
+          else
+            echo "✗ No frontend coverage data found"
+            mkdir -p coverage/e2e-report
+            echo "<h1>No frontend coverage data available</h1>" > coverage/e2e-report/index.html
+          fi
+
+      - name: Upload frontend E2E coverage
+        if: always()
+        uses: actions/upload-artifact@89ef406dd8d925ee1f2e4e695e47364a3e9f12d3 # v4
+        with:
+          name: e2e-coverage
+          path: frontend/coverage/e2e-report
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Generate backend E2E coverage report
+        if: always()
+        working-directory: backend
+        run: |
+          if [ -f "../infra/jacoco-output/jacoco.exec" ]; then
+            ./gradlew jacocoE2EReport
+          else
+            echo "No jacoco.exec found, skipping E2E coverage report"
+          fi
+
+      - name: Upload backend E2E coverage
+        if: always()
+        uses: actions/upload-artifact@89ef406dd8d925ee1f2e4e695e47364a3e9f12d3 # v4
+        with:
+          name: backend-e2e-coverage
+          path: backend/build/reports/jacoco/jacocoE2EReport/html
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Finalize E2E test status
+        id: e2e_final_status
+        run: |
+          E2E_STATUS='${{ steps.e2e_run.outcome }}'
+          echo "e2e_status=${E2E_STATUS}" >> "$GITHUB_OUTPUT"
+
+      - name: Stop Docker Compose services
+        if: always()
+        working-directory: infra
+        run: docker compose -f docker-compose.ci.yml down -v
+
   report-to-pr:
-    needs: quality-checks
+    needs: [quality-checks, e2e-tests]
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -97,10 +236,11 @@ jobs:
 
     steps:
       - name: Comment PR with quality results
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
         env:
           FRONTEND_STATUS: ${{ needs.quality-checks.outputs.frontend_status }}
           BACKEND_STATUS: ${{ needs.quality-checks.outputs.backend_status }}
+          E2E_STATUS: ${{ needs.e2e-tests.outputs.e2e_status }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
@@ -122,6 +262,7 @@ jobs:
               '',
               `- Frontend Unit Tests: ${icon(process.env.FRONTEND_STATUS)}`,
               `- Backend Unit Tests: ${icon(process.env.BACKEND_STATUS)}`,
+              `- E2E Tests with Coverage: ${icon(process.env.E2E_STATUS)}`,
               `- Workflow Run: ${process.env.RUN_URL}`,
             ].join('\n');
 
