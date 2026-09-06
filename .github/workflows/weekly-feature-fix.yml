@@ -215,74 +215,149 @@ jobs:
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
 
+      - name: Parse issue details into structured format
+        if: steps.init.outputs.exceeded_max == 'false'
+        run: |
+          python3 << 'PARSE_SCRIPT'
+          import json
+          import re
+          from pathlib import Path
+
+          # Load issue data
+          issue_data = json.loads(Path('/tmp/feature-fix/issue.json').read_text())
+          issue_body = issue_data.get('body', '')
+
+          # Parse issue sections
+          sections = {
+              'background': '',
+              'feature_description': '',
+              'acceptance_criteria': [],
+              'estimated_effort': ''
+          }
+
+          current_section = None
+          lines = issue_body.split('\n')
+
+          for line in lines:
+              if line.strip().startswith('## '):
+                  section_name = line.replace('##', '').strip().lower()
+                  if 'background' in section_name:
+                      current_section = 'background'
+                  elif 'description' in section_name or 'feature' in section_name:
+                      current_section = 'feature_description'
+                  elif 'acceptance' in section_name or 'criteria' in section_name:
+                      current_section = 'acceptance_criteria'
+                  elif 'effort' in section_name:
+                      current_section = 'estimated_effort'
+              elif current_section and line.strip() and not line.startswith('##'):
+                  if current_section == 'acceptance_criteria':
+                      if line.strip().startswith('- ['):
+                          # Extract criterion text after checkbox
+                          criterion = re.sub(r'^- \[[^\]]*\]\s*', '', line.strip())
+                          if criterion:
+                              sections['acceptance_criteria'].append(criterion)
+                  elif current_section == 'estimated_effort':
+                      sections[current_section] = line.strip()
+                  else:
+                      if sections[current_section]:
+                          sections[current_section] += '\n'
+                      sections[current_section] += line
+
+          # Save parsed sections
+          with open('/tmp/feature-fix/parsed_issue.json', 'w') as f:
+              json.dump(sections, f, ensure_ascii=False, indent=2)
+
+          print("✓ Issue sections parsed successfully")
+          print(f"  Background length: {len(sections['background'])}")
+          print(f"  Feature description length: {len(sections['feature_description'])}")
+          print(f"  Acceptance criteria count: {len(sections['acceptance_criteria'])}")
+          print(f"  Effort: {sections['estimated_effort']}")
+          PARSE_SCRIPT
+
       - name: Generate fix prompt
         if: steps.init.outputs.exceeded_max == 'false'
         id: generate_prompt
         run: |
           mkdir -p /tmp/feature-fix/output
 
-          # Issue情報からプロンプトを生成
-          ISSUE_BODY=$(jq -r '.body' /tmp/feature-fix/issue.json)
-          ISSUE_TITLE=$(jq -r '.title' /tmp/feature-fix/issue.json)
+          # Load parsed issue sections
+          python3 << 'LOAD_PARSED'
+          import json
+          from pathlib import Path
 
-          echo "=== DEBUG: Prompt generation ==="
-          echo "ISSUE_TITLE: '$ISSUE_TITLE' (length: ${#ISSUE_TITLE})"
-          echo "ISSUE_BODY length: ${#ISSUE_BODY}"
-          echo "ISSUE_BODY first 300 chars:"
-          echo "${ISSUE_BODY:0:300}"
-          echo "=== END DEBUG ==="
+          parsed = json.loads(Path('/tmp/feature-fix/parsed_issue.json').read_text())
+          with open('/tmp/feature-fix/issue-background.txt', 'w') as f:
+              f.write(parsed.get('background', '').strip())
+          with open('/tmp/feature-fix/issue-description.txt', 'w') as f:
+              f.write(parsed.get('feature_description', '').strip())
+          with open('/tmp/feature-fix/issue-criteria.txt', 'w') as f:
+              criteria = parsed.get('acceptance_criteria', [])
+              f.write('\n'.join(f'- {c}' for c in criteria))
+          LOAD_PARSED
+
+          # Read parsed sections
+          ISSUE_TITLE=$(jq -r '.title' /tmp/feature-fix/issue.json)
+          ISSUE_BACKGROUND=$(cat /tmp/feature-fix/issue-background.txt)
+          ISSUE_DESCRIPTION=$(cat /tmp/feature-fix/issue-description.txt)
+          ISSUE_CRITERIA=$(cat /tmp/feature-fix/issue-criteria.txt)
 
           cat > /tmp/feature-fix/output/prompt.txt << 'PROMPT_EOF'
           【重要】すべての応答と実装は日本語で行ってください。
 
-          あなたはフルスタックアプリケーションの機能を実装するスキルの高いソフトウェア開発者です。
+          あなたはフルスタックアプリケーション（Vue 3 + Spring Boot）の機能を実装するスキルの高いソフトウェア開発者です。
+
+          ## プロジェクト構成
+          - **Frontend**: Vue 3 + Vuetify 3 + TypeScript (frontend/ ディレクトリ)
+          - **Backend**: Spring Boot 3 + Java 17 (backend/ ディレクトリ)
+          - **テスト**: Vitest (フロントエンド), JUnit 5 (バックエンド), Playwright (E2E)
+
+          ## 実装ガイドライン
+          ⚠️ 以下の点を常に確認してください：
+          1. **実装可能性の判定**: この要件は実装可能ですか？修正するファイルが明確に特定できますか？
+          2. **フロント/バックの判定**: Frontend のみ/Backend のみ/両方のどれが必要ですか？
+          3. **ファイル修正対象**: どのファイルを修正する必要があるか具体的に列挙してください
+          4. **差分が絶対条件**: 実装後、確実に git diff で差分が表示されること
 
           PROMPT_EOF
 
-          echo "Issueタイトル: $ISSUE_TITLE" >> /tmp/feature-fix/output/prompt.txt
+          echo "## 実装要件" >> /tmp/feature-fix/output/prompt.txt
           echo "" >> /tmp/feature-fix/output/prompt.txt
-          echo "Issue説明:" >> /tmp/feature-fix/output/prompt.txt
-          echo "$ISSUE_BODY" >> /tmp/feature-fix/output/prompt.txt
+          echo "### タイトル" >> /tmp/feature-fix/output/prompt.txt
+          echo "$ISSUE_TITLE" >> /tmp/feature-fix/output/prompt.txt
           echo "" >> /tmp/feature-fix/output/prompt.txt
-          echo "タスク:" >> /tmp/feature-fix/output/prompt.txt
-          echo "1. Issueの要件を分析する" >> \
-            /tmp/feature-fix/output/prompt.txt
-          echo "2. コードベースに必要な変更を実装する" >> \
-            /tmp/feature-fix/output/prompt.txt
-          echo "3. 包括的なテストケースを作成する" >> \
-            /tmp/feature-fix/output/prompt.txt
-          echo "4. すべてのテストが成功することを確認する" >> \
-            /tmp/feature-fix/output/prompt.txt
-          echo "5. 受け入れ条件を検証する" >> \
-            /tmp/feature-fix/output/prompt.txt
+          echo "### 背景" >> /tmp/feature-fix/output/prompt.txt
+          echo "$ISSUE_BACKGROUND" >> /tmp/feature-fix/output/prompt.txt
           echo "" >> /tmp/feature-fix/output/prompt.txt
-          echo "【重要】ブランチング手順:" >> /tmp/feature-fix/output/prompt.txt
-          echo "⚠️  mainブランチへの変更は厳禁です！" >> \
-            /tmp/feature-fix/output/prompt.txt
-          echo "1. 最初に、この正確なコマンドで新しいフィーチャーブランチを作成してください:" >> \
-            /tmp/feature-fix/output/prompt.txt
-          echo "   git checkout -b copilot/issue-${ISSUE_NUMBER}" >> \
-            /tmp/feature-fix/output/prompt.txt
-          echo "2. 変更を加える前にフィーチャーブランチにいることを確認してください" >> \
-            /tmp/feature-fix/output/prompt.txt
-          echo "3. すべてのコード変更はこのフィーチャーブランチでのみ行ってください" >> \
-            /tmp/feature-fix/output/prompt.txt
-          echo "4. 修正されたすべてのファイルをステージしてください: git add ." >> \
-            /tmp/feature-fix/output/prompt.txt
-          echo "5. わかりやすいメッセージでコミットしてください" >> \
-            /tmp/feature-fix/output/prompt.txt
-          echo "6. この正確なコマンドでフィーチャーブランチにのみプッシュしてください:" >> \
-            /tmp/feature-fix/output/prompt.txt
-          echo "   git push origin copilot/issue-${ISSUE_NUMBER}" >> \
-            /tmp/feature-fix/output/prompt.txt
-          echo "7. 絶対にmainブランチにはプッシュしないでください" >> \
-            /tmp/feature-fix/output/prompt.txt
-          echo "8. ワークフローが自動的にプルリクエストを作成します" >> \
-            /tmp/feature-fix/output/prompt.txt
-           
+          echo "### 機能説明" >> /tmp/feature-fix/output/prompt.txt
+          echo "$ISSUE_DESCRIPTION" >> /tmp/feature-fix/output/prompt.txt
+          echo "" >> /tmp/feature-fix/output/prompt.txt
+          echo "### 受け入れ条件（実装必須）" >> /tmp/feature-fix/output/prompt.txt
+          echo "$ISSUE_CRITERIA" >> /tmp/feature-fix/output/prompt.txt
+          echo "" >> /tmp/feature-fix/output/prompt.txt
+          echo "## 実装タスク" >> /tmp/feature-fix/output/prompt.txt
+          echo "1. 受け入れ条件を注意深く確認し、実装可能か判定する" >> /tmp/feature-fix/output/prompt.txt
+          echo "2. Frontend/Backend の修正対象ファイルを特定する" >> /tmp/feature-fix/output/prompt.txt
+          echo "3. 修正が必要なファイルのリストを作成してから実装を開始する" >> /tmp/feature-fix/output/prompt.txt
+          echo "4. コードを実装する（テストコードを含む）" >> /tmp/feature-fix/output/prompt.txt
+          echo "5. すべてのテストが成功することを確認する" >> /tmp/feature-fix/output/prompt.txt
+          echo "6. 受け入れ条件がすべて満たされたことを検証する" >> /tmp/feature-fix/output/prompt.txt
+          echo "" >> /tmp/feature-fix/output/prompt.txt
+          echo "## 【重要】ブランチング手順" >> /tmp/feature-fix/output/prompt.txt
+          echo "⚠️ mainブランチへの変更は厳禁です！" >> /tmp/feature-fix/output/prompt.txt
+          echo "1. 最初に、この正確なコマンドで新しいフィーチャーブランチを作成してください:" >> /tmp/feature-fix/output/prompt.txt
+          echo "   git checkout -b copilot/issue-${ISSUE_NUMBER}" >> /tmp/feature-fix/output/prompt.txt
+          echo "2. 変更を加える前にフィーチャーブランチにいることを確認してください" >> /tmp/feature-fix/output/prompt.txt
+          echo "3. すべてのコード変更はこのフィーチャーブランチでのみ行ってください" >> /tmp/feature-fix/output/prompt.txt
+          echo "4. 修正されたすべてのファイルをステージしてください: git add ." >> /tmp/feature-fix/output/prompt.txt
+          echo "5. わかりやすいメッセージでコミットしてください" >> /tmp/feature-fix/output/prompt.txt
+          echo "6. この正確なコマンドでフィーチャーブランチにのみプッシュしてください:" >> /tmp/feature-fix/output/prompt.txt
+          echo "   git push origin copilot/issue-${ISSUE_NUMBER}" >> /tmp/feature-fix/output/prompt.txt
+          echo "7. 絶対にmainブランチにはプッシュしないでください" >> /tmp/feature-fix/output/prompt.txt
+          echo "8. ワークフローが自動的にプルリクエストを作成します" >> /tmp/feature-fix/output/prompt.txt
+            
           echo ""
-          echo "=== DEBUG: Generated prompt (first 500 chars) ==="
-          head -c 500 /tmp/feature-fix/output/prompt.txt
+          echo "=== DEBUG: Generated prompt (first 800 chars) ==="
+          head -c 800 /tmp/feature-fix/output/prompt.txt
           echo ""
           echo "=== END DEBUG ==="
 
