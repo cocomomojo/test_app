@@ -130,27 +130,29 @@ jobs:
           # Read existing implementations
           existing_impl = Path('./existing_implementations.txt').read_text(encoding='utf-8')
 
-          prompt = f"""Analyze this Vue 3 + Spring Boot project and propose ONE UNIQUE useful feature improvement.
+          prompt = f"""【重要】このリクエストへのすべての応答は日本語で行ってください。
 
-          ## Context
-          - Feature Category: {category}
-          - Difficulty Level: {difficulty}
-          - Project Structure: Frontend (Vue 3 + Vuetify), Backend (Spring Boot 3)
+このVue 3 + Spring Bootプロジェクトを分析して、1つの新しい有用な機能改善を提案してください。
 
-          ## IMPORTANT: Avoid Duplicates
-          Review the following existing implementations and open issues.
-          **DO NOT propose features that are already implemented or already have open issues.**
-          Propose a NEW, UNIQUE feature that is NOT listed below:
+          ## コンテキスト
+          - 機能カテゴリ: {category}
+          - 難易度: {difficulty}
+          - プロジェクト構成: Frontend (Vue 3 + Vuetify), Backend (Spring Boot 3)
+
+          ## 重要: 重複回避
+          既存の実装と未解決のIssueを確認してください。
+          **すでに実装されている、または既にIssueが存在する機能は提案しないでください。**
+          以下にリストされていない新しいユニークな機能を提案してください：
 
           {existing_impl}
 
-          ## Requirements
-          Output ONLY valid JSON in this exact format (no other text, no markdown):
+          ## 要件
+          以下の正確な形式で有効なJSONのみを出力してください（他のテキストやマークダウンは不要）：
           {{
-            "title": "[FEATURE] Feature Name",
-            "background": "Why this feature is needed, considering current system state",
-            "feature_description": "Detailed description of what should be implemented",
-            "acceptance_criteria": ["Criterion 1", "Criterion 2", "Criterion 3"],
+            "title": "[FEATURE] 機能名",
+            "background": "現在のシステム状態を考慮して、この機能が必要な理由",
+            "feature_description": "実装すべき内容の詳細な説明",
+            "acceptance_criteria": ["受け入れ条件1", "受け入れ条件2", "受け入れ条件3"],
             "estimated_effort": "XS/S/M/L/XL"
           }}"""
 
@@ -192,16 +194,53 @@ jobs:
           match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)
           if match:
             json_text = match.group(1).strip()
-          else:
-            # Try to find JSON object directly
-            match = re.search(r'\{(?:[^{}]|(?:\{[^{}]*\}))*\}', response_text, re.DOTALL)
-            if match:
-              json_text = match.group(0).strip()
+           
+          # If not found in code block, try to extract JSON object
+          if not json_text:
+            # Use a more robust approach: find the first '{' and match braces
+            start_idx = response_text.find('{')
+            if start_idx != -1:
+              # Count braces to find the complete JSON object
+              brace_count = 0
+              end_idx = start_idx
+              in_string = False
+              escape_next = False
+               
+              for i in range(start_idx, len(response_text)):
+                char = response_text[i]
+                 
+                if escape_next:
+                  escape_next = False
+                  continue
+                
+                if char == '\\':
+                  escape_next = True
+                  continue
+                
+                if char == '"' and not escape_next:
+                  in_string = not in_string
+                  continue
+                
+                if in_string:
+                  continue
+                
+                if char == '{':
+                  brace_count += 1
+                elif char == '}':
+                  brace_count -= 1
+                  if brace_count == 0:
+                    end_idx = i + 1
+                    break
+               
+              if brace_count == 0 and end_idx > start_idx:
+                json_text = response_text[start_idx:end_idx].strip()
 
           if not json_text:
             print('ERROR: JSON not found in response')
             print('Response:', response_text[:500])
             exit(1)
+
+          print(f'DEBUG: Extracted JSON text (first 200 chars): {json_text[:200]}')
 
           try:
             proposal = json.loads(json_text)
@@ -226,19 +265,28 @@ jobs:
             if not proposal['title'].startswith('[FEATURE]'):
               proposal['title'] = f"[FEATURE] {proposal['title']}"
 
+            # Validate title is not empty
+            if not proposal['title'] or proposal['title'].strip() == '[FEATURE]':
+              print(f'ERROR: Title is empty or only contains "[FEATURE]": {proposal["title"]}')
+              exit(1)
+
             # Write validated proposal
             Path('./proposal.json').write_text(
               json.dumps(proposal, ensure_ascii=False, indent=2),
               encoding='utf-8'
             )
             print('✓ Proposal validated and saved')
+            print(f'DEBUG: Final proposal:')
+            print(json.dumps(proposal, indent=2, ensure_ascii=False))
 
           except json.JSONDecodeError as e:
             print(f'ERROR: Invalid JSON: {e}')
-            print('JSON text:', json_text[:200])
+            print('JSON text:', json_text[:500])
             exit(1)
           except Exception as e:
             print(f'ERROR: {e}')
+            import traceback
+            traceback.print_exc()
             exit(1)
           PY
 
@@ -383,6 +431,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TITLE=$(cat ./issue-title.txt)
+          BODY=$(cat ./issue-body.md)
+           
+          echo "DEBUG: Issue to be created"
+          echo "Title: $TITLE"
+          echo "Body length: ${#BODY}"
+          echo "Body first 200 chars: ${BODY:0:200}"
+           
           ISSUE_OUTPUT=$(gh issue create \
             --title "$TITLE" \
             --label "enhancement" \
@@ -396,6 +451,13 @@ jobs:
             exit 1
           fi
           ISSUE_NUMBER=${ISSUE_URL##*/}
+           
+          # Verify created issue
+          sleep 2
+          gh issue view "$ISSUE_NUMBER" --json number,title,body --repo "$GITHUB_REPOSITORY" > /tmp/created-issue-verify.json
+          echo "DEBUG: Verified created issue:"
+          cat /tmp/created-issue-verify.json
+           
           echo "issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
           echo "issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
           echo "✓ Issue created: $ISSUE_URL"
