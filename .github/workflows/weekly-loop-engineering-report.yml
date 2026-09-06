@@ -43,10 +43,10 @@ jobs:
           end_date = datetime.now(timezone.utc)
           start_date = end_date - timedelta(days=7)
           
-          # Get all workflow runs
+          # Get all workflow runs with increased limit
           env = {**os.environ, 'GH_TOKEN': os.environ['GH_TOKEN']}
           result = subprocess.run(
-              ['gh', 'run', 'list', '--json', 'name,status,conclusion,createdAt,updatedAt,databaseId'],
+              ['gh', 'run', 'list', '--json', 'name,status,conclusion,createdAt,updatedAt,databaseId', '--limit', '500'],
               capture_output=True,
               text=True,
               env=env
@@ -56,14 +56,21 @@ jobs:
               print(f"Error running gh command: {result.stderr}")
               runs = []
           else:
-              runs = json.loads(result.stdout)
+              try:
+                  runs = json.loads(result.stdout)
+              except json.JSONDecodeError:
+                  print(f"Error parsing JSON: {result.stdout}")
+                  runs = []
           
           # Filter runs from past 7 days
           recent_runs = []
           for run in runs:
-              created = datetime.fromisoformat(run['createdAt'].replace('Z', '+00:00'))
-              if created >= start_date:
-                  recent_runs.append(run)
+              try:
+                  created = datetime.fromisoformat(run['createdAt'].replace('Z', '+00:00'))
+                  if created >= start_date:
+                      recent_runs.append(run)
+              except (KeyError, ValueError):
+                  continue
           
           # Analyze statistics
           total_runs = len(recent_runs)
@@ -119,10 +126,10 @@ jobs:
           end_date = datetime.now(timezone.utc)
           start_date = end_date - timedelta(days=7)
           
-          # Get issues created in the past 7 days
+          # Get issues with increased limit
           env = {**os.environ, 'GH_TOKEN': os.environ['GH_TOKEN']}
           created_result = subprocess.run(
-              ['gh', 'issue', 'list', '--state', 'all', '--json', 'number,title,labels,state,createdAt,closedAt,url'],
+              ['gh', 'issue', 'list', '--state', 'all', '--json', 'number,title,labels,state,createdAt,closedAt,url', '--limit', '500'],
               capture_output=True,
               text=True,
               env=env
@@ -132,21 +139,28 @@ jobs:
               print(f"Error running gh command: {created_result.stderr}")
               issues = []
           else:
-              issues = json.loads(created_result.stdout)
+              try:
+                  issues = json.loads(created_result.stdout)
+              except json.JSONDecodeError:
+                  print(f"Error parsing JSON: {created_result.stdout}")
+                  issues = []
           
           # Filter issues
           recent_created = []
           recent_closed = []
           
           for issue in issues:
-              created = datetime.fromisoformat(issue['createdAt'].replace('Z', '+00:00'))
-              if created >= start_date:
-                  recent_created.append(issue)
-              
-              if issue['closedAt']:
-                  closed = datetime.fromisoformat(issue['closedAt'].replace('Z', '+00:00'))
-                  if closed >= start_date:
-                      recent_closed.append(issue)
+              try:
+                  created = datetime.fromisoformat(issue['createdAt'].replace('Z', '+00:00'))
+                  if created >= start_date:
+                      recent_created.append(issue)
+                  
+                  if issue['closedAt']:
+                      closed = datetime.fromisoformat(issue['closedAt'].replace('Z', '+00:00'))
+                      if closed >= start_date:
+                          recent_closed.append(issue)
+              except (KeyError, ValueError):
+                  continue
           
           # Analyze by labels
           labels_analysis = {}
@@ -190,10 +204,10 @@ jobs:
           end_date = datetime.now(timezone.utc)
           start_date = end_date - timedelta(days=7)
           
-          # Get all PRs
+          # Get all PRs with increased limit
           env = {**os.environ, 'GH_TOKEN': os.environ['GH_TOKEN']}
           result = subprocess.run(
-              ['gh', 'pr', 'list', '--state', 'all', '--json', 'number,title,state,merged,mergedAt,createdAt,url'],
+              ['gh', 'pr', 'list', '--state', 'all', '--json', 'number,title,state,merged,mergedAt,createdAt,url', '--limit', '500'],
               capture_output=True,
               text=True,
               env=env
@@ -203,14 +217,21 @@ jobs:
               print(f"Error running gh command: {result.stderr}")
               prs = []
           else:
-              prs = json.loads(result.stdout)
+              try:
+                  prs = json.loads(result.stdout)
+              except json.JSONDecodeError:
+                  print(f"Error parsing JSON: {result.stdout}")
+                  prs = []
           
           # Filter PRs from past 7 days
           recent_prs = []
           for pr in prs:
-              created = datetime.fromisoformat(pr['createdAt'].replace('Z', '+00:00'))
-              if created >= start_date:
-                  recent_prs.append(pr)
+              try:
+                  created = datetime.fromisoformat(pr['createdAt'].replace('Z', '+00:00'))
+                  if created >= start_date:
+                      recent_prs.append(pr)
+              except (KeyError, ValueError):
+                  continue
           
           # Analyze
           merged_count = sum(1 for pr in recent_prs if pr['merged'])
@@ -413,24 +434,24 @@ jobs:
           ISSUE_DATE=$(date -u +%Y-%m-%d)
           ISSUE_TITLE="[LOOP REPORT] ${ISSUE_DATE}"
           
-          ISSUE_OUTPUT=$(gh issue create \
+          ISSUE_JSON=$(gh issue create \
             --title "${ISSUE_TITLE}" \
             --body-file report.txt \
             --label "loop-engineering-report" \
-            --json url,number 2>&1)
+            --json url,number)
           
           if [ $? -ne 0 ]; then
             echo "Failed to create issue"
-            echo "$ISSUE_OUTPUT"
+            echo "$ISSUE_JSON"
             exit 1
           fi
           
-          ISSUE_URL=$(echo "${ISSUE_OUTPUT}" | grep -o 'https://github.com/[^"]*' | head -1)
-          ISSUE_NUMBER=$(echo "${ISSUE_OUTPUT}" | grep -o '"number": [0-9]*' | grep -o '[0-9]*')
+          ISSUE_URL=$(echo "${ISSUE_JSON}" | jq -r '.url')
+          ISSUE_NUMBER=$(echo "${ISSUE_JSON}" | jq -r '.number')
           
-          if [ -z "$ISSUE_URL" ] || [ -z "$ISSUE_NUMBER" ]; then
+          if [ -z "$ISSUE_URL" ] || [ "$ISSUE_URL" = "null" ] || [ -z "$ISSUE_NUMBER" ] || [ "$ISSUE_NUMBER" = "null" ]; then
             echo "Could not parse issue output"
-            echo "$ISSUE_OUTPUT"
+            echo "$ISSUE_JSON"
             exit 1
           fi
           
@@ -455,22 +476,22 @@ jobs:
                   actions_data = json.load(f)
               print(f"- Workflow Success Rate: {actions_data['success_rate']:.1f}%")
               print(f"- Total Runs Analyzed: {actions_data['total_runs']}")
-          except:
-              print("- Could not load actions analysis")
+          except Exception as e:
+              print(f"- Could not load actions analysis: {e}")
           
           try:
               with open('/tmp/gh_issues_analysis.json', 'r') as f:
                   issues_data = json.load(f)
               print(f"- Issues Created: {issues_data['created_count']}")
               print(f"- Issues Closed: {issues_data['closed_count']}")
-          except:
-              print("- Could not load issues analysis")
+          except Exception as e:
+              print(f"- Could not load issues analysis: {e}")
           
           try:
               with open('/tmp/gh_prs_analysis.json', 'r') as f:
                   prs_data = json.load(f)
               print(f"- PRs Merged: {prs_data['merged_count']}")
               print(f"- Auto-merged (Dependabot): {prs_data['auto_merged_count']}")
-          except:
-              print("- Could not load PRs analysis")
+          except Exception as e:
+              print(f"- Could not load PRs analysis: {e}")
           PYTHON_EOF
