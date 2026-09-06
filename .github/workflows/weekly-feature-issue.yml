@@ -194,16 +194,53 @@ jobs:
           match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)
           if match:
             json_text = match.group(1).strip()
-          else:
-            # Try to find JSON object directly
-            match = re.search(r'\{(?:[^{}]|(?:\{[^{}]*\}))*\}', response_text, re.DOTALL)
-            if match:
-              json_text = match.group(0).strip()
+           
+          # If not found in code block, try to extract JSON object
+          if not json_text:
+            # Use a more robust approach: find the first '{' and match braces
+            start_idx = response_text.find('{')
+            if start_idx != -1:
+              # Count braces to find the complete JSON object
+              brace_count = 0
+              end_idx = start_idx
+              in_string = False
+              escape_next = False
+               
+              for i in range(start_idx, len(response_text)):
+                char = response_text[i]
+                 
+                if escape_next:
+                  escape_next = False
+                  continue
+                
+                if char == '\\':
+                  escape_next = True
+                  continue
+                
+                if char == '"' and not escape_next:
+                  in_string = not in_string
+                  continue
+                
+                if in_string:
+                  continue
+                
+                if char == '{':
+                  brace_count += 1
+                elif char == '}':
+                  brace_count -= 1
+                  if brace_count == 0:
+                    end_idx = i + 1
+                    break
+               
+              if brace_count == 0 and end_idx > start_idx:
+                json_text = response_text[start_idx:end_idx].strip()
 
           if not json_text:
             print('ERROR: JSON not found in response')
             print('Response:', response_text[:500])
             exit(1)
+
+          print(f'DEBUG: Extracted JSON text (first 200 chars): {json_text[:200]}')
 
           try:
             proposal = json.loads(json_text)
@@ -228,21 +265,28 @@ jobs:
             if not proposal['title'].startswith('[FEATURE]'):
               proposal['title'] = f"[FEATURE] {proposal['title']}"
 
+            # Validate title is not empty
+            if not proposal['title'] or proposal['title'].strip() == '[FEATURE]':
+              print(f'ERROR: Title is empty or only contains "[FEATURE]": {proposal["title"]}')
+              exit(1)
+
             # Write validated proposal
             Path('./proposal.json').write_text(
               json.dumps(proposal, ensure_ascii=False, indent=2),
               encoding='utf-8'
             )
             print('✓ Proposal validated and saved')
-            print(f'DEBUG: Proposal content:')
+            print(f'DEBUG: Final proposal:')
             print(json.dumps(proposal, indent=2, ensure_ascii=False))
 
           except json.JSONDecodeError as e:
             print(f'ERROR: Invalid JSON: {e}')
-            print('JSON text:', json_text[:200])
+            print('JSON text:', json_text[:500])
             exit(1)
           except Exception as e:
             print(f'ERROR: {e}')
+            import traceback
+            traceback.print_exc()
             exit(1)
           PY
 
