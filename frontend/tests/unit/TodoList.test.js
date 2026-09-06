@@ -79,4 +79,97 @@ describe('TodoList', () => {
 
     expect(deleteTodo).toHaveBeenCalledWith(1);
   });
+
+  describe('Filter functionality', () => {
+    it('displays filter tabs', async () => {
+      fetchTodos.mockResolvedValue({ data: [] });
+
+      const wrapper = mount(TodoList);
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="filter-all"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="filter-incomplete"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="filter-complete"]').exists()).toBe(true);
+    });
+
+    it('displays all todos by default (all filter)', async () => {
+      fetchTodos.mockResolvedValue({
+        data: [
+          { id: 1, title: 'Incomplete', done: false },
+          { id: 2, title: 'Complete', done: true }
+        ]
+      });
+
+      const wrapper = mount(TodoList);
+      await flushPromises();
+
+      expect(wrapper.findAll('[data-testid^="todo-item-"]').length).toBe(2);
+    });
+
+    it('filters to show only incomplete todos', async () => {
+      fetchTodos.mockResolvedValue({
+        data: [
+          { id: 1, title: 'Incomplete', done: false },
+          { id: 2, title: 'Complete', done: true }
+        ]
+      });
+
+      const wrapper = mount(TodoList);
+      await flushPromises();
+
+      const incompleteFilter = wrapper.find('[data-testid="filter-incomplete"]');
+      await incompleteFilter.trigger('click');
+      await wrapper.vm.$nextTick();
+
+      const items = wrapper.findAll('[data-testid^="todo-item-"]');
+      expect(items.length).toBe(1);
+      expect(items[0].text()).toContain('Incomplete');
+    });
+
+    it('filters to show only complete todos', async () => {
+      fetchTodos.mockResolvedValue({
+        data: [
+          { id: 1, title: 'Incomplete', done: false },
+          { id: 2, title: 'Complete', done: true }
+        ]
+      });
+
+      const wrapper = mount(TodoList);
+      await flushPromises();
+
+      const completeFilter = wrapper.find('[data-testid="filter-complete"]');
+      await completeFilter.trigger('click');
+      await wrapper.vm.$nextTick();
+
+      const items = wrapper.findAll('[data-testid^="todo-item-"]');
+      expect(items.length).toBe(1);
+      expect(items[0].text()).toContain('Complete');
+    });
+
+    it('highlights selected filter tab', async () => {
+      fetchTodos.mockResolvedValue({ data: [] });
+
+      const wrapper = mount(TodoList);
+      await flushPromises();
+
+      // テスト: チップが存在し、クリックで状態が変わることを確認
+      const incompleteFilter = wrapper.find('[data-testid="filter-incomplete"]');
+      expect(incompleteFilter.exists()).toBe(true);
+
+      // incompleteFilterをクリック
+      await incompleteFilter.trigger('click');
+      await wrapper.vm.$nextTick();
+
+      // currentFilterが更新されることを確認
+      expect(wrapper.vm.currentFilter).toBe('incomplete');
+
+      // completeFilterをクリック
+      const completeFilter = wrapper.find('[data-testid="filter-complete"]');
+      await completeFilter.trigger('click');
+      await wrapper.vm.$nextTick();
+
+      expect(wrapper.vm.currentFilter).toBe('complete');
+    });
+  });
 });
+

@@ -9,6 +9,24 @@
 
         <v-row class="mb-4">
           <v-col>
+            <div class="d-flex gap-2 mb-4">
+              <v-chip
+                v-for="filter in filters"
+                :key="filter"
+                :variant="currentFilter === filter ? 'elevated' : 'outlined'"
+                :color="currentFilter === filter ? 'primary' : 'default'"
+                @click="currentFilter = filter"
+                :data-testid="`filter-${filter}`"
+                clickable
+              >
+                {{ filterLabels[filter] }}
+              </v-chip>
+            </div>
+          </v-col>
+        </v-row>
+
+        <v-row class="mb-4">
+          <v-col>
             <v-text-field v-model="newTitle" label="新しい TODO を入力" outlined dense />
           </v-col>
           <v-col cols="auto">
@@ -18,7 +36,7 @@
 
         <v-list>
           <v-divider />
-          <v-list-item v-for="todo in todos" :key="todo.id">
+          <v-list-item v-for="todo in filteredTodos" :key="todo.id" :data-testid="`todo-item-${todo.id}`">
             <v-list-item-action>
               <v-checkbox v-model="todo.done" @change="toggleDone(todo)" />
             </v-list-item-action>
@@ -53,7 +71,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import {
   fetchTodos,
   createTodo,
@@ -63,6 +81,25 @@ import {
 
 const todos = ref([]);
 const newTitle = ref("");
+const currentFilter = ref("all");
+
+// フィルター設定
+const filters = ["all", "incomplete", "complete"];
+const filterLabels = {
+  all: "すべて",
+  incomplete: "未完了",
+  complete: "完了"
+};
+
+// フィルター済みTODOリスト
+const filteredTodos = computed(() => {
+  if (currentFilter.value === "incomplete") {
+    return todos.value.filter(todo => !todo.done);
+  } else if (currentFilter.value === "complete") {
+    return todos.value.filter(todo => todo.done);
+  }
+  return todos.value;
+});
 
 // 編集用
 const editing = ref(false);
