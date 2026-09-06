@@ -20,7 +20,6 @@ jobs:
     timeout-minutes: 40
     env:
       ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
-      AUTO_FIX_TOKEN_SECRET_NAME: AUTO_FIX_GITHUB_TOKEN
 
     steps:
       - name: Setup Scripts
@@ -37,19 +36,6 @@ jobs:
         run: /opt/gh-aw/actions/validate_multi_secret.sh COPILOT_GITHUB_TOKEN 'GitHub Copilot CLI' https://github.github.com/gh-aw/reference/engines/#github-copilot-default
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-
-      - name: Detect AUTO_FIX_GITHUB_TOKEN secret
-        id: auto_fix_token
-        env:
-          AUTO_FIX_GITHUB_TOKEN: ${{ secrets[env.AUTO_FIX_TOKEN_SECRET_NAME] }}
-        run: |
-          if [ -n "$AUTO_FIX_GITHUB_TOKEN" ]; then
-            echo 'available=true' >> "$GITHUB_OUTPUT"
-            echo 'reason=configured' >> "$GITHUB_OUTPUT"
-          else
-            echo 'available=false' >> "$GITHUB_OUTPUT"
-            echo 'reason=AUTO_FIX_GITHUB_TOKEN secret is not configured' >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Install GitHub Copilot CLI
         run: /opt/gh-aw/actions/install_copilot_cli.sh 0.0.421
@@ -182,10 +168,10 @@ jobs:
 
       - name: Create pull request
         id: create_pr
-        if: steps.eligibility.outputs.supported == 'true' && steps.auto_fix_token.outputs.available == 'true'
+        if: steps.eligibility.outputs.supported == 'true'
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
-          token: ${{ secrets[env.AUTO_FIX_TOKEN_SECRET_NAME] }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ steps.pr_meta.outputs.branch }}
           base: main
           title: ${{ steps.pr_meta.outputs.title }}
@@ -200,8 +186,6 @@ jobs:
         env:
           SUPPORTED: ${{ steps.eligibility.outputs.supported }}
           REASON: ${{ steps.eligibility.outputs.reason }}
-          AUTO_FIX_TOKEN_AVAILABLE: ${{ steps.auto_fix_token.outputs.available }}
-          AUTO_FIX_TOKEN_REASON: ${{ steps.auto_fix_token.outputs.reason }}
           COPILOT_OUTCOME: ${{ steps.copilot.outcome }}
           VALIDATE_OUTCOME: ${{ steps.validate_changes.outcome }}
           TEST_OUTCOME: ${{ steps.frontend_validation.outcome }}
@@ -222,15 +206,6 @@ jobs:
                 '- status: skipped',
                 `- reason: ${process.env.REASON || 'unsupported'}`,
               ].join('\n');
-            } else if (process.env.AUTO_FIX_TOKEN_AVAILABLE !== 'true') {
-              body = [
-                marker,
-                '### 🤖 Auto Fix PR Pilot',
-                '',
-                '- status: skipped',
-                `- reason: ${process.env.AUTO_FIX_TOKEN_REASON || 'AUTO_FIX_GITHUB_TOKEN unavailable'}`,
-                '- pr_auth: missing',
-              ].join('\n');
             } else {
               const prUrl = process.env.PR_URL || '';
               const status = prUrl ? 'pr-created' : 'failed-before-pr';
@@ -239,7 +214,7 @@ jobs:
                 '### 🤖 Auto Fix PR Pilot',
                 '',
                 `- status: ${status}`,
-                '- pr_auth: configured',
+                '- pr_auth: github-token',
                 `- copilot: ${process.env.COPILOT_OUTCOME || 'unknown'}`,
                 `- changed_files_validation: ${process.env.VALIDATE_OUTCOME || 'unknown'}`,
                 `- validation_tests: ${process.env.TEST_OUTCOME || 'unknown'}`,
