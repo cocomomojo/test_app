@@ -16,9 +16,38 @@
           </v-col>
         </v-row>
 
+        <v-row class="mb-6">
+          <v-col class="d-flex gap-2">
+            <v-chip
+              data-testid="filter-chip-all"
+              :variant="activeFilter === 'all' ? 'elevated' : 'outlined'"
+              :color="activeFilter === 'all' ? 'primary' : ''"
+              @click="activeFilter = 'all'"
+            >
+              すべて
+            </v-chip>
+            <v-chip
+              data-testid="filter-chip-pending"
+              :variant="activeFilter === 'pending' ? 'elevated' : 'outlined'"
+              :color="activeFilter === 'pending' ? 'primary' : ''"
+              @click="activeFilter = 'pending'"
+            >
+              未完了
+            </v-chip>
+            <v-chip
+              data-testid="filter-chip-completed"
+              :variant="activeFilter === 'completed' ? 'elevated' : 'outlined'"
+              :color="activeFilter === 'completed' ? 'primary' : ''"
+              @click="activeFilter = 'completed'"
+            >
+              完了
+            </v-chip>
+          </v-col>
+        </v-row>
+
         <v-list>
           <v-divider />
-          <v-list-item v-for="todo in todos" :key="todo.id">
+          <v-list-item v-for="todo in filteredTodos" :key="todo.id">
             <v-list-item-action>
               <v-checkbox v-model="todo.done" @change="toggleDone(todo)" />
             </v-list-item-action>
@@ -53,7 +82,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import {
   fetchTodos,
   createTodo,
@@ -63,6 +92,7 @@ import {
 
 const todos = ref([]);
 const newTitle = ref("");
+const activeFilter = ref("all");
 
 // 編集用
 const editing = ref(false);
@@ -73,6 +103,17 @@ const editTitle = ref("");
 const snackbar = ref(false);
 const snackMsg = ref('');
 const snackColor = ref('success');
+
+const filteredTodos = computed(() => {
+  if (activeFilter.value === "all") {
+    return todos.value;
+  } else if (activeFilter.value === "pending") {
+    return todos.value.filter(todo => !todo.done);
+  } else if (activeFilter.value === "completed") {
+    return todos.value.filter(todo => todo.done);
+  }
+  return todos.value;
+});
 
 const load = async () => {
   const res = await fetchTodos();

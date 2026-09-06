@@ -79,4 +79,94 @@ describe('TodoList', () => {
 
     expect(deleteTodo).toHaveBeenCalledWith(1);
   });
+
+  it('displays filter chips for status filtering', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [
+        { id: 1, title: 'Completed', done: true },
+        { id: 2, title: 'Pending', done: false }
+      ]
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    const chips = wrapper.findAll('[data-testid^="filter-chip"]');
+    expect(chips.length).toBe(3);
+  });
+
+  it('filters todos by "すべて" status', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [
+        { id: 1, title: 'Completed', done: true },
+        { id: 2, title: 'Pending', done: false }
+      ]
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    const allChip = wrapper.find('[data-testid="filter-chip-all"]');
+    await allChip.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Completed');
+    expect(wrapper.text()).toContain('Pending');
+  });
+
+  it('filters todos by "未完了" status', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [
+        { id: 1, title: 'Completed', done: true },
+        { id: 2, title: 'Pending', done: false }
+      ]
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    const pendingChip = wrapper.find('[data-testid="filter-chip-pending"]');
+    await pendingChip.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Pending');
+    expect(wrapper.text()).not.toContain('Completed');
+  });
+
+  it('filters todos by "完了" status', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [
+        { id: 1, title: 'Completed', done: true },
+        { id: 2, title: 'Pending', done: false }
+      ]
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    const completedChip = wrapper.find('[data-testid="filter-chip-completed"]');
+    await completedChip.trigger('click');
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('Completed');
+    expect(wrapper.text()).not.toContain('Pending');
+  });
+
+  it('highlights the selected filter chip', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [{ id: 1, title: 'Task', done: false }]
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    const allChip = wrapper.find('[data-testid="filter-chip-all"]');
+    expect(allChip.classes()).toContain('v-chip--variant-elevated');
+
+    const pendingChip = wrapper.find('[data-testid="filter-chip-pending"]');
+    await pendingChip.trigger('click');
+    await flushPromises();
+
+    expect(pendingChip.classes()).toContain('v-chip--variant-elevated');
+  });
 });
