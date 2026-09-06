@@ -3,7 +3,6 @@ name: Dependabot Label Setup
 on:
   pull_request:
     types: [opened]
-  workflow_dispatch:
 
 permissions:
   issues: write
