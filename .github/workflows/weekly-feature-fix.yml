@@ -327,6 +327,10 @@ jobs:
           html_url = issue.get('html_url', 'N/A')
           timestamp = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
 
+          # Get test result status from environment
+          test_outcome = '''${{ steps.test_exec.outcome }}'''
+          test_status = '[x] Tests passed' if test_outcome == 'success' else '[✗] Tests failed'
+           
           lines = [
               '## 🤖 Auto-generated PR',
               '',
@@ -345,7 +349,7 @@ jobs:
               '### Checklist',
               '',
               '- [x] Implementation completed',
-              '- [x] Tests passed',
+              f'- {test_status}',
               '- [ ] Ready for review',
               '',
               '---',
@@ -371,7 +375,7 @@ jobs:
           body-path: ${{ steps.pr_desc.outputs.pr_body_path }}
           commit-message: ${{ steps.pr_meta.outputs.commit_message }}
           draft: true
-          delete-branch: true
+          delete-branch: false
 
       - name: Update issue with PR link
         if: steps.create_pr.outputs.pull-request-url != ''
