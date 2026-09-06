@@ -282,8 +282,23 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           XDG_CONFIG_HOME: /home/runner
 
-      - name: Run tests
+      - name: Detect changes early (before tests)
         if: steps.init.outputs.exceeded_max == 'false'
+        id: early_changes
+        run: |
+          cd "${GITHUB_WORKSPACE}"
+           
+          # Check for any changes (uncommitted, untracked, etc.)
+          if git status --porcelain | grep -q .; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "✅ Changes detected - will run tests"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "⚠️ No changes detected - skipping tests"
+          fi
+
+      - name: Run tests
+        if: steps.init.outputs.exceeded_max == 'false' && steps.early_changes.outputs.has_changes == 'true'
         id: test_exec
         continue-on-error: true
         run: |
@@ -401,7 +416,7 @@ jobs:
           echo "Debug info collected successfully"
 
       - name: Detect changes and prepare PR metadata
-        if: steps.init.outputs.exceeded_max == 'false' && steps.test_exec.outcome == 'success'
+        if: steps.init.outputs.exceeded_max == 'false' && steps.early_changes.outputs.has_changes == 'true' && steps.test_exec.outcome == 'success'
         id: pr_meta
         run: |
           cd "${GITHUB_WORKSPACE}"
