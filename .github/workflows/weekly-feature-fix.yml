@@ -364,6 +364,16 @@ jobs:
 
           echo "prompt_generated=true" >> "$GITHUB_OUTPUT"
 
+      - name: Configure git for Copilot execution
+        if: steps.init.outputs.exceeded_max == 'false' &&
+            steps.generate_prompt.outputs.prompt_generated == 'true'
+        run: |
+          # git push実行時にCOPILOT_GITHUB_TOKENを使用するよう設定
+          git config --global credential.helper store
+          echo "https://x-access-token:${{ secrets.COPILOT_GITHUB_TOKEN }}@github.com" > ~/.git-credentials
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
       - name: Execute GitHub Copilot for implementation
         if: steps.init.outputs.exceeded_max == 'false' &&
             steps.generate_prompt.outputs.prompt_generated == 'true'
