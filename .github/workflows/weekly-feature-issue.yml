@@ -51,6 +51,70 @@ jobs:
       - name: Install GitHub Copilot CLI
         run: /opt/gh-aw/actions/install_copilot_cli.sh 0.0.421
 
+      - name: Analyze existing implementations
+        id: analyze_impl
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 <<'PY'
+          import subprocess
+          import json
+          from datetime import datetime, timedelta
+          from pathlib import Path
+
+          # Get recent commits (past 30 days) with messages
+          result = subprocess.run(
+            ['git', 'log', '--oneline', '--since=30 days ago'],
+            capture_output=True,
+            text=True,
+            cwd='.'
+          )
+           
+          commits = result.stdout.strip().split('\n') if result.stdout.strip() else []
+           
+          # Extract commit messages
+          commit_keywords = []
+          for commit in commits:
+            if commit:
+              # Get full commit message
+              msg_result = subprocess.run(
+                ['git', 'log', '--format=%B', '-n', '1', commit.split()[0]],
+                capture_output=True,
+                text=True,
+                cwd='.'
+              )
+              msg = msg_result.stdout.lower()
+              commit_keywords.extend(msg.split())
+           
+          # Get list of open feature issues
+          open_issues_result = subprocess.run(
+            ['gh', 'issue', 'list', '--search', 'label:feature state:open', '--json', 'body,title'],
+            capture_output=True,
+            text=True
+          )
+           
+          open_issues_text = ''
+          try:
+            if open_issues_result.stdout:
+              open_issues = json.loads(open_issues_result.stdout)
+              open_issues_text = '\n'.join([
+                f"{issue['title']}: {issue['body'][:200]}"
+                for issue in open_issues
+              ])
+          except:
+            pass
+           
+          # Save analysis results
+          with open('./existing_implementations.txt', 'w') as f:
+            f.write('### Recent Commits (past 30 days)\n')
+            for commit in commits[:20]:  # Last 20 commits
+              f.write(f'{commit}\n')
+            f.write('\n### Open Feature Issues\n')
+            f.write(open_issues_text if open_issues_text else '(No open feature issues)')
+           
+          print('✓ Existing implementations analyzed')
+          PY
+
       - name: Create Copilot prompt
         env:
           FEATURE_CATEGORY: ${{ github.event.inputs.category || 'Both' }}
@@ -58,16 +122,27 @@ jobs:
         run: |
           python3 <<'PY'
           import os
+          from pathlib import Path
 
           category = os.environ.get('FEATURE_CATEGORY', 'Both')
           difficulty = os.environ.get('DIFFICULTY_LEVEL', 'Medium')
+           
+          # Read existing implementations
+          existing_impl = Path('./existing_implementations.txt').read_text(encoding='utf-8')
 
-          prompt = f"""Analyze this Vue 3 + Spring Boot project and propose ONE useful feature improvement.
+          prompt = f"""Analyze this Vue 3 + Spring Boot project and propose ONE UNIQUE useful feature improvement.
 
           ## Context
           - Feature Category: {category}
           - Difficulty Level: {difficulty}
           - Project Structure: Frontend (Vue 3 + Vuetify), Backend (Spring Boot 3)
+
+          ## IMPORTANT: Avoid Duplicates
+          Review the following existing implementations and open issues.
+          **DO NOT propose features that are already implemented or already have open issues.**
+          Propose a NEW, UNIQUE feature that is NOT listed below:
+
+          {existing_impl}
 
           ## Requirements
           Output ONLY valid JSON in this exact format (no other text, no markdown):
@@ -81,7 +156,7 @@ jobs:
 
           with open('./copilot-prompt.txt', 'w') as f:
             f.write(prompt)
-          print("✓ Prompt created")
+          print("✓ Prompt created with existing implementation context")
           PY
 
       - name: Execute Copilot for feature proposal
@@ -221,15 +296,76 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TITLE=$(cat ./issue-title.txt)
-          EXISTING=$(gh issue list --search "in:title \"$TITLE\"" --state open --json number -q '.[0].number' 2>/dev/null || echo "")
-          if [ -n "$EXISTING" ]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "number=$EXISTING" >> "$GITHUB_OUTPUT"
-            echo "ℹ️ Issue #$EXISTING already exists with this title"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
+          python3 <<'PY'
+          import subprocess
+          import json
+          import re
+          from pathlib import Path
+
+          title = Path('./issue-title.txt').read_text(encoding='utf-8').strip()
+          body = Path('./issue-body.md').read_text(encoding='utf-8').strip()
+           
+          # Check by exact title match first (fastest)
+          result = subprocess.run(
+            ['gh', 'issue', 'list', '--search', f'in:title "{title}"', '--state', 'open', '--json', 'number,title,body'],
+            capture_output=True,
+            text=True
+          )
+           
+          if result.returncode == 0 and result.stdout:
+            try:
+              issues = json.loads(result.stdout)
+              if issues:
+                issue_num = issues[0]['number']
+                with open('check_result.txt', 'w') as f:
+                  f.write(f"exists=true\n")
+                  f.write(f"number={issue_num}\n")
+                print(f"ℹ️ Issue #{issue_num} already exists with this title")
+                exit(0)
+            except:
+              pass
+           
+          # Check for similar issues by keyword match
+          result = subprocess.run(
+            ['gh', 'issue', 'list', '--label', 'feature', '--state', 'open', '--json', 'number,title,body'],
+            capture_output=True,
+            text=True
+          )
+           
+          if result.returncode == 0 and result.stdout:
+            try:
+              open_issues = json.loads(result.stdout)
+               
+              # Extract key terms from the new proposal
+              new_keywords = set(re.findall(r'\w{3,}', title.lower()))
+              new_keywords |= set(re.findall(r'\w{5,}', body.lower()))  # Words 5+ chars
+               
+              # Compare with existing issues
+              for issue in open_issues:
+                existing_keywords = set(re.findall(r'\w{3,}', issue['title'].lower()))
+                existing_keywords |= set(re.findall(r'\w{5,}', (issue.get('body') or '').lower()))
+                 
+                # Calculate similarity (need 60% keyword overlap)
+                if new_keywords and existing_keywords:
+                  common = new_keywords & existing_keywords
+                  similarity = len(common) / max(len(new_keywords), len(existing_keywords))
+                  if similarity >= 0.6:
+                    with open('check_result.txt', 'w') as f:
+                      f.write(f"exists=true\n")
+                      f.write(f"number={issue['number']}\n")
+                    print(f"⚠️ Similar issue #{issue['number']} already exists: {issue['title']}")
+                    exit(0)
+            except:
+              pass
+           
+          # No duplicates found
+          with open('check_result.txt', 'w') as f:
+            f.write(f"exists=false\n")
+          print(f"✓ No duplicate issues detected")
+          PY
+           
+          # Read results and export to GITHUB_OUTPUT
+          cat check_result.txt >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub labels
         if: steps.check.outputs.exists == 'false'
