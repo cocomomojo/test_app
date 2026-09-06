@@ -36,21 +36,27 @@ jobs:
           python3 << 'PYTHON_EOF'
           import json
           import subprocess
-          from datetime import datetime, timedelta
+          import os
+          from datetime import datetime, timedelta, timezone
           
           # Get workflow runs from the past 7 days
-          end_date = datetime.utcnow()
+          end_date = datetime.now(timezone.utc)
           start_date = end_date - timedelta(days=7)
           
           # Get all workflow runs
+          env = {**os.environ, 'GH_TOKEN': os.environ['GH_TOKEN']}
           result = subprocess.run(
               ['gh', 'run', 'list', '--json', 'name,status,conclusion,createdAt,updatedAt,databaseId'],
               capture_output=True,
               text=True,
-              env={'GH_TOKEN': '${{ secrets.GITHUB_TOKEN }}'}
+              env=env
           )
           
-          runs = json.loads(result.stdout)
+          if result.returncode != 0:
+              print(f"Error running gh command: {result.stderr}")
+              runs = []
+          else:
+              runs = json.loads(result.stdout)
           
           # Filter runs from past 7 days
           recent_runs = []
@@ -107,20 +113,26 @@ jobs:
           python3 << 'PYTHON_EOF'
           import json
           import subprocess
-          from datetime import datetime, timedelta
+          import os
+          from datetime import datetime, timedelta, timezone
           
-          end_date = datetime.utcnow()
+          end_date = datetime.now(timezone.utc)
           start_date = end_date - timedelta(days=7)
           
           # Get issues created in the past 7 days
+          env = {**os.environ, 'GH_TOKEN': os.environ['GH_TOKEN']}
           created_result = subprocess.run(
               ['gh', 'issue', 'list', '--state', 'all', '--json', 'number,title,labels,state,createdAt,closedAt,url'],
               capture_output=True,
               text=True,
-              env={'GH_TOKEN': '${{ secrets.GITHUB_TOKEN }}'}
+              env=env
           )
           
-          issues = json.loads(created_result.stdout)
+          if created_result.returncode != 0:
+              print(f"Error running gh command: {created_result.stderr}")
+              issues = []
+          else:
+              issues = json.loads(created_result.stdout)
           
           # Filter issues
           recent_created = []
@@ -172,20 +184,26 @@ jobs:
           python3 << 'PYTHON_EOF'
           import json
           import subprocess
-          from datetime import datetime, timedelta
+          import os
+          from datetime import datetime, timedelta, timezone
           
-          end_date = datetime.utcnow()
+          end_date = datetime.now(timezone.utc)
           start_date = end_date - timedelta(days=7)
           
           # Get all PRs
+          env = {**os.environ, 'GH_TOKEN': os.environ['GH_TOKEN']}
           result = subprocess.run(
               ['gh', 'pr', 'list', '--state', 'all', '--json', 'number,title,state,merged,mergedAt,createdAt,url'],
               capture_output=True,
               text=True,
-              env={'GH_TOKEN': '${{ secrets.GITHUB_TOKEN }}'}
+              env=env
           )
           
-          prs = json.loads(result.stdout)
+          if result.returncode != 0:
+              print(f"Error running gh command: {result.stderr}")
+              prs = []
+          else:
+              prs = json.loads(result.stdout)
           
           # Filter PRs from past 7 days
           recent_prs = []
@@ -224,7 +242,7 @@ jobs:
         run: |
           python3 << 'PYTHON_EOF'
           import json
-          from datetime import datetime
+          from datetime import datetime, timezone
           
           with open('/tmp/gh_actions_analysis.json', 'r') as f:
               actions_data = json.load(f)
@@ -235,7 +253,7 @@ jobs:
           with open('/tmp/gh_prs_analysis.json', 'r') as f:
               prs_data = json.load(f)
           
-          today_date = datetime.utcnow().strftime('%Y-%m-%d')
+          today_date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
           
           report = []
           report.append("# 🔄 Weekly Loop Engineering Report")
@@ -381,9 +399,6 @@ jobs:
           
           markdown_report = "\n".join(report)
           
-          with open('/tmp/loop_engineering_report.md', 'w', encoding='utf-8') as f:
-              f.write(markdown_report)
-          
           with open('report.txt', 'w', encoding='utf-8') as f:
               f.write(markdown_report)
           
@@ -398,11 +413,9 @@ jobs:
           ISSUE_DATE=$(date -u +%Y-%m-%d)
           ISSUE_TITLE="[LOOP REPORT] ${ISSUE_DATE}"
           
-          REPORT_BODY=$(cat report.txt)
-          
           ISSUE_OUTPUT=$(gh issue create \
             --title "${ISSUE_TITLE}" \
-            --body "${REPORT_BODY}" \
+            --body-file report.txt \
             --label "loop-engineering-report" \
             --json url,number 2>&1)
           
