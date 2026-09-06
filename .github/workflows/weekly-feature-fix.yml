@@ -216,7 +216,7 @@ jobs:
           ISSUE_TITLE=$(jq -r '.title' /tmp/feature-fix/issue.json)
 
           cat > /tmp/feature-fix/output/prompt.txt << 'PROMPT_EOF'
-          You are a skilled software developer implementing features.
+          You are a skilled software developer implementing features for a full-stack application.
 
           PROMPT_EOF
 
@@ -236,7 +236,16 @@ jobs:
             /tmp/feature-fix/output/prompt.txt
           echo "5. Verify acceptance criteria" >> \
             /tmp/feature-fix/output/prompt.txt
-          echo "6. Create a pull request when tests pass" >> \
+          echo "" >> /tmp/feature-fix/output/prompt.txt
+          echo "IMPORTANT: After completing the implementation:" >> \
+            /tmp/feature-fix/output/prompt.txt
+          echo "- Stage ALL modified files: git add ." >> \
+            /tmp/feature-fix/output/prompt.txt
+          echo "- Commit the changes with a descriptive message" >> \
+            /tmp/feature-fix/output/prompt.txt
+          echo "- Push the branch to the remote repository" >> \
+            /tmp/feature-fix/output/prompt.txt
+          echo "- The workflow will automatically create a pull request" >> \
             /tmp/feature-fix/output/prompt.txt
 
           echo "prompt_generated=true" >> "$GITHUB_OUTPUT"
@@ -289,11 +298,40 @@ jobs:
         run: |
           cd "${GITHUB_WORKSPACE}"
 
+          # デバッグログ：ファイルの状態を確認
+          echo "=== Git Status ===" >&2
+          git status --porcelain
+          echo "" >&2
+           
+          echo "=== Git Diff Summary ===" >&2
+          git diff --stat || echo "No changes in git diff"
+          echo "" >&2
+           
+          echo "=== Untracked Files ===" >&2
+          git status --short | grep "^??" || echo "No untracked files"
+          echo "" >&2
+
           # チェンジをチェック（未追跡ファイルを含む）
           if git status --porcelain | grep -q .; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
           else
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
+             
+            # 変更がない場合のデバッグ情報を保存
+            {
+              echo "debug_info<<'DEBUGEOF'"
+              echo "No changes detected after Copilot execution."
+              echo ""
+              echo "### Debug Information:"
+              echo "- git status returned empty (no staged, modified, or untracked files)"
+              echo "- Tests passed but no code changes were made"
+              echo "- This may indicate:"
+              echo "  1. The issue was already implemented"
+              echo "  2. Copilot did not generate any changes"
+              echo "  3. Changes were not staged/committed properly"
+              echo "DEBUGEOF"
+            } >> "$GITHUB_OUTPUT"
+             
             exit 0
           fi
 
@@ -362,6 +400,42 @@ jobs:
           PYTHON_EOF
 
           echo "pr_body_path=/tmp/feature-fix/pr/description.md" >> "$GITHUB_OUTPUT"
+
+      - name: Report no changes detected
+        if: steps.pr_meta.outputs.has_changes == 'false'
+        uses: actions/github-script@v7
+        env:
+          DEBUG_INFO: ${{ steps.pr_meta.outputs.debug_info }}
+        with:
+          script: |
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const debugInfo = process.env.DEBUG_INFO || 'No debug information available';
+
+            const comment = [
+              '<!-- weekly-feature-fix-no-changes -->',
+              '## ⚠️ No Changes Detected',
+              '',
+              'The Copilot workflow completed successfully and all tests passed, but no code changes were detected.',
+              '',
+              debugInfo,
+              '',
+              '### Possible Next Steps:',
+              '- [ ] Verify the issue requirements are clear',
+              '- [ ] Check if the feature is already implemented',
+              '- [ ] Review the Copilot execution logs',
+              '- [ ] Manually implement the feature',
+            ].join('\n');
+
+            try {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: comment,
+              });
+            } catch (error) {
+              core.warning(`Failed to create comment: ${error.message}`);
+            }
 
       - name: Create pull request
         id: create_pr
