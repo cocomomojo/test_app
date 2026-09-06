@@ -130,7 +130,9 @@ jobs:
           # Read existing implementations
           existing_impl = Path('./existing_implementations.txt').read_text(encoding='utf-8')
 
-          prompt = f"""このVue 3 + Spring Bootプロジェクトを分析して、1つの新しい有用な機能改善を提案してください。
+          prompt = f"""【重要】このリクエストへのすべての応答は日本語で行ってください。
+
+このVue 3 + Spring Bootプロジェクトを分析して、1つの新しい有用な機能改善を提案してください。
 
           ## コンテキスト
           - 機能カテゴリ: {category}

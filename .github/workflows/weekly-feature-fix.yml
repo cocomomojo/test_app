@@ -216,6 +216,8 @@ jobs:
           ISSUE_TITLE=$(jq -r '.title' /tmp/feature-fix/issue.json)
 
           cat > /tmp/feature-fix/output/prompt.txt << 'PROMPT_EOF'
+          【重要】すべての応答と実装は日本語で行ってください。
+
           あなたはフルスタックアプリケーションの機能を実装するスキルの高いソフトウェア開発者です。
 
           PROMPT_EOF
