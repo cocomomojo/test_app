@@ -302,9 +302,9 @@ jobs:
           PR_TITLE="feat: Implement feature for issue #${ISSUE_NUMBER}"
           PR_COMMIT_MSG="feat: auto-implement issue #${ISSUE_NUMBER}"
 
-          echo "branch_name=${BRANCH_NAME}" >> "$GITHUB_OUTPUT"
-          echo "pr_title=${PR_TITLE}" >> "$GITHUB_OUTPUT"
-          echo "commit_message=${PR_COMMIT_MSG}" >> "$GITHUB_OUTPUT"
+          printf 'branch_name=%s\n' "$BRANCH_NAME" >> "$GITHUB_OUTPUT"
+          printf 'pr_title=%s\n' "$PR_TITLE" >> "$GITHUB_OUTPUT"
+          printf 'commit_message=%s\n' "$PR_COMMIT_MSG" >> "$GITHUB_OUTPUT"
 
           echo "PR metadata prepared: branch=$BRANCH_NAME"
 
@@ -320,7 +320,7 @@ jobs:
           ISSUE_URL=$(jq -r '.html_url' /tmp/feature-fix/issue.json)
           TIMESTAMP=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
 
-          cat > /tmp/feature-fix/pr/description.md << 'EOF'
+          cat > /tmp/feature-fix/pr/description.md << EOF
           ## 🤖 Auto-generated PR
 
           This PR was automatically created by GitHub Copilot to address the feature request.
