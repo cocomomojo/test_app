@@ -77,7 +77,8 @@ jobs:
           successful = sum(1 for r in recent_runs if r['conclusion'] == 'success')
           failed = sum(1 for r in recent_runs if r['conclusion'] == 'failure')
           cancelled = sum(1 for r in recent_runs if r['conclusion'] == 'cancelled')
-          skipped = sum(1 for r in recent_runs if r['conclusion'] == 'skipped' or r['conclusion'] is None)
+          skipped = sum(1 for r in recent_runs if r['conclusion'] == 'skipped')
+          in_progress = sum(1 for r in recent_runs if r['conclusion'] is None)
           
           success_rate = (successful / total_runs * 100) if total_runs > 0 else 0
           
@@ -99,6 +100,7 @@ jobs:
               'failed': failed,
               'cancelled': cancelled,
               'skipped': skipped,
+              'in_progress': in_progress,
               'success_rate': success_rate,
               'workflows': workflows,
               'analysis_period_start': start_date.strftime('%Y-%m-%d'),
@@ -296,6 +298,7 @@ jobs:
           report.append(f"- **失敗**: {actions_data['failed']} 回")
           report.append(f"- **キャンセル**: {actions_data['cancelled']} 回")
           report.append(f"- **スキップ**: {actions_data['skipped']} 回")
+          report.append(f"- **実行中/キュー中**: {actions_data['in_progress']} 回")
           report.append("")
           report.append("### Issue 処理")
           report.append(f"- **作成**: {issues_data['created_count']} 件")
