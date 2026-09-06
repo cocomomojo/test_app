@@ -75,6 +75,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.COPILOT_GITHUB_TOKEN }}
 
       - name: Initialize retry counter
         id: init
