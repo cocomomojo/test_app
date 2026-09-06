@@ -439,20 +439,24 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -e
           ISSUE_DATE=$(date -u +%Y-%m-%d)
           ISSUE_TITLE="[LOOP REPORT] ${ISSUE_DATE}"
           
-          ISSUE_JSON=$(gh issue create \
+          if ! ISSUE_JSON=$(gh issue create \
             --title "${ISSUE_TITLE}" \
             --body-file report.txt \
             --label "loop-engineering-report" \
-            --json url,number 2>&1)
-          
-          CREATE_EXIT=$?
-          
-          if [ $CREATE_EXIT -ne 0 ] || [ -z "$ISSUE_JSON" ]; then
+            --json url,number 2>&1); then
             echo "Failed to create issue"
             echo "$ISSUE_JSON"
+            echo "issue_url=" >> $GITHUB_OUTPUT
+            echo "issue_number=" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          if [ -z "$ISSUE_JSON" ]; then
+            echo "Empty response from gh issue create"
             echo "issue_url=" >> $GITHUB_OUTPUT
             echo "issue_number=" >> $GITHUB_OUTPUT
             exit 1
@@ -477,11 +481,10 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          ISSUE_URL="${{ steps.create_issue.outputs.issue_url }}"
-          
           echo "## 📊 Weekly Loop Engineering Report Generated" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
+          ISSUE_URL="${{ steps.create_issue.outputs.issue_url }}"
           if [ -n "$ISSUE_URL" ]; then
             echo "✅ Report Issue: ${ISSUE_URL}" >> $GITHUB_STEP_SUMMARY
           else
@@ -490,7 +493,7 @@ jobs:
           
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Analysis Results" >> $GITHUB_STEP_SUMMARY
-          python3 << 'PYTHON_EOF'
+          python3 << 'PYTHON_EOF' >> $GITHUB_STEP_SUMMARY
           import json
           
           try:
