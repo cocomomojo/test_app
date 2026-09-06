@@ -1,14 +1,9 @@
 name: Dependabot Auto-merge
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
   workflow_run:
     workflows: ["PR Quality Checks"]
     types: [completed]
-  push:
-    branches:
-      - 'dependabot/**'
   workflow_dispatch:
 
 permissions:
@@ -18,11 +13,9 @@ permissions:
 
 jobs:
   auto-test-and-merge:
-    # Run on Dependabot PRs: when they are opened/updated/reopened, when PR Quality Checks completes, or when push events occur on dependabot branches
+    # Run when PR Quality Checks completes on a Dependabot PR
     if: |
-      (github.event_name == 'pull_request' && github.actor == 'dependabot[bot]') ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request') ||
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/dependabot/'))
+      github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -32,57 +25,25 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
-            let prNumber, prData;
-            
-            if (context.eventName === 'pull_request') {
-              prNumber = context.payload.pull_request.number;
-              prData = context.payload.pull_request;
-            } else if (context.eventName === 'workflow_run') {
-              const run = context.payload.workflow_run;
-              prNumber = run.pull_requests[0]?.number;
-              
-              if (!prNumber) {
-                core.info('No PR associated with this workflow run');
-                return;
-              }
-              
-              const { data: pr } = await github.rest.pulls.get({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: prNumber,
-              });
-              prData = pr;
-            } else if (context.eventName === 'push') {
-              // For push events on dependabot branches, find the associated PR
-              const ref = context.payload.ref;
-              const branchName = ref.replace('refs/heads/', '');
-              
-              if (!branchName.startsWith('dependabot/')) {
-                core.info('Not a Dependabot branch, skipping');
-                return;
-              }
-              
-              // Search for PR with this branch
-              const { data: pulls } = await github.rest.pulls.list({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                head: `${context.repo.owner}:${branchName}`,
-                state: 'open',
-              });
-              
-              if (pulls.length === 0) {
-                core.info('No open PR found for this Dependabot branch');
-                return;
-              }
-              
-              prNumber = pulls[0].number;
-              prData = pulls[0];
+            const run = context.payload.workflow_run;
+            const prNumber = run.pull_requests[0]?.number;
+             
+            if (!prNumber) {
+              core.info('No PR associated with this workflow run');
+              core.setOutput('is_dependabot', 'false');
+              return;
             }
-            
+             
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            });
+             
             core.setOutput('number', prNumber);
-            core.setOutput('is_dependabot', prData?.user?.login === 'dependabot[bot]');
-            core.setOutput('head_ref', prData?.head?.ref);
-            core.setOutput('state', prData?.state);
+            core.setOutput('is_dependabot', pr.user.login === 'dependabot[bot]');
+            core.setOutput('head_ref', pr.head.ref);
+            core.setOutput('state', pr.state);
 
       - name: Skip if not Dependabot PR
         if: steps.pr_info.outputs.is_dependabot != 'true'
