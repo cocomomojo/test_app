@@ -1,0 +1,530 @@
+name: Weekly Loop Engineering Report
+
+on:
+  schedule:
+    # 毎週土曜日 9:00 UTC
+    - cron: '0 9 * * 6'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+  actions: read
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      report_issue_number: ${{ steps.create_issue.outputs.issue_number }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python for analysis
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Get GitHub Actions workflow data
+        id: gh_actions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 << 'PYTHON_EOF'
+          import json
+          import subprocess
+          import os
+          from datetime import datetime, timedelta, timezone
+          
+          # Get workflow runs from the past 7 days
+          end_date = datetime.now(timezone.utc)
+          start_date = end_date - timedelta(days=7)
+          
+          # Get all workflow runs with increased limit
+          env = os.environ
+          result = subprocess.run(
+              ['gh', 'run', 'list', '--json', 'name,status,conclusion,createdAt,updatedAt,databaseId', '--limit', '500'],
+              capture_output=True,
+              text=True,
+              env=env
+          )
+          
+          if result.returncode != 0:
+              print(f"Error running gh command: {result.stderr}")
+              runs = []
+          else:
+              try:
+                  runs = json.loads(result.stdout)
+              except json.JSONDecodeError:
+                  print(f"Error parsing JSON: {result.stdout}")
+                  runs = []
+          
+          # Filter runs from past 7 days
+          recent_runs = []
+          for run in runs:
+              try:
+                  created = datetime.fromisoformat(run['createdAt'].replace('Z', '+00:00'))
+                  if created >= start_date:
+                      recent_runs.append(run)
+              except (KeyError, ValueError):
+                  continue
+          
+          # Analyze statistics
+          total_runs = len(recent_runs)
+          successful = sum(1 for r in recent_runs if r['conclusion'] == 'success')
+          failed = sum(1 for r in recent_runs if r['conclusion'] == 'failure')
+          cancelled = sum(1 for r in recent_runs if r['conclusion'] == 'cancelled')
+          skipped = sum(1 for r in recent_runs if r['conclusion'] == 'skipped')
+          in_progress = sum(1 for r in recent_runs if r['conclusion'] is None)
+          
+          success_rate = (successful / total_runs * 100) if total_runs > 0 else 0
+          
+          # Group by workflow name
+          workflows = {}
+          for run in recent_runs:
+              name = run['name']
+              if name not in workflows:
+                  workflows[name] = {'total': 0, 'success': 0, 'failed': 0}
+              workflows[name]['total'] += 1
+              if run['conclusion'] == 'success':
+                  workflows[name]['success'] += 1
+              elif run['conclusion'] == 'failure':
+                  workflows[name]['failed'] += 1
+          
+          analysis = {
+              'total_runs': total_runs,
+              'successful': successful,
+              'failed': failed,
+              'cancelled': cancelled,
+              'skipped': skipped,
+              'in_progress': in_progress,
+              'success_rate': success_rate,
+              'workflows': workflows,
+              'analysis_period_start': start_date.strftime('%Y-%m-%d'),
+              'analysis_period_end': end_date.strftime('%Y-%m-%d')
+          }
+          
+          with open('/tmp/gh_actions_analysis.json', 'w') as f:
+              json.dump(analysis, f, indent=2)
+          
+          print(f"Analyzed {total_runs} workflow runs")
+          print(f"Success rate: {success_rate:.1f}%")
+          PYTHON_EOF
+
+      - name: Get GitHub Issues data
+        id: gh_issues
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 << 'PYTHON_EOF'
+          import json
+          import subprocess
+          import os
+          from datetime import datetime, timedelta, timezone
+          
+          end_date = datetime.now(timezone.utc)
+          start_date = end_date - timedelta(days=7)
+          
+          # Get issues with increased limit
+          env = os.environ
+          created_result = subprocess.run(
+              ['gh', 'issue', 'list', '--state', 'all', '--json', 'number,title,labels,state,createdAt,closedAt,url', '--limit', '500'],
+              capture_output=True,
+              text=True,
+              env=env
+          )
+          
+          if created_result.returncode != 0:
+              print(f"Error running gh command: {created_result.stderr}")
+              issues = []
+          else:
+              try:
+                  issues = json.loads(created_result.stdout)
+              except json.JSONDecodeError:
+                  print(f"Error parsing JSON: {created_result.stdout}")
+                  issues = []
+          
+          # Filter issues
+          recent_created = []
+          recent_closed = []
+          
+          for issue in issues:
+              try:
+                  created = datetime.fromisoformat(issue['createdAt'].replace('Z', '+00:00'))
+                  if created >= start_date:
+                      recent_created.append(issue)
+                  
+                  if issue['closedAt']:
+                      closed = datetime.fromisoformat(issue['closedAt'].replace('Z', '+00:00'))
+                      if closed >= start_date:
+                          recent_closed.append(issue)
+              except (KeyError, ValueError):
+                  continue
+          
+          # Analyze by labels
+          labels_analysis = {}
+          for issue in recent_created:
+              for label in issue['labels']:
+                  label_name = label['name']
+                  if label_name not in labels_analysis:
+                      labels_analysis[label_name] = {'total': 0, 'closed': 0}
+                  labels_analysis[label_name]['total'] += 1
+          
+          for issue in recent_closed:
+              for label in issue['labels']:
+                  label_name = label['name']
+                  if label_name in labels_analysis:
+                      labels_analysis[label_name]['closed'] += 1
+          
+          analysis = {
+              'created_count': len(recent_created),
+              'closed_count': len(recent_closed),
+              'open_count': len([i for i in recent_created if i['state'] == 'OPEN']),
+              'labels_analysis': labels_analysis
+          }
+          
+          with open('/tmp/gh_issues_analysis.json', 'w') as f:
+              json.dump(analysis, f, indent=2)
+          
+          print(f"Created: {len(recent_created)}, Closed: {len(recent_closed)}")
+          PYTHON_EOF
+
+      - name: Get GitHub Pull Requests data
+        id: gh_prs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 << 'PYTHON_EOF'
+          import json
+          import subprocess
+          import os
+          from datetime import datetime, timedelta, timezone
+          
+          end_date = datetime.now(timezone.utc)
+          start_date = end_date - timedelta(days=7)
+          
+          # Get all PRs with increased limit
+          env = os.environ
+          result = subprocess.run(
+              ['gh', 'pr', 'list', '--state', 'all', '--json', 'number,title,state,merged,mergedAt,createdAt,author,url', '--limit', '500'],
+              capture_output=True,
+              text=True,
+              env=env
+          )
+          
+          if result.returncode != 0:
+              print(f"Error running gh command: {result.stderr}")
+              prs = []
+          else:
+              try:
+                  prs = json.loads(result.stdout)
+              except json.JSONDecodeError:
+                  print(f"Error parsing JSON: {result.stdout}")
+                  prs = []
+          
+          # Filter PRs from past 7 days
+          recent_prs = []
+          for pr in prs:
+              try:
+                  created = datetime.fromisoformat(pr['createdAt'].replace('Z', '+00:00'))
+                  if created >= start_date:
+                      recent_prs.append(pr)
+              except (KeyError, ValueError):
+                  continue
+          
+          # Analyze
+          merged_count = sum(1 for pr in recent_prs if pr['merged'])
+          closed_count = sum(1 for pr in recent_prs if pr['state'] == 'CLOSED' and not pr['merged'])
+          open_count = sum(1 for pr in recent_prs if pr['state'] == 'OPEN')
+          
+          # Check for auto-merge related PRs (Dependabot detection)
+          auto_merged = 0
+          for pr in recent_prs:
+              try:
+                  if pr['merged'] and pr.get('author') and pr['author'].get('login'):
+                      author_login = pr['author']['login'].lower()
+                      # Detect Dependabot PRs by various possible login formats
+                      # GitHub may return 'dependabot[bot]', 'app/dependabot', or variations
+                      if 'dependabot' in author_login:
+                          auto_merged += 1
+              except (KeyError, TypeError, AttributeError):
+                  continue
+          
+          analysis = {
+              'created_count': len(recent_prs),
+              'merged_count': merged_count,
+              'closed_count': closed_count,
+              'open_count': open_count,
+              'auto_merged_count': auto_merged
+          }
+          
+          with open('/tmp/gh_prs_analysis.json', 'w') as f:
+              json.dump(analysis, f, indent=2)
+          
+          print(f"Created: {len(recent_prs)}, Merged: {merged_count}, Auto-merged: {auto_merged}")
+          PYTHON_EOF
+
+      - name: Generate comprehensive report
+        id: report
+        run: |
+          python3 << 'PYTHON_EOF'
+          import json
+          import os
+          from datetime import datetime, timezone
+          
+          with open('/tmp/gh_actions_analysis.json', 'r') as f:
+              actions_data = json.load(f)
+          
+          with open('/tmp/gh_issues_analysis.json', 'r') as f:
+              issues_data = json.load(f)
+          
+          with open('/tmp/gh_prs_analysis.json', 'r') as f:
+              prs_data = json.load(f)
+          
+          today_date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+          
+          report = []
+          report.append("# 🔄 Weekly Loop Engineering Report")
+          report.append("")
+          report.append(f"**Report Date**: {today_date}")
+          report.append(f"**Analysis Period**: {actions_data['analysis_period_start']} to {actions_data['analysis_period_end']}")
+          report.append("")
+          report.append("---")
+          report.append("")
+          report.append("## ✅ やったこと（実施内容）")
+          report.append("")
+          report.append("### GitHub Actions 実行")
+          report.append(f"- **総実行数**: {actions_data['total_runs']} 回")
+          report.append(f"- **成功**: {actions_data['successful']} 回")
+          report.append(f"- **失敗**: {actions_data['failed']} 回")
+          report.append(f"- **キャンセル**: {actions_data['cancelled']} 回")
+          report.append(f"- **スキップ**: {actions_data['skipped']} 回")
+          report.append(f"- **実行中/キュー中**: {actions_data['in_progress']} 回")
+          report.append("")
+          report.append("### Issue 処理")
+          report.append(f"- **作成**: {issues_data['created_count']} 件")
+          report.append(f"- **クローズ**: {issues_data['closed_count']} 件")
+          report.append(f"- **オープン**: {issues_data['open_count']} 件")
+          report.append("")
+          report.append("### Pull Request 処理")
+          report.append(f"- **作成**: {prs_data['created_count']} 件")
+          report.append(f"- **マージ**: {prs_data['merged_count']} 件")
+          report.append(f"- **クローズ**: {prs_data['closed_count']} 件")
+          report.append(f"- **オープン**: {prs_data['open_count']} 件")
+          report.append("")
+          report.append("---")
+          report.append("")
+          report.append("## 🎯 成功したこと")
+          report.append("")
+          report.append("### ワークフロー実行成功率")
+          report.append(f"- **成功率**: {actions_data['success_rate']:.1f}% ({actions_data['successful']}/{actions_data['total_runs']})")
+          report.append("")
+          report.append("### ワークフロー別の成功状況")
+          
+          for workflow_name, stats in sorted(actions_data['workflows'].items()):
+              success_rate = (stats['success'] / stats['total'] * 100) if stats['total'] > 0 else 0
+              report.append(f"- **{workflow_name}**: {stats['success']}/{stats['total']} 成功 ({success_rate:.0f}%)")
+          
+          report.append("")
+          report.append(f"### 自動マージの成功")
+          report.append(f"- **Dependabot PR 自動マージ**: {prs_data['auto_merged_count']} 件成功")
+          report.append("")
+          report.append("### Issue ラベル別の進捗")
+          
+          for label, stats in sorted(issues_data['labels_analysis'].items()):
+              close_rate = (stats['closed'] / stats['total'] * 100) if stats['total'] > 0 else 0
+              report.append(f"- **{label}**: {stats['closed']}/{stats['total']} クローズ ({close_rate:.0f}%)")
+          
+          if not issues_data['labels_analysis']:
+              report.append("- ラベル別の分析データなし")
+          
+          report.append("")
+          report.append("---")
+          report.append("")
+          report.append("## ❌ 失敗したこと")
+          report.append("")
+          report.append("### 失敗したワークフロー実行")
+          report.append(f"- **失敗数**: {actions_data['failed']} 回")
+          report.append("")
+          
+          if actions_data['failed'] > 0:
+              report.append("### 改善が必要なワークフロー")
+              for workflow_name, stats in sorted(actions_data['workflows'].items(), 
+                                                   key=lambda x: x[1]['failed'], 
+                                                   reverse=True):
+                  if stats['failed'] > 0:
+                      report.append(f"- **{workflow_name}**: {stats['failed']} 回失敗")
+          else:
+              report.append("✅ 過去7日間、すべてのワークフロー実行が成功しています！")
+          
+          report.append("")
+          report.append("---")
+          report.append("")
+          report.append("## 🔧 改善したいこと")
+          report.append("")
+          report.append("### パフォーマンス改善案")
+          report.append("1. **ワークフロー実行時間の最適化**")
+          report.append("   - 現在のワークフロー実行時間を分析し、並列化可能なステップを検出")
+          report.append("   - キャッシュ戦略の見直し")
+          report.append("")
+          report.append("2. **失敗率の削減**")
+          report.append("   - 失敗したワークフローの詳細ログ分析")
+          report.append("   - リトライロジックの改善検討")
+          report.append("")
+          report.append("3. **Issue 処理の効率化**")
+          report.append("   - 平均クローズ時間の短縮目標設定")
+          report.append("   - 優先度ラベル別の処理SLA定義")
+          report.append("")
+          report.append("4. **Dependabot 自動マージの安定化**")
+          report.append("   - テスト失敗時の検出・通知強化")
+          report.append("   - 競合解決の自動化検討")
+          report.append("")
+          report.append("### ループエンジニアリングの最適化")
+          report.append("1. **AI エージェントの実行効率向上**")
+          report.append("   - エージェントの成功率: 詳細ログ分析が必要")
+          report.append("   - 実行時間の短縮方針")
+          report.append("")
+          report.append("2. **Issue 自動生成の品質向上**")
+          report.append("   - 生成された Issue の採択率を追跡")
+          report.append("   - フィードバックループの構築")
+          report.append("")
+          report.append("---")
+          report.append("")
+          report.append("## 🛑 やめたいこと")
+          report.append("")
+          report.append("### 検討対象")
+          report.append("1. **非効率なワークフロー**")
+          report.append("   - 失敗率が継続的に高いワークフローの見直し")
+          report.append("   - 実行時間が過度に長いステップの最適化")
+          report.append("")
+          report.append("2. **保守負荷の高いプロセス**")
+          report.append("   - 手動介入が多いプロセスの自動化検討")
+          report.append("   - 冗長なチェック処理の統合")
+          report.append("")
+          report.append("3. **不要な通知**")
+          report.append("   - 実績に基づくアラート基準の見直し")
+          report.append("")
+          report.append("---")
+          report.append("")
+          report.append("## 📊 サマリー")
+          report.append("")
+          report.append("| 指標 | 値 |")
+          report.append("|------|-----|")
+          report.append(f"| ワークフロー実行成功率 | {actions_data['success_rate']:.1f}% |")
+          report.append(f"| 自動処理件数（Issue + PR） | {issues_data['created_count'] + prs_data['created_count']} |")
+          report.append(f"| 自動マージ成功件数 | {prs_data['auto_merged_count']} |")
+          report.append(f"| 週間作業量（実行 + Issue + PR） | {actions_data['total_runs'] + issues_data['created_count'] + prs_data['created_count']} |")
+          report.append("")
+          report.append("---")
+          report.append("")
+          report.append("## 🎬 Next Steps")
+          report.append("")
+          report.append("1. 詳細な失敗ログの分析と原因特定")
+          report.append("2. 改善提案の具体化とロードマップ化")
+          report.append("3. 次週の目標成功率の設定")
+          report.append("")
+          report.append("**Generated by**: Loop Engineering Report Workflow")
+          repo_name = os.environ.get('GITHUB_REPOSITORY', 'unknown')
+          report.append(f"**Repository**: {repo_name}")
+          
+          markdown_report = "\n".join(report)
+          
+          with open('report.txt', 'w', encoding='utf-8') as f:
+              f.write(markdown_report)
+          
+          print("✅ Report generated successfully")
+          PYTHON_EOF
+
+      - name: Create Issue from report
+        id: create_issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          ISSUE_DATE=$(date -u +%Y-%m-%d)
+          ISSUE_TITLE="[LOOP REPORT] ${ISSUE_DATE}"
+          
+          # Capture stdout (JSON) and stderr (error messages) separately
+          ISSUE_STDERR=""
+          if ! ISSUE_JSON=$(gh issue create \
+            --title "${ISSUE_TITLE}" \
+            --body-file report.txt \
+            --label "loop-engineering-report" \
+            --json url,number 2>"/tmp/issue_stderr.txt"); then
+            ISSUE_STDERR=$(cat "/tmp/issue_stderr.txt")
+            echo "Failed to create issue"
+            echo "$ISSUE_STDERR"
+            echo "issue_url=" >> $GITHUB_OUTPUT
+            echo "issue_number=" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          if [ -z "$ISSUE_JSON" ]; then
+            echo "Empty response from gh issue create"
+            echo "issue_url=" >> $GITHUB_OUTPUT
+            echo "issue_number=" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          # Parse JSON output
+          ISSUE_URL=$(echo "${ISSUE_JSON}" | jq -r '.url // empty')
+          ISSUE_NUMBER=$(echo "${ISSUE_JSON}" | jq -r '.number // empty')
+          
+          if [ -z "$ISSUE_URL" ] || [ -z "$ISSUE_NUMBER" ]; then
+            echo "Could not parse issue output"
+            echo "Response: ${ISSUE_JSON}"
+            echo "issue_url=" >> $GITHUB_OUTPUT
+            echo "issue_number=" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          echo "issue_url=${ISSUE_URL}" >> $GITHUB_OUTPUT
+          echo "issue_number=${ISSUE_NUMBER}" >> $GITHUB_OUTPUT
+          
+          echo "✅ Issue created: ${ISSUE_URL}"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 📊 Weekly Loop Engineering Report Generated" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          ISSUE_URL="${{ steps.create_issue.outputs.issue_url }}"
+          if [ -n "$ISSUE_URL" ]; then
+            echo "✅ Report Issue: ${ISSUE_URL}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Report generation completed but Issue creation failed. Check logs above." >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Analysis Results" >> $GITHUB_STEP_SUMMARY
+          python3 << 'PYTHON_EOF' >> $GITHUB_STEP_SUMMARY
+          import json
+          
+          try:
+              with open('/tmp/gh_actions_analysis.json', 'r') as f:
+                  actions_data = json.load(f)
+              print(f"- Workflow Success Rate: {actions_data['success_rate']:.1f}%")
+              print(f"- Total Runs Analyzed: {actions_data['total_runs']}")
+          except Exception as e:
+              print(f"- Could not load actions analysis: {e}")
+          
+          try:
+              with open('/tmp/gh_issues_analysis.json', 'r') as f:
+                  issues_data = json.load(f)
+              print(f"- Issues Created: {issues_data['created_count']}")
+              print(f"- Issues Closed: {issues_data['closed_count']}")
+          except Exception as e:
+              print(f"- Could not load issues analysis: {e}")
+          
+          try:
+              with open('/tmp/gh_prs_analysis.json', 'r') as f:
+                  prs_data = json.load(f)
+              print(f"- PRs Merged: {prs_data['merged_count']}")
+              print(f"- Auto-merged (Dependabot): {prs_data['auto_merged_count']}")
+          except Exception as e:
+              print(f"- Could not load PRs analysis: {e}")
+          PYTHON_EOF
