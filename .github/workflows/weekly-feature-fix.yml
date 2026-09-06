@@ -237,15 +237,28 @@ jobs:
           echo "5. Verify acceptance criteria" >> \
             /tmp/feature-fix/output/prompt.txt
           echo "" >> /tmp/feature-fix/output/prompt.txt
-          echo "IMPORTANT: After completing the implementation:" >> \
+          echo "CRITICAL BRANCHING INSTRUCTIONS:" >> /tmp/feature-fix/output/prompt.txt
+          echo "⚠️ DO NOT make changes to the main branch!" >> \
             /tmp/feature-fix/output/prompt.txt
-          echo "- Stage ALL modified files: git add ." >> \
+          echo "1. First, create a new feature branch with this exact command:" >> \
             /tmp/feature-fix/output/prompt.txt
-          echo "- Commit the changes with a descriptive message" >> \
+          echo "   git checkout -b copilot/issue-${ISSUE_NUMBER}" >> \
             /tmp/feature-fix/output/prompt.txt
-          echo "- Push the branch to the remote repository" >> \
+          echo "2. Verify you are on the feature branch BEFORE making any changes" >> \
             /tmp/feature-fix/output/prompt.txt
-          echo "- The workflow will automatically create a pull request" >> \
+          echo "3. Make all code changes only on this feature branch" >> \
+            /tmp/feature-fix/output/prompt.txt
+          echo "4. Stage ALL modified files: git add ." >> \
+            /tmp/feature-fix/output/prompt.txt
+          echo "5. Commit the changes with a descriptive message" >> \
+            /tmp/feature-fix/output/prompt.txt
+          echo "6. Push ONLY to the feature branch with this exact command:" >> \
+            /tmp/feature-fix/output/prompt.txt
+          echo "   git push origin copilot/issue-${ISSUE_NUMBER}" >> \
+            /tmp/feature-fix/output/prompt.txt
+          echo "7. DO NOT push to main branch under any circumstances" >> \
+            /tmp/feature-fix/output/prompt.txt
+          echo "8. The workflow will automatically create a pull request" >> \
             /tmp/feature-fix/output/prompt.txt
 
           echo "prompt_generated=true" >> "$GITHUB_OUTPUT"
@@ -269,8 +282,47 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           XDG_CONFIG_HOME: /home/runner
 
-      - name: Run tests
+      - name: Fetch and checkout feature branch
         if: steps.init.outputs.exceeded_max == 'false'
+        id: checkout_feature
+        continue-on-error: true
+        run: |
+          cd "${GITHUB_WORKSPACE}"
+           
+          BRANCH_NAME="copilot/issue-${ISSUE_NUMBER}"
+           
+          # Fetch the latest from remote to ensure we have the feature branch
+          git fetch origin "$BRANCH_NAME" 2>/dev/null || {
+            echo "⚠️ Feature branch not found in remote, continuing with current state"
+            exit 0
+          }
+           
+          # Checkout the feature branch
+          git checkout "$BRANCH_NAME" 2>/dev/null || {
+            echo "⚠️ Could not checkout feature branch, continuing with current state"
+            exit 0
+          }
+           
+          echo "✅ Successfully checked out feature branch: $BRANCH_NAME"
+          echo "branch_checked_out=true" >> "$GITHUB_OUTPUT"
+
+      - name: Detect changes early (before tests)
+        if: steps.init.outputs.exceeded_max == 'false'
+        id: early_changes
+        run: |
+          cd "${GITHUB_WORKSPACE}"
+            
+          # Check for any changes (uncommitted, untracked, etc.)
+          if git status --porcelain | grep -q .; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "✅ Changes detected - will run tests"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "⚠️ No changes detected - skipping tests"
+          fi
+
+      - name: Run tests
+        if: steps.init.outputs.exceeded_max == 'false' && steps.early_changes.outputs.has_changes == 'true'
         id: test_exec
         continue-on-error: true
         run: |
@@ -388,7 +440,7 @@ jobs:
           echo "Debug info collected successfully"
 
       - name: Detect changes and prepare PR metadata
-        if: steps.init.outputs.exceeded_max == 'false' && steps.test_exec.outcome == 'success'
+        if: steps.init.outputs.exceeded_max == 'false' && steps.early_changes.outputs.has_changes == 'true' && steps.test_exec.outcome == 'success'
         id: pr_meta
         run: |
           cd "${GITHUB_WORKSPACE}"
@@ -613,6 +665,7 @@ jobs:
           RETRY_COUNT: ${{ steps.init.outputs.retry_count }}
           COPILOT_OUTCOME: ${{ steps.copilot_exec.outcome }}
           TEST_OUTCOME: ${{ steps.test_exec.outcome }}
+          HAS_CHANGES: ${{ steps.pr_meta.outputs.has_changes }}
         with:
           script: |
             const marker = '<!-- weekly-feature-fix-retry -->';
@@ -664,9 +717,14 @@ jobs:
             }
 
             // テスト成功時、または最大リトライ到達時の判定
-            if (testOutcome === 'success') {
+            const hasChanges = process.env.HAS_CHANGES === 'true';
+            if (testOutcome === 'success' && hasChanges) {
               core.notice(
-                `Issue #${issueNumber} のテストに合格しました。PR が作成されました（変更が検出された場合）。`
+                `Issue #${issueNumber} のテストに合格しました。✅ PR が作成されました。`
+              );
+            } else if (testOutcome === 'success' && !hasChanges) {
+              core.notice(
+                `Issue #${issueNumber} のテストに合格しましたが、変更が検出されませんでした。⚠️`
               );
             } else if (retryCount < Number(process.env.MAX_RETRIES) - 1) {
               // 次のリトライをスケジュール
