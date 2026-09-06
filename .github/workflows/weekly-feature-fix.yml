@@ -216,49 +216,49 @@ jobs:
           ISSUE_TITLE=$(jq -r '.title' /tmp/feature-fix/issue.json)
 
           cat > /tmp/feature-fix/output/prompt.txt << 'PROMPT_EOF'
-          You are a skilled software developer implementing features for a full-stack application.
+          あなたはフルスタックアプリケーションの機能を実装するスキルの高いソフトウェア開発者です。
 
           PROMPT_EOF
 
-          echo "Issue Title: $ISSUE_TITLE" >> /tmp/feature-fix/output/prompt.txt
+          echo "Issueタイトル: $ISSUE_TITLE" >> /tmp/feature-fix/output/prompt.txt
           echo "" >> /tmp/feature-fix/output/prompt.txt
-          echo "Issue Description:" >> /tmp/feature-fix/output/prompt.txt
+          echo "Issue説明:" >> /tmp/feature-fix/output/prompt.txt
           echo "$ISSUE_BODY" >> /tmp/feature-fix/output/prompt.txt
           echo "" >> /tmp/feature-fix/output/prompt.txt
-          echo "Tasks:" >> /tmp/feature-fix/output/prompt.txt
-          echo "1. Analyze the requirements in the issue" >> \
+          echo "タスク:" >> /tmp/feature-fix/output/prompt.txt
+          echo "1. Issueの要件を分析する" >> \
             /tmp/feature-fix/output/prompt.txt
-          echo "2. Implement necessary changes to the codebase" >> \
+          echo "2. コードベースに必要な変更を実装する" >> \
             /tmp/feature-fix/output/prompt.txt
-          echo "3. Create comprehensive test cases" >> \
+          echo "3. 包括的なテストケースを作成する" >> \
             /tmp/feature-fix/output/prompt.txt
-          echo "4. Ensure all tests pass" >> \
+          echo "4. すべてのテストが成功することを確認する" >> \
             /tmp/feature-fix/output/prompt.txt
-          echo "5. Verify acceptance criteria" >> \
+          echo "5. 受け入れ条件を検証する" >> \
             /tmp/feature-fix/output/prompt.txt
           echo "" >> /tmp/feature-fix/output/prompt.txt
-          echo "CRITICAL BRANCHING INSTRUCTIONS:" >> /tmp/feature-fix/output/prompt.txt
-          echo "⚠️ DO NOT make changes to the main branch!" >> \
+          echo "【重要】ブランチング手順:" >> /tmp/feature-fix/output/prompt.txt
+          echo "⚠️  mainブランチへの変更は厳禁です！" >> \
             /tmp/feature-fix/output/prompt.txt
-          echo "1. First, create a new feature branch with this exact command:" >> \
+          echo "1. 最初に、この正確なコマンドで新しいフィーチャーブランチを作成してください:" >> \
             /tmp/feature-fix/output/prompt.txt
           echo "   git checkout -b copilot/issue-${ISSUE_NUMBER}" >> \
             /tmp/feature-fix/output/prompt.txt
-          echo "2. Verify you are on the feature branch BEFORE making any changes" >> \
+          echo "2. 変更を加える前にフィーチャーブランチにいることを確認してください" >> \
             /tmp/feature-fix/output/prompt.txt
-          echo "3. Make all code changes only on this feature branch" >> \
+          echo "3. すべてのコード変更はこのフィーチャーブランチでのみ行ってください" >> \
             /tmp/feature-fix/output/prompt.txt
-          echo "4. Stage ALL modified files: git add ." >> \
+          echo "4. 修正されたすべてのファイルをステージしてください: git add ." >> \
             /tmp/feature-fix/output/prompt.txt
-          echo "5. Commit the changes with a descriptive message" >> \
+          echo "5. わかりやすいメッセージでコミットしてください" >> \
             /tmp/feature-fix/output/prompt.txt
-          echo "6. Push ONLY to the feature branch with this exact command:" >> \
+          echo "6. この正確なコマンドでフィーチャーブランチにのみプッシュしてください:" >> \
             /tmp/feature-fix/output/prompt.txt
           echo "   git push origin copilot/issue-${ISSUE_NUMBER}" >> \
             /tmp/feature-fix/output/prompt.txt
-          echo "7. DO NOT push to main branch under any circumstances" >> \
+          echo "7. 絶対にmainブランチにはプッシュしないでください" >> \
             /tmp/feature-fix/output/prompt.txt
-          echo "8. The workflow will automatically create a pull request" >> \
+          echo "8. ワークフローが自動的にプルリクエストを作成します" >> \
             /tmp/feature-fix/output/prompt.txt
 
           echo "prompt_generated=true" >> "$GITHUB_OUTPUT"
@@ -718,16 +718,20 @@ jobs:
 
             // テスト成功時、または最大リトライ到達時の判定
             const hasChanges = process.env.HAS_CHANGES === 'true';
+            const MAX_RETRIES = Number(process.env.MAX_RETRIES);
+            
             if (testOutcome === 'success' && hasChanges) {
+              // テスト成功 & 変更あり → 完了
               core.notice(
                 `Issue #${issueNumber} のテストに合格しました。✅ PR が作成されました。`
               );
-            } else if (testOutcome === 'success' && !hasChanges) {
+            } else if (!hasChanges) {
+              // 変更なし → リトライせず終了（Copilot実装失敗）
               core.notice(
-                `Issue #${issueNumber} のテストに合格しましたが、変更が検出されませんでした。⚠️`
+                `Issue #${issueNumber}: 変更が検出されませんでした。実装できませんでした。⚠️ Issue の要件を確認してください。`
               );
-            } else if (retryCount < Number(process.env.MAX_RETRIES) - 1) {
-              // 次のリトライをスケジュール
+            } else if (testOutcome === 'failure' && retryCount < MAX_RETRIES - 1) {
+              // テスト失敗 & リトライ回数残ってる → リトライをスケジュール
               try {
                 await github.rest.actions.createWorkflowDispatch({
                   owner: context.repo.owner,
@@ -738,7 +742,7 @@ jobs:
                     issue_number: String(issueNumber),
                   },
                 });
-                core.notice(`Issue #${issueNumber} のリトライをスケジュールしました。`);
+                core.notice(`Issue #${issueNumber} のリトライをスケジュールしました（テスト失敗）。`);
               } catch (error) {
                 core.warning(
                   `リトライのスケジュール設定に失敗しました: ${error.message}`
@@ -746,7 +750,7 @@ jobs:
               }
             } else {
               core.notice(
-                `Issue #${issueNumber} の最大リトライ回数 (${process.env.MAX_RETRIES}) に達しました。中止します。`
+                `Issue #${issueNumber} の処理を終了します。最大リトライ回数 (${MAX_RETRIES}) に達しました。`
               );
             }
 

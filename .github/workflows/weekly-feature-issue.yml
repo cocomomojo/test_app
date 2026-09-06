@@ -130,27 +130,27 @@ jobs:
           # Read existing implementations
           existing_impl = Path('./existing_implementations.txt').read_text(encoding='utf-8')
 
-          prompt = f"""Analyze this Vue 3 + Spring Boot project and propose ONE UNIQUE useful feature improvement.
+          prompt = f"""このVue 3 + Spring Bootプロジェクトを分析して、1つの新しい有用な機能改善を提案してください。
 
-          ## Context
-          - Feature Category: {category}
-          - Difficulty Level: {difficulty}
-          - Project Structure: Frontend (Vue 3 + Vuetify), Backend (Spring Boot 3)
+          ## コンテキスト
+          - 機能カテゴリ: {category}
+          - 難易度: {difficulty}
+          - プロジェクト構成: Frontend (Vue 3 + Vuetify), Backend (Spring Boot 3)
 
-          ## IMPORTANT: Avoid Duplicates
-          Review the following existing implementations and open issues.
-          **DO NOT propose features that are already implemented or already have open issues.**
-          Propose a NEW, UNIQUE feature that is NOT listed below:
+          ## 重要: 重複回避
+          既存の実装と未解決のIssueを確認してください。
+          **すでに実装されている、または既にIssueが存在する機能は提案しないでください。**
+          以下にリストされていない新しいユニークな機能を提案してください：
 
           {existing_impl}
 
-          ## Requirements
-          Output ONLY valid JSON in this exact format (no other text, no markdown):
+          ## 要件
+          以下の正確な形式で有効なJSONのみを出力してください（他のテキストやマークダウンは不要）：
           {{
-            "title": "[FEATURE] Feature Name",
-            "background": "Why this feature is needed, considering current system state",
-            "feature_description": "Detailed description of what should be implemented",
-            "acceptance_criteria": ["Criterion 1", "Criterion 2", "Criterion 3"],
+            "title": "[FEATURE] 機能名",
+            "background": "現在のシステム状態を考慮して、この機能が必要な理由",
+            "feature_description": "実装すべき内容の詳細な説明",
+            "acceptance_criteria": ["受け入れ条件1", "受け入れ条件2", "受け入れ条件3"],
             "estimated_effort": "XS/S/M/L/XL"
           }}"""
 
