@@ -319,7 +319,7 @@ jobs:
              
             # 変更がない場合のデバッグ情報を保存
             {
-              echo "debug_info<<'DEBUGEOF'"
+              echo "debug_info<<DEBUGEOF"
               echo "No changes detected after Copilot execution."
               echo ""
               echo "### Debug Information:"
