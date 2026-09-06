@@ -967,28 +967,37 @@ GitHub リポジトリ → Settings → Secrets and variables → Actions → Ne
 
 #### Weekly Loop Engineering Report
 - **ファイル:** `.github/workflows/weekly-loop-engineering-report.yml`
-- **トリガー:** 毎週土曜日 09:00 UTC（または手動実行）
+- **トリガー:** 毎週土曜日 09:00 UTC（または手動実行 `workflow_dispatch`）
 - **処理内容:**
-  1. 過去7日間の GitHub Actions ワークフロー実行ログを分析
+  1. 過去7日間の GitHub Actions ワークフロー実行ログを分析（最大500件）
+     - 成功/失敗/キャンセル/スキップ/実行中ステータスの集計
      - 成功率、実行数、失敗パターンを計算
-  2. Issue の作成・クローズ・進捗を分析
-     - ラベル別の進捗状況、平均解決時間
-  3. Pull Request のマージ状況を分析
-     - 自動マージ成功率、失敗原因
-  4. AI Agent の実行履歴を分析
-     - 実行成功率、実行時間
-  5. Markdown 形式のレポートを生成
+  2. Issue の作成・クローズ・進捗を分析（最大500件）
+     - ラベル別の進捗状況
+     - 作成数、クローズ数、オープン中の件数を集計
+  3. Pull Request のマージ状況を分析（最大500件）
+     - マージ成功数、未マージ数を集計
+     - **Dependabot 自動マージの検出**（author フィールドでの正確な判定）
+     - 自動マージ成功率を計算
+  4. Markdown 形式の包括的なレポートを生成
      - セクション: 実施内容、成功事例、失敗事例、改善提案、中止事項
-  6. レポート Issue を自動作成
+     - データドリブンな分析と提案を含む
+  5. レポート Issue を自動作成
      - ラベル: `loop-engineering-report`
      - タイトル形式: `[LOOP REPORT] YYYY-MM-DD`
-- **成果物:** loop-engineering-report.md、分析 Issue の自動作成
+     - 本文: 生成されたレポート（Markdown形式）
+- **成果物:** 分析 Issue の自動作成、GITHUB_STEP_SUMMARY への分析結果表示
 - **分析項目:**
   - ✅ 実施内容: ワークフロー実行数、Issue 処理件数、PR 処理件数
-  - ✅ 成功したこと: 成功率、自動マージ成功件数
-  - ❌ 失敗したこと: 失敗数、失敗ワークフロー一覧
-  - 🔧 改善提案: パフォーマンス最適化案、AI エージェント効率化案
-  - 🛑 中止提案: 非効率なプロセス、保守負荷の高い処理
+  - ✅ 成功したこと: 成功率、Dependabot 自動マージ成功件数、正常稼働ワークフロー
+  - ❌ 失敗したこと: 失敗数、失敗ワークフロー一覧、失敗パターン
+  - 🔧 改善提案: パフォーマンス最適化案、AI エージェント効率化案、自動化拡張提案
+  - 🛑 中止提案: 非効率なプロセス、保守負荷の高い処理、実績の低い自動化
+- **技術的特徴:**
+  - `gh` CLI + JSON パース（jq）での堅牢なデータ取得
+  - Python での統計計算と分析
+  - stdout/stderr 分離による安全な出力処理
+  - 複数フォーマットの Dependabot ログイン名に対応
 
 #### Dependabot Auto-Fix
 - **ファイル:** `.github/workflows/dependabot-auto-fix.yml`
