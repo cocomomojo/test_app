@@ -234,6 +234,8 @@ jobs:
               encoding='utf-8'
             )
             print('✓ Proposal validated and saved')
+            print(f'DEBUG: Proposal content:')
+            print(json.dumps(proposal, indent=2, ensure_ascii=False))
 
           except json.JSONDecodeError as e:
             print(f'ERROR: Invalid JSON: {e}')
@@ -385,6 +387,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TITLE=$(cat ./issue-title.txt)
+          BODY=$(cat ./issue-body.md)
+           
+          echo "DEBUG: Issue to be created"
+          echo "Title: $TITLE"
+          echo "Body length: ${#BODY}"
+          echo "Body first 200 chars: ${BODY:0:200}"
+           
           ISSUE_OUTPUT=$(gh issue create \
             --title "$TITLE" \
             --label "enhancement" \
@@ -398,6 +407,13 @@ jobs:
             exit 1
           fi
           ISSUE_NUMBER=${ISSUE_URL##*/}
+           
+          # Verify created issue
+          sleep 2
+          gh issue view "$ISSUE_NUMBER" --json number,title,body --repo "$GITHUB_REPOSITORY" > /tmp/created-issue-verify.json
+          echo "DEBUG: Verified created issue:"
+          cat /tmp/created-issue-verify.json
+           
           echo "issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
           echo "issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
           echo "✓ Issue created: $ISSUE_URL"

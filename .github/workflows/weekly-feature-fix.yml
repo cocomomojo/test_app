@@ -168,7 +168,17 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --json number,title,body,url,labels > /tmp/feature-fix/issue.json
 
+          echo "=== DEBUG: Issue fetched from GitHub ==="
           cat /tmp/feature-fix/issue.json
+           
+          echo ""
+          echo "=== DEBUG: Checking fields ==="
+          TITLE=$(jq -r '.title' /tmp/feature-fix/issue.json 2>/dev/null || echo "ERROR")
+          BODY=$(jq -r '.body' /tmp/feature-fix/issue.json 2>/dev/null || echo "ERROR")
+          echo "Title: '$TITLE'"
+          echo "Body length: ${#BODY}"
+          echo "Body first 300 chars: ${BODY:0:300}"
+          echo "=== END DEBUG ==="
 
       - name: Generate fix brief
         if: steps.init.outputs.exceeded_max == 'false'
@@ -214,6 +224,13 @@ jobs:
           # Issue情報からプロンプトを生成
           ISSUE_BODY=$(jq -r '.body' /tmp/feature-fix/issue.json)
           ISSUE_TITLE=$(jq -r '.title' /tmp/feature-fix/issue.json)
+
+          echo "=== DEBUG: Prompt generation ==="
+          echo "ISSUE_TITLE: '$ISSUE_TITLE' (length: ${#ISSUE_TITLE})"
+          echo "ISSUE_BODY length: ${#ISSUE_BODY}"
+          echo "ISSUE_BODY first 300 chars:"
+          echo "${ISSUE_BODY:0:300}"
+          echo "=== END DEBUG ==="
 
           cat > /tmp/feature-fix/output/prompt.txt << 'PROMPT_EOF'
           【重要】すべての応答と実装は日本語で行ってください。
@@ -262,6 +279,12 @@ jobs:
             /tmp/feature-fix/output/prompt.txt
           echo "8. ワークフローが自動的にプルリクエストを作成します" >> \
             /tmp/feature-fix/output/prompt.txt
+           
+          echo ""
+          echo "=== DEBUG: Generated prompt (first 500 chars) ==="
+          head -c 500 /tmp/feature-fix/output/prompt.txt
+          echo ""
+          echo "=== END DEBUG ==="
 
           echo "prompt_generated=true" >> "$GITHUB_OUTPUT"
 
