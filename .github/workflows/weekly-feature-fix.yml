@@ -371,6 +371,38 @@ jobs:
             const prUrl = process.env.PR_URL;
             const prNumber = Number(process.env.PR_NUMBER);
 
+            // Get current issue to check labels
+            const issue = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+            });
+
+            const currentLabels = (issue.data.labels || []).map(label => label.name);
+
+            // Status ラベルの更新（Progress → Review）
+            let newLabels = [...currentLabels];
+            if (newLabels.includes('Progress')) {
+              newLabels = newLabels.filter(label => label !== 'Progress');
+              newLabels.push('Review');
+            } else if (!newLabels.includes('Review')) {
+              // Progress ラベルがない場合でも Review を追加
+              newLabels.push('Review');
+            }
+
+            // ラベルの重複を削除
+            newLabels = [...new Set(newLabels)];
+
+            // Issue のラベルを更新
+            if (JSON.stringify(newLabels) !== JSON.stringify(currentLabels)) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                labels: newLabels,
+              });
+            }
+
             // PR リンク情報をコメント
             const prComment = [
               '<!-- weekly-feature-fix-pr-created -->',
@@ -379,6 +411,8 @@ jobs:
               `A pull request has been created to address this feature.`,
               '',
               `**PR:** [#${prNumber}](${prUrl})`,
+              '',
+              `**Status Updated:** Progress → Review`,
             ].join('\n');
 
             await github.rest.issues.createComment({
