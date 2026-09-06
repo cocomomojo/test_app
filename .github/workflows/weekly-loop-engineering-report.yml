@@ -240,13 +240,17 @@ jobs:
           closed_count = sum(1 for pr in recent_prs if pr['state'] == 'CLOSED' and not pr['merged'])
           open_count = sum(1 for pr in recent_prs if pr['state'] == 'OPEN')
           
-          # Check for auto-merge related PRs
+          # Check for auto-merge related PRs (Dependabot detection)
           auto_merged = 0
           for pr in recent_prs:
               try:
-                  if pr['merged'] and pr.get('author') and pr['author'].get('login') == 'dependabot[bot]':
-                      auto_merged += 1
-              except (KeyError, TypeError):
+                  if pr['merged'] and pr.get('author') and pr['author'].get('login'):
+                      author_login = pr['author']['login'].lower()
+                      # Detect Dependabot PRs by various possible login formats
+                      # GitHub may return 'dependabot[bot]', 'app/dependabot', or variations
+                      if 'dependabot' in author_login:
+                          auto_merged += 1
+              except (KeyError, TypeError, AttributeError):
                   continue
           
           analysis = {
@@ -443,13 +447,16 @@ jobs:
           ISSUE_DATE=$(date -u +%Y-%m-%d)
           ISSUE_TITLE="[LOOP REPORT] ${ISSUE_DATE}"
           
+          # Capture stdout (JSON) and stderr (error messages) separately
+          ISSUE_STDERR=""
           if ! ISSUE_JSON=$(gh issue create \
             --title "${ISSUE_TITLE}" \
             --body-file report.txt \
             --label "loop-engineering-report" \
-            --json url,number 2>&1); then
+            --json url,number 2>"/tmp/issue_stderr.txt"); then
+            ISSUE_STDERR=$(cat "/tmp/issue_stderr.txt")
             echo "Failed to create issue"
-            echo "$ISSUE_JSON"
+            echo "$ISSUE_STDERR"
             echo "issue_url=" >> $GITHUB_OUTPUT
             echo "issue_number=" >> $GITHUB_OUTPUT
             exit 1
@@ -462,12 +469,13 @@ jobs:
             exit 1
           fi
           
+          # Parse JSON output
           ISSUE_URL=$(echo "${ISSUE_JSON}" | jq -r '.url // empty')
           ISSUE_NUMBER=$(echo "${ISSUE_JSON}" | jq -r '.number // empty')
           
           if [ -z "$ISSUE_URL" ] || [ -z "$ISSUE_NUMBER" ]; then
             echo "Could not parse issue output"
-            echo "$ISSUE_JSON"
+            echo "Response: ${ISSUE_JSON}"
             echo "issue_url=" >> $GITHUB_OUTPUT
             echo "issue_number=" >> $GITHUB_OUTPUT
             exit 1
