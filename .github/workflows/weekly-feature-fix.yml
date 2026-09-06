@@ -411,11 +411,29 @@ jobs:
         id: early_changes
         run: |
           cd "${GITHUB_WORKSPACE}"
-            
-          # Check for any changes (uncommitted, untracked, etc.)
+             
+          # Check for any changes:
+          # 1. Uncommitted/untracked changes in working directory
+          # 2. Commits made on current branch that differ from main
+           
+          HAS_UNCOMMITTED=false
+          HAS_COMMITS=false
+           
+          # Check for uncommitted changes (modified, added, deleted, untracked files)
           if git status --porcelain | grep -q .; then
+            HAS_UNCOMMITTED=true
+          fi
+           
+          # Check for commits made on current branch (vs. main)
+          # git diff origin/main..HEAD returns non-zero if there are differences
+          if ! git diff --quiet origin/main...HEAD 2>/dev/null; then
+            HAS_COMMITS=true
+          fi
+           
+          # If either uncommitted changes or new commits exist, we have changes
+          if [ "$HAS_UNCOMMITTED" = "true" ] || [ "$HAS_COMMITS" = "true" ]; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
-            echo "✅ Changes detected - will run tests"
+            echo "✅ Changes detected (uncommitted=$HAS_UNCOMMITTED, commits=$HAS_COMMITS) - will run tests"
           else
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
             echo "⚠️ No changes detected - skipping tests"
@@ -549,17 +567,31 @@ jobs:
           echo "=== Git Status ===" >&2
           git status --porcelain
           echo "" >&2
-           
+            
           echo "=== Git Diff Summary ===" >&2
           git diff --stat || echo "No changes in git diff"
           echo "" >&2
-           
+            
           echo "=== Untracked Files ===" >&2
           git status --short | grep "^??" || echo "No untracked files"
           echo "" >&2
 
-          # チェンジをチェック（未追跡ファイルを含む）
+          # チェンジをチェック：
+          # 1. 未追跡ファイルを含む作業ディレクトリの変更
+          # 2. 現在のブランチとmainブランチの差分
+           
+          HAS_UNCOMMITTED=false
+          HAS_COMMITS=false
+           
           if git status --porcelain | grep -q .; then
+            HAS_UNCOMMITTED=true
+          fi
+           
+          if ! git diff --quiet origin/main...HEAD 2>/dev/null; then
+            HAS_COMMITS=true
+          fi
+           
+          if [ "$HAS_UNCOMMITTED" = "true" ] || [ "$HAS_COMMITS" = "true" ]; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
           else
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
