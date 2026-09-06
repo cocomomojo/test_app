@@ -282,12 +282,36 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           XDG_CONFIG_HOME: /home/runner
 
+      - name: Fetch and checkout feature branch
+        if: steps.init.outputs.exceeded_max == 'false'
+        id: checkout_feature
+        continue-on-error: true
+        run: |
+          cd "${GITHUB_WORKSPACE}"
+           
+          BRANCH_NAME="copilot/issue-${ISSUE_NUMBER}"
+           
+          # Fetch the latest from remote to ensure we have the feature branch
+          git fetch origin "$BRANCH_NAME" 2>/dev/null || {
+            echo "⚠️ Feature branch not found in remote, continuing with current state"
+            exit 0
+          }
+           
+          # Checkout the feature branch
+          git checkout "$BRANCH_NAME" 2>/dev/null || {
+            echo "⚠️ Could not checkout feature branch, continuing with current state"
+            exit 0
+          }
+           
+          echo "✅ Successfully checked out feature branch: $BRANCH_NAME"
+          echo "branch_checked_out=true" >> "$GITHUB_OUTPUT"
+
       - name: Detect changes early (before tests)
         if: steps.init.outputs.exceeded_max == 'false'
         id: early_changes
         run: |
           cd "${GITHUB_WORKSPACE}"
-           
+            
           # Check for any changes (uncommitted, untracked, etc.)
           if git status --porcelain | grep -q .; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
