@@ -718,6 +718,27 @@ GitHub リポジトリ → Settings → Secrets and variables → Actions → Ne
 └─────────────────────────┘
 ```
 
+#### 🔄 ループエンジニアリング分析フロー
+
+```
+┌──────────────────────────────────┐
+│ weekly-loop-engineering-report.yml│  ← 毎週土曜 09:00 UTC
+│ (ループ分析レポート自動生成)      │
+│                                  │
+│ 分析対象:                        │
+│ - GitHub Actions 実行ログ        │
+│ - Issue トラッキング             │
+│ - PR マージ状況                  │
+│ - Agent 実行履歴                 │
+└────────────┬─────────────────────┘
+             │
+             ├─→ 成功率・処理量計算
+             ├─→ 失敗パターン分析
+             ├─→ 改善提案生成
+             └─→ レポート Issue 自動作成
+                 (ラベル: loop-engineering-report)
+```
+
 #### 2️⃣ Dependabot 自動修正フロー
 
 ```
@@ -820,6 +841,7 @@ GitHub リポジトリ → Settings → Secrets and variables → Actions → Ne
 |------|-----------|---------|------|
 | **定期実行** | weekly-feature-issue | スケジュール | 週次タスク Issue 作成 |
 | | weekly-feature-fix | スケジュール | 週次タスク実装 |
+| | weekly-loop-engineering-report | スケジュール | ループエンジニアリング分析レポート |
 | **Dependabot 自動化** | dependabot-label-setup | イベント | ラベル自動付与 |
 | | dependabot-auto-fix | イベント | テスト失敗時修正 |
 | | dependabot-notification | イベント | 失敗時通知 |
@@ -942,6 +964,31 @@ GitHub リポジトリ → Settings → Secrets and variables → Actions → Ne
   4. 進捗状況をIssueコメントに記録
 - **前提条件:** `COPILOT_GITHUB_TOKEN` secret
 - **関連ワークフロー:** `weekly-feature-issue.yml` で作成されたIssueを対象
+
+#### Weekly Loop Engineering Report
+- **ファイル:** `.github/workflows/weekly-loop-engineering-report.yml`
+- **トリガー:** 毎週土曜日 09:00 UTC（または手動実行）
+- **処理内容:**
+  1. 過去7日間の GitHub Actions ワークフロー実行ログを分析
+     - 成功率、実行数、失敗パターンを計算
+  2. Issue の作成・クローズ・進捗を分析
+     - ラベル別の進捗状況、平均解決時間
+  3. Pull Request のマージ状況を分析
+     - 自動マージ成功率、失敗原因
+  4. AI Agent の実行履歴を分析
+     - 実行成功率、実行時間
+  5. Markdown 形式のレポートを生成
+     - セクション: 実施内容、成功事例、失敗事例、改善提案、中止事項
+  6. レポート Issue を自動作成
+     - ラベル: `loop-engineering-report`
+     - タイトル形式: `[LOOP REPORT] YYYY-MM-DD`
+- **成果物:** loop-engineering-report.md、分析 Issue の自動作成
+- **分析項目:**
+  - ✅ 実施内容: ワークフロー実行数、Issue 処理件数、PR 処理件数
+  - ✅ 成功したこと: 成功率、自動マージ成功件数
+  - ❌ 失敗したこと: 失敗数、失敗ワークフロー一覧
+  - 🔧 改善提案: パフォーマンス最適化案、AI エージェント効率化案
+  - 🛑 中止提案: 非効率なプロセス、保守負荷の高い処理
 
 #### Dependabot Auto-Fix
 - **ファイル:** `.github/workflows/dependabot-auto-fix.yml`
