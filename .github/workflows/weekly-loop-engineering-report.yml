@@ -44,7 +44,7 @@ jobs:
           start_date = end_date - timedelta(days=7)
           
           # Get all workflow runs with increased limit
-          env = {**os.environ, 'GH_TOKEN': os.environ['GH_TOKEN']}
+          env = os.environ
           result = subprocess.run(
               ['gh', 'run', 'list', '--json', 'name,status,conclusion,createdAt,updatedAt,databaseId', '--limit', '500'],
               capture_output=True,
@@ -129,7 +129,7 @@ jobs:
           start_date = end_date - timedelta(days=7)
           
           # Get issues with increased limit
-          env = {**os.environ, 'GH_TOKEN': os.environ['GH_TOKEN']}
+          env = os.environ
           created_result = subprocess.run(
               ['gh', 'issue', 'list', '--state', 'all', '--json', 'number,title,labels,state,createdAt,closedAt,url', '--limit', '500'],
               capture_output=True,
@@ -207,7 +207,7 @@ jobs:
           start_date = end_date - timedelta(days=7)
           
           # Get all PRs with increased limit
-          env = {**os.environ, 'GH_TOKEN': os.environ['GH_TOKEN']}
+          env = os.environ
           result = subprocess.run(
               ['gh', 'pr', 'list', '--state', 'all', '--json', 'number,title,state,merged,mergedAt,createdAt,author,url', '--limit', '500'],
               capture_output=True,
@@ -446,20 +446,26 @@ jobs:
             --title "${ISSUE_TITLE}" \
             --body-file report.txt \
             --label "loop-engineering-report" \
-            --json url,number)
+            --json url,number 2>&1)
           
-          if [ $? -ne 0 ]; then
+          CREATE_EXIT=$?
+          
+          if [ $CREATE_EXIT -ne 0 ] || [ -z "$ISSUE_JSON" ]; then
             echo "Failed to create issue"
             echo "$ISSUE_JSON"
+            echo "issue_url=" >> $GITHUB_OUTPUT
+            echo "issue_number=" >> $GITHUB_OUTPUT
             exit 1
           fi
           
-          ISSUE_URL=$(echo "${ISSUE_JSON}" | jq -r '.url')
-          ISSUE_NUMBER=$(echo "${ISSUE_JSON}" | jq -r '.number')
+          ISSUE_URL=$(echo "${ISSUE_JSON}" | jq -r '.url // empty')
+          ISSUE_NUMBER=$(echo "${ISSUE_JSON}" | jq -r '.number // empty')
           
-          if [ -z "$ISSUE_URL" ] || [ "$ISSUE_URL" = "null" ] || [ -z "$ISSUE_NUMBER" ] || [ "$ISSUE_NUMBER" = "null" ]; then
+          if [ -z "$ISSUE_URL" ] || [ -z "$ISSUE_NUMBER" ]; then
             echo "Could not parse issue output"
             echo "$ISSUE_JSON"
+            echo "issue_url=" >> $GITHUB_OUTPUT
+            echo "issue_number=" >> $GITHUB_OUTPUT
             exit 1
           fi
           
@@ -471,9 +477,17 @@ jobs:
       - name: Summary
         if: always()
         run: |
+          ISSUE_URL="${{ steps.create_issue.outputs.issue_url }}"
+          
           echo "## 📊 Weekly Loop Engineering Report Generated" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Report Issue: ${{ steps.create_issue.outputs.issue_url }}" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -n "$ISSUE_URL" ]; then
+            echo "✅ Report Issue: ${ISSUE_URL}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Report generation completed but Issue creation failed. Check logs above." >> $GITHUB_STEP_SUMMARY
+          fi
+          
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Analysis Results" >> $GITHUB_STEP_SUMMARY
           python3 << 'PYTHON_EOF'
