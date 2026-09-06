@@ -488,22 +488,22 @@ jobs:
         with:
           script: |
             const issueNumber = Number(process.env.ISSUE_NUMBER);
-            const debugInfo = process.env.DEBUG_INFO || 'No detailed debug information available';
+            const debugInfo = process.env.DEBUG_INFO || '詳細なデバッグ情報は利用できません';
 
             const comment = [
               '<!-- weekly-feature-fix-no-changes -->',
-              '## ⚠️ No Changes Detected',
+              '## ⚠️ 変更が検出されません',
               '',
-              'The Copilot workflow completed successfully and all tests passed, but no code changes were detected.',
+              'Copilot ワークフローは正常に完了し、すべてのテストに合格しましたが、コード変更は検出されませんでした。',
               '',
               debugInfo,
               '',
-              '### Possible Next Steps:',
-              '- [ ] Verify the issue requirements are clear',
-              '- [ ] Check if the feature is already implemented',
-              '- [ ] Review the Copilot execution logs (GitHub Actions tab)',
-              '- [ ] Manually implement the feature',
-              '- [ ] Update the issue description with more specific requirements',
+              '### 次のステップの候補:',
+              '- [ ] Issue の要件が明確であることを確認する',
+              '- [ ] この機能が既に実装されていないか確認する',
+              '- [ ] Copilot 実行ログを確認する（GitHub Actions タブ）',
+              '- [ ] 機能を手動で実装する',
+              '- [ ] Issue の説明をより具体的な要件で更新する',
             ].join('\n');
 
             try {
@@ -559,14 +559,14 @@ jobs:
             if (newLabels.includes('Progress')) {
               newLabels = newLabels.filter(label => label !== 'Progress');
               newLabels.push('Review');
-              statusMessage = 'Progress → Review';
+              statusMessage = 'Progress → Review に更新';
             } else if (!newLabels.includes('Review')) {
               // Progress ラベルがない場合、Review を追加
               newLabels.push('Review');
-              statusMessage = 'Added Review label';
+              statusMessage = 'Review ラベルを追加';
             } else {
               // Review ラベルが既に存在する場合
-              statusMessage = 'Review label already present';
+              statusMessage = 'Review ラベルは既に存在します';
             }
 
             // ラベルの重複を削除
@@ -590,13 +590,13 @@ jobs:
             // PR リンク情報をコメント
             const prComment = [
               '<!-- weekly-feature-fix-pr-created -->',
-              '## ✅ PR Created',
+              '## ✅ PR が作成されました',
               '',
-              `A pull request has been created to address this feature.`,
+              `この機能に対応するプルリクエストが作成されました。`,
               '',
               `**PR:** [#${prNumber}](${prUrl})`,
               '',
-              `**Status Updated:** ${statusMessage}`,
+              `**ステータス更新:** ${statusMessage}`,
             ].join('\n');
 
             await github.rest.issues.createComment({
@@ -666,7 +666,7 @@ jobs:
             // テスト成功時、または最大リトライ到達時の判定
             if (testOutcome === 'success') {
               core.notice(
-                `Tests passed for issue #${issueNumber}. PR created (if changes detected).`
+                `Issue #${issueNumber} のテストに合格しました。PR が作成されました（変更が検出された場合）。`
               );
             } else if (retryCount < Number(process.env.MAX_RETRIES) - 1) {
               // 次のリトライをスケジュール
@@ -680,16 +680,15 @@ jobs:
                     issue_number: String(issueNumber),
                   },
                 });
-                core.notice(`Scheduled retry for issue #${issueNumber}`);
+                core.notice(`Issue #${issueNumber} のリトライをスケジュールしました。`);
               } catch (error) {
                 core.warning(
-                  `Failed to schedule retry: ${error.message}`
+                  `リトライのスケジュール設定に失敗しました: ${error.message}`
                 );
               }
             } else {
               core.notice(
-                `Max retries (${process.env.MAX_RETRIES}) reached for ` +
-                `issue #${issueNumber}. Giving up.`
+                `Issue #${issueNumber} の最大リトライ回数 (${process.env.MAX_RETRIES}) に達しました。中止します。`
               );
             }
 
@@ -700,5 +699,5 @@ jobs:
     steps:
       - name: Log - No feature issue found
         run: |
-          echo "No open feature issue found with FEATURE label"
-          echo "Workflow completed without action"
+          echo "FEATURE ラベル付きの実行中の Issue が見つかりません"
+          echo "ワークフローは何もアクションを起こさずに完了しました"
