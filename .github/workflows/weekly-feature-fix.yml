@@ -426,7 +426,7 @@ jobs:
            
           # Check for commits made on current branch (vs. main)
           # git diff origin/main..HEAD returns non-zero if there are differences
-          if ! git diff --quiet origin/main...HEAD 2>/dev/null; then
+          if ! git diff --quiet origin/main..HEAD 2>/dev/null; then
             HAS_COMMITS=true
           fi
            
@@ -587,7 +587,7 @@ jobs:
             HAS_UNCOMMITTED=true
           fi
            
-          if ! git diff --quiet origin/main...HEAD 2>/dev/null; then
+          if ! git diff --quiet origin/main..HEAD 2>/dev/null; then
             HAS_COMMITS=true
           fi
            
