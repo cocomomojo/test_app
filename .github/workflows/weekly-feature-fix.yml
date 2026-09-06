@@ -237,15 +237,28 @@ jobs:
           echo "5. Verify acceptance criteria" >> \
             /tmp/feature-fix/output/prompt.txt
           echo "" >> /tmp/feature-fix/output/prompt.txt
-          echo "IMPORTANT: After completing the implementation:" >> \
+          echo "CRITICAL BRANCHING INSTRUCTIONS:" >> /tmp/feature-fix/output/prompt.txt
+          echo "⚠️ DO NOT make changes to the main branch!" >> \
             /tmp/feature-fix/output/prompt.txt
-          echo "- Stage ALL modified files: git add ." >> \
+          echo "1. First, create a new feature branch with this exact command:" >> \
             /tmp/feature-fix/output/prompt.txt
-          echo "- Commit the changes with a descriptive message" >> \
+          echo "   git checkout -b copilot/issue-${ISSUE_NUMBER}" >> \
             /tmp/feature-fix/output/prompt.txt
-          echo "- Push the branch to the remote repository" >> \
+          echo "2. Verify you are on the feature branch BEFORE making any changes" >> \
             /tmp/feature-fix/output/prompt.txt
-          echo "- The workflow will automatically create a pull request" >> \
+          echo "3. Make all code changes only on this feature branch" >> \
+            /tmp/feature-fix/output/prompt.txt
+          echo "4. Stage ALL modified files: git add ." >> \
+            /tmp/feature-fix/output/prompt.txt
+          echo "5. Commit the changes with a descriptive message" >> \
+            /tmp/feature-fix/output/prompt.txt
+          echo "6. Push ONLY to the feature branch with this exact command:" >> \
+            /tmp/feature-fix/output/prompt.txt
+          echo "   git push origin copilot/issue-${ISSUE_NUMBER}" >> \
+            /tmp/feature-fix/output/prompt.txt
+          echo "7. DO NOT push to main branch under any circumstances" >> \
+            /tmp/feature-fix/output/prompt.txt
+          echo "8. The workflow will automatically create a pull request" >> \
             /tmp/feature-fix/output/prompt.txt
 
           echo "prompt_generated=true" >> "$GITHUB_OUTPUT"
@@ -613,6 +626,7 @@ jobs:
           RETRY_COUNT: ${{ steps.init.outputs.retry_count }}
           COPILOT_OUTCOME: ${{ steps.copilot_exec.outcome }}
           TEST_OUTCOME: ${{ steps.test_exec.outcome }}
+          HAS_CHANGES: ${{ steps.pr_meta.outputs.has_changes }}
         with:
           script: |
             const marker = '<!-- weekly-feature-fix-retry -->';
@@ -664,9 +678,14 @@ jobs:
             }
 
             // テスト成功時、または最大リトライ到達時の判定
-            if (testOutcome === 'success') {
+            const hasChanges = process.env.HAS_CHANGES === 'true';
+            if (testOutcome === 'success' && hasChanges) {
               core.notice(
-                `Issue #${issueNumber} のテストに合格しました。PR が作成されました（変更が検出された場合）。`
+                `Issue #${issueNumber} のテストに合格しました。✅ PR が作成されました。`
+              );
+            } else if (testOutcome === 'success' && !hasChanges) {
+              core.notice(
+                `Issue #${issueNumber} のテストに合格しましたが、変更が検出されませんでした。⚠️`
               );
             } else if (retryCount < Number(process.env.MAX_RETRIES) - 1) {
               // 次のリトライをスケジュール
