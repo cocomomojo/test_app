@@ -88,7 +88,8 @@ jobs:
               'skipped': skipped,
               'success_rate': success_rate,
               'workflows': workflows,
-              'analysis_period': f'{start_date.date()} to {end_date.date()}'
+              'analysis_period_start': start_date.strftime('%Y-%m-%d'),
+              'analysis_period_end': end_date.strftime('%Y-%m-%d')
           }
           
           with open('/tmp/gh_actions_analysis.json', 'w') as f:
@@ -154,8 +155,7 @@ jobs:
               'created_count': len(recent_created),
               'closed_count': len(recent_closed),
               'open_count': len([i for i in recent_created if i['state'] == 'OPEN']),
-              'labels_analysis': labels_analysis,
-              'analysis_period': f'{start_date.date()} to {end_date.date()}'
+              'labels_analysis': labels_analysis
           }
           
           with open('/tmp/gh_issues_analysis.json', 'w') as f:
@@ -210,8 +210,7 @@ jobs:
               'merged_count': merged_count,
               'closed_count': closed_count,
               'open_count': open_count,
-              'auto_merged_count': auto_merged,
-              'analysis_period': f'{start_date.date()} to {end_date.date()}'
+              'auto_merged_count': auto_merged
           }
           
           with open('/tmp/gh_prs_analysis.json', 'w') as f:
@@ -227,7 +226,6 @@ jobs:
           import json
           from datetime import datetime
           
-          # Load analysis data
           with open('/tmp/gh_actions_analysis.json', 'r') as f:
               actions_data = json.load(f)
           
@@ -237,156 +235,157 @@ jobs:
           with open('/tmp/gh_prs_analysis.json', 'r') as f:
               prs_data = json.load(f)
           
-          # Generate markdown report
-          report = f"""# 🔄 Weekly Loop Engineering Report
-
-**Report Date**: {datetime.utcnow().strftime('%Y-%m-%d')}  
-**Analysis Period**: {actions_data['analysis_period']}
-
----
-
-## ✅ やったこと（実施内容）
-
-### GitHub Actions 実行
-- **総実行数**: {actions_data['total_runs']} 回
-- **成功**: {actions_data['successful']} 回
-- **失敗**: {actions_data['failed']} 回
-- **キャンセル**: {actions_data['cancelled']} 回
-- **スキップ**: {actions_data['skipped']} 回
-
-### Issue 処理
-- **作成**: {issues_data['created_count']} 件
-- **クローズ**: {issues_data['closed_count']} 件
-- **オープン**: {issues_data['open_count']} 件
-
-### Pull Request 処理
-- **作成**: {prs_data['created_count']} 件
-- **マージ**: {prs_data['merged_count']} 件
-- **クローズ**: {prs_data['closed_count']} 件
-- **オープン**: {prs_data['open_count']} 件
-
----
-
-## 🎯 成功したこと
-
-### ワークフロー実行成功率
-- **成功率**: {actions_data['success_rate']:.1f}% ({actions_data['successful']}/{actions_data['total_runs']})
-
-### ワークフロー別の成功状況
-"""
+          today_date = datetime.utcnow().strftime('%Y-%m-%d')
+          
+          report = []
+          report.append("# 🔄 Weekly Loop Engineering Report")
+          report.append("")
+          report.append(f"**Report Date**: {today_date}")
+          report.append(f"**Analysis Period**: {actions_data['analysis_period_start']} to {actions_data['analysis_period_end']}")
+          report.append("")
+          report.append("---")
+          report.append("")
+          report.append("## ✅ やったこと（実施内容）")
+          report.append("")
+          report.append("### GitHub Actions 実行")
+          report.append(f"- **総実行数**: {actions_data['total_runs']} 回")
+          report.append(f"- **成功**: {actions_data['successful']} 回")
+          report.append(f"- **失敗**: {actions_data['failed']} 回")
+          report.append(f"- **キャンセル**: {actions_data['cancelled']} 回")
+          report.append(f"- **スキップ**: {actions_data['skipped']} 回")
+          report.append("")
+          report.append("### Issue 処理")
+          report.append(f"- **作成**: {issues_data['created_count']} 件")
+          report.append(f"- **クローズ**: {issues_data['closed_count']} 件")
+          report.append(f"- **オープン**: {issues_data['open_count']} 件")
+          report.append("")
+          report.append("### Pull Request 処理")
+          report.append(f"- **作成**: {prs_data['created_count']} 件")
+          report.append(f"- **マージ**: {prs_data['merged_count']} 件")
+          report.append(f"- **クローズ**: {prs_data['closed_count']} 件")
+          report.append(f"- **オープン**: {prs_data['open_count']} 件")
+          report.append("")
+          report.append("---")
+          report.append("")
+          report.append("## 🎯 成功したこと")
+          report.append("")
+          report.append("### ワークフロー実行成功率")
+          report.append(f"- **成功率**: {actions_data['success_rate']:.1f}% ({actions_data['successful']}/{actions_data['total_runs']})")
+          report.append("")
+          report.append("### ワークフロー別の成功状況")
           
           for workflow_name, stats in sorted(actions_data['workflows'].items()):
               success_rate = (stats['success'] / stats['total'] * 100) if stats['total'] > 0 else 0
-              report += f"- **{workflow_name}**: {stats['success']}/{stats['total']} 成功 ({success_rate:.0f}%)\n"
+              report.append(f"- **{workflow_name}**: {stats['success']}/{stats['total']} 成功 ({success_rate:.0f}%)")
           
-          report += f"""
-### 自動マージの成功
-- **Dependabot PR 自動マージ**: {prs_data['auto_merged_count']} 件成功
-
-### Issue ラベル別の進捗
-"""
+          report.append("")
+          report.append(f"### 自動マージの成功")
+          report.append(f"- **Dependabot PR 自動マージ**: {prs_data['auto_merged_count']} 件成功")
+          report.append("")
+          report.append("### Issue ラベル別の進捗")
           
           for label, stats in sorted(issues_data['labels_analysis'].items()):
               close_rate = (stats['closed'] / stats['total'] * 100) if stats['total'] > 0 else 0
-              report += f"- **{label}**: {stats['closed']}/{stats['total']} クローズ ({close_rate:.0f}%)\n"
+              report.append(f"- **{label}**: {stats['closed']}/{stats['total']} クローズ ({close_rate:.0f}%)")
           
-          report += f"""
----
-
-## ❌ 失敗したこと
-
-### 失敗したワークフロー実行
-- **失敗数**: {actions_data['failed']} 回
-
-"""
+          if not issues_data['labels_analysis']:
+              report.append("- ラベル別の分析データなし")
+          
+          report.append("")
+          report.append("---")
+          report.append("")
+          report.append("## ❌ 失敗したこと")
+          report.append("")
+          report.append("### 失敗したワークフロー実行")
+          report.append(f"- **失敗数**: {actions_data['failed']} 回")
+          report.append("")
           
           if actions_data['failed'] > 0:
-              report += "### 改善が必要なワークフロー\n"
+              report.append("### 改善が必要なワークフロー")
               for workflow_name, stats in sorted(actions_data['workflows'].items(), 
-                                                 key=lambda x: x[1]['failed'], 
-                                                 reverse=True):
+                                                   key=lambda x: x[1]['failed'], 
+                                                   reverse=True):
                   if stats['failed'] > 0:
-                      report += f"- **{workflow_name}**: {stats['failed']} 回失敗\n"
+                      report.append(f"- **{workflow_name}**: {stats['failed']} 回失敗")
           else:
-              report += "✅ 過去7日間、すべてのワークフロー実行が成功しています！\n"
+              report.append("✅ 過去7日間、すべてのワークフロー実行が成功しています！")
           
-          report += f"""
----
-
-## 🔧 改善したいこと
-
-### パフォーマンス改善案
-1. **ワークフロー実行時間の最適化**
-   - 現在のワークフロー実行時間を分析し、並列化可能なステップを検出
-   - キャッシュ戦略の見直し
-
-2. **失敗率の削減**
-   - 失敗したワークフローの詳細ログ分析
-   - リトライロジックの改善検討
-
-3. **Issue 処理の効率化**
-   - 平均クローズ時間の短縮目標設定
-   - 優先度ラベル別の処理SLA定義
-
-4. **Dependabot 自動マージの安定化**
-   - テスト失敗時の検出・通知強化
-   - 競合解決の自動化検討
-
-### ループエンジニアリングの最適化
-1. **AI エージェントの実行効率向上**
-   - エージェントの成功率: 詳細ログ分析が必要
-   - 実行時間の短縮方針
-
-2. **Issue 自動生成の品質向上**
-   - 生成された Issue の採択率を追跡
-   - フィードバックループの構築
-
----
-
-## 🛑 やめたいこと
-
-### 検討対象
-1. **非効率なワークフロー**
-   - 失敗率が継続的に高いワークフローの見直し
-   - 実行時間が過度に長いステップの最適化
-
-2. **保守負荷の高いプロセス**
-   - 手動介入が多いプロセスの自動化検討
-   - 冗長なチェック処理の統合
-
-3. **不要な通知**
-   - 実績に基づくアラート基準の見直し
-
----
-
-## 📊 サマリー
-
-| 指標 | 値 |
-|------|-----|
-| ワークフロー実行成功率 | {actions_data['success_rate']:.1f}% |
-| 自動処理件数（Issue + PR） | {issues_data['created_count'] + prs_data['created_count']} |
-| 自動マージ成功件数 | {prs_data['auto_merged_count']} |
-| 週間作業量（実行 + Issue + PR） | {actions_data['total_runs'] + issues_data['created_count'] + prs_data['created_count']} |
-
----
-
-## 🎬 Next Steps
-
-1. 詳細な失敗ログの分析と原因特定
-2. 改善提案の具体化とロードマップ化
-3. 次週の目標成功率の設定
-
-**Generated by**: Loop Engineering Report Workflow  
-**Repository**: cocomomojo/test_app
-"""
+          report.append("")
+          report.append("---")
+          report.append("")
+          report.append("## 🔧 改善したいこと")
+          report.append("")
+          report.append("### パフォーマンス改善案")
+          report.append("1. **ワークフロー実行時間の最適化**")
+          report.append("   - 現在のワークフロー実行時間を分析し、並列化可能なステップを検出")
+          report.append("   - キャッシュ戦略の見直し")
+          report.append("")
+          report.append("2. **失敗率の削減**")
+          report.append("   - 失敗したワークフローの詳細ログ分析")
+          report.append("   - リトライロジックの改善検討")
+          report.append("")
+          report.append("3. **Issue 処理の効率化**")
+          report.append("   - 平均クローズ時間の短縮目標設定")
+          report.append("   - 優先度ラベル別の処理SLA定義")
+          report.append("")
+          report.append("4. **Dependabot 自動マージの安定化**")
+          report.append("   - テスト失敗時の検出・通知強化")
+          report.append("   - 競合解決の自動化検討")
+          report.append("")
+          report.append("### ループエンジニアリングの最適化")
+          report.append("1. **AI エージェントの実行効率向上**")
+          report.append("   - エージェントの成功率: 詳細ログ分析が必要")
+          report.append("   - 実行時間の短縮方針")
+          report.append("")
+          report.append("2. **Issue 自動生成の品質向上**")
+          report.append("   - 生成された Issue の採択率を追跡")
+          report.append("   - フィードバックループの構築")
+          report.append("")
+          report.append("---")
+          report.append("")
+          report.append("## 🛑 やめたいこと")
+          report.append("")
+          report.append("### 検討対象")
+          report.append("1. **非効率なワークフロー**")
+          report.append("   - 失敗率が継続的に高いワークフローの見直し")
+          report.append("   - 実行時間が過度に長いステップの最適化")
+          report.append("")
+          report.append("2. **保守負荷の高いプロセス**")
+          report.append("   - 手動介入が多いプロセスの自動化検討")
+          report.append("   - 冗長なチェック処理の統合")
+          report.append("")
+          report.append("3. **不要な通知**")
+          report.append("   - 実績に基づくアラート基準の見直し")
+          report.append("")
+          report.append("---")
+          report.append("")
+          report.append("## 📊 サマリー")
+          report.append("")
+          report.append("| 指標 | 値 |")
+          report.append("|------|-----|")
+          report.append(f"| ワークフロー実行成功率 | {actions_data['success_rate']:.1f}% |")
+          report.append(f"| 自動処理件数（Issue + PR） | {issues_data['created_count'] + prs_data['created_count']} |")
+          report.append(f"| 自動マージ成功件数 | {prs_data['auto_merged_count']} |")
+          report.append(f"| 週間作業量（実行 + Issue + PR） | {actions_data['total_runs'] + issues_data['created_count'] + prs_data['created_count']} |")
+          report.append("")
+          report.append("---")
+          report.append("")
+          report.append("## 🎬 Next Steps")
+          report.append("")
+          report.append("1. 詳細な失敗ログの分析と原因特定")
+          report.append("2. 改善提案の具体化とロードマップ化")
+          report.append("3. 次週の目標成功率の設定")
+          report.append("")
+          report.append("**Generated by**: Loop Engineering Report Workflow")
+          report.append("**Repository**: cocomomojo/test_app")
           
-          # Save report
+          markdown_report = "\n".join(report)
+          
           with open('/tmp/loop_engineering_report.md', 'w', encoding='utf-8') as f:
-              f.write(report)
+              f.write(markdown_report)
           
-          # Output for next step
-          with open('${{ env.GITHUB_OUTPUT }}', 'a', encoding='utf-8') as f:
-              f.write(f'report_body<<EOF\n{report}\nEOF\n')
+          with open('report.txt', 'w', encoding='utf-8') as f:
+              f.write(markdown_report)
           
           print("✅ Report generated successfully")
           PYTHON_EOF
@@ -396,25 +395,31 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          REPORT_BODY=$(cat << 'EOF'
-          ${{ steps.report.outputs.report_body }}
-          EOF
-          )
-          
-          ISSUE_DATE=$(date +%Y-%m-%d)
+          ISSUE_DATE=$(date -u +%Y-%m-%d)
           ISSUE_TITLE="[LOOP REPORT] ${ISSUE_DATE}"
           
-          # Create issue
+          REPORT_BODY=$(cat report.txt)
+          
           ISSUE_OUTPUT=$(gh issue create \
             --title "${ISSUE_TITLE}" \
             --body "${REPORT_BODY}" \
             --label "loop-engineering-report" \
-            --json url,number \
-            -q '.url,.number')
+            --json url,number 2>&1)
           
-          # Parse output
-          ISSUE_URL=$(echo "${ISSUE_OUTPUT}" | head -1)
-          ISSUE_NUMBER=$(echo "${ISSUE_OUTPUT}" | tail -1)
+          if [ $? -ne 0 ]; then
+            echo "Failed to create issue"
+            echo "$ISSUE_OUTPUT"
+            exit 1
+          fi
+          
+          ISSUE_URL=$(echo "${ISSUE_OUTPUT}" | grep -o 'https://github.com/[^"]*' | head -1)
+          ISSUE_NUMBER=$(echo "${ISSUE_OUTPUT}" | grep -o '"number": [0-9]*' | grep -o '[0-9]*')
+          
+          if [ -z "$ISSUE_URL" ] || [ -z "$ISSUE_NUMBER" ]; then
+            echo "Could not parse issue output"
+            echo "$ISSUE_OUTPUT"
+            exit 1
+          fi
           
           echo "issue_url=${ISSUE_URL}" >> $GITHUB_OUTPUT
           echo "issue_number=${ISSUE_NUMBER}" >> $GITHUB_OUTPUT
@@ -432,21 +437,27 @@ jobs:
           python3 << 'PYTHON_EOF'
           import json
           
-          with open('/tmp/gh_actions_analysis.json', 'r') as f:
-              actions_data = json.load(f)
+          try:
+              with open('/tmp/gh_actions_analysis.json', 'r') as f:
+                  actions_data = json.load(f)
+              print(f"- Workflow Success Rate: {actions_data['success_rate']:.1f}%")
+              print(f"- Total Runs Analyzed: {actions_data['total_runs']}")
+          except:
+              print("- Could not load actions analysis")
           
-          print(f"- Workflow Success Rate: {actions_data['success_rate']:.1f}%")
-          print(f"- Total Runs Analyzed: {actions_data['total_runs']}")
+          try:
+              with open('/tmp/gh_issues_analysis.json', 'r') as f:
+                  issues_data = json.load(f)
+              print(f"- Issues Created: {issues_data['created_count']}")
+              print(f"- Issues Closed: {issues_data['closed_count']}")
+          except:
+              print("- Could not load issues analysis")
           
-          with open('/tmp/gh_issues_analysis.json', 'r') as f:
-              issues_data = json.load(f)
-          
-          print(f"- Issues Created: {issues_data['created_count']}")
-          print(f"- Issues Closed: {issues_data['closed_count']}")
-          
-          with open('/tmp/gh_prs_analysis.json', 'r') as f:
-              prs_data = json.load(f)
-          
-          print(f"- PRs Merged: {prs_data['merged_count']}")
-          print(f"- Auto-merged (Dependabot): {prs_data['auto_merged_count']}")
+          try:
+              with open('/tmp/gh_prs_analysis.json', 'r') as f:
+                  prs_data = json.load(f)
+              print(f"- PRs Merged: {prs_data['merged_count']}")
+              print(f"- Auto-merged (Dependabot): {prs_data['auto_merged_count']}")
+          except:
+              print("- Could not load PRs analysis")
           PYTHON_EOF
