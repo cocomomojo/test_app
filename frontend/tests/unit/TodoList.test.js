@@ -169,4 +169,186 @@ describe('TodoList', () => {
 
     expect(pendingChip.classes()).toContain('v-chip--variant-elevated');
   });
+
+  it('displays progress bar with statistics', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [
+        { id: 1, title: 'Completed Task', done: true },
+        { id: 2, title: 'Pending Task', done: false }
+      ]
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    const progressBar = wrapper.find('[data-testid="progress-bar"]');
+    expect(progressBar.exists()).toBe(true);
+
+    const progressStats = wrapper.find('[data-testid="progress-stats"]');
+    expect(progressStats.text()).toContain('1 / 2 タスク完了');
+  });
+
+  it('calculates progress percentage correctly', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [
+        { id: 1, title: 'Task 1', done: true },
+        { id: 2, title: 'Task 2', done: true },
+        { id: 3, title: 'Task 3', done: false }
+      ]
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    const progressBar = wrapper.find('[data-testid="progress-bar"]');
+    expect(progressBar.attributes('value')).toBe('67');
+  });
+
+  it('shows 0% when no todos exist', async () => {
+    fetchTodos.mockResolvedValue({
+      data: []
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    const progressBar = wrapper.find('[data-testid="progress-bar"]');
+    expect(progressBar.attributes('value')).toBe('0');
+
+    const progressStats = wrapper.find('[data-testid="progress-stats"]');
+    expect(progressStats.text()).toContain('0 / 0 タスク完了');
+  });
+
+  it('sets progress bar color to red when 0-30%', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [
+        { id: 1, title: 'Task 1', done: true },
+        { id: 2, title: 'Task 2', done: false },
+        { id: 3, title: 'Task 3', done: false },
+        { id: 4, title: 'Task 4', done: false }
+      ]
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    const progressBar = wrapper.find('[data-testid="progress-bar"]');
+    // Verify progress is calculated correctly (25%)
+    expect(progressBar.attributes('value')).toBe('25');
+  });
+
+  it('sets progress bar color to warning when 31-60%', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [
+        { id: 1, title: 'Task 1', done: true },
+        { id: 2, title: 'Task 2', done: true },
+        { id: 3, title: 'Task 3', done: false },
+        { id: 4, title: 'Task 4', done: false }
+      ]
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    const progressBar = wrapper.find('[data-testid="progress-bar"]');
+    // Verify progress is calculated correctly (50%)
+    expect(progressBar.attributes('value')).toBe('50');
+  });
+
+  it('sets progress bar color to green when 61-100%', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [
+        { id: 1, title: 'Task 1', done: true },
+        { id: 2, title: 'Task 2', done: true },
+        { id: 3, title: 'Task 3', done: true },
+        { id: 4, title: 'Task 4', done: false }
+      ]
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    const progressBar = wrapper.find('[data-testid="progress-bar"]');
+    // Verify progress is calculated correctly (75%)
+    expect(progressBar.attributes('value')).toBe('75');
+  });
+
+  it('updates progress bar when todo is toggled', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [{ id: 1, title: 'Task', done: false }]
+    });
+    updateTodo.mockResolvedValue({});
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    let progressBar = wrapper.find('[data-testid="progress-bar"]');
+    expect(progressBar.attributes('value')).toBe('0');
+
+    fetchTodos.mockResolvedValue({
+      data: [{ id: 1, title: 'Task', done: true }]
+    });
+
+    const checkbox = wrapper.find('input[type="checkbox"]');
+    await checkbox.setValue(true);
+
+    await flushPromises();
+
+    progressBar = wrapper.find('[data-testid="progress-bar"]');
+    expect(progressBar.attributes('value')).toBe('100');
+  });
+
+  it('updates progress bar when new todo is added', async () => {
+    fetchTodos.mockResolvedValue({ data: [] });
+    createTodo.mockResolvedValue({});
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    let progressStats = wrapper.find('[data-testid="progress-stats"]');
+    expect(progressStats.text()).toContain('0 / 0 タスク完了');
+
+    fetchTodos.mockResolvedValue({
+      data: [{ id: 1, title: 'New Task', done: false }]
+    });
+
+    const input = wrapper.find('input');
+    await input.setValue('New Task');
+
+    const addButton = wrapper.findAll('button').find(b => b.text().includes('追加'));
+    await addButton.trigger('click');
+
+    await flushPromises();
+
+    progressStats = wrapper.find('[data-testid="progress-stats"]');
+    expect(progressStats.text()).toContain('0 / 1 タスク完了');
+  });
+
+  it('updates progress bar when todo is deleted', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [
+        { id: 1, title: 'Task 1', done: true },
+        { id: 2, title: 'Task 2', done: false }
+      ]
+    });
+    deleteTodo.mockResolvedValue({});
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    let progressStats = wrapper.find('[data-testid="progress-stats"]');
+    expect(progressStats.text()).toContain('1 / 2 タスク完了');
+
+    fetchTodos.mockResolvedValue({
+      data: [{ id: 1, title: 'Task 1', done: true }]
+    });
+
+    const deleteButton = wrapper.findAll('button').find(b => b.attributes('aria-label') === 'delete-2');
+    await deleteButton.trigger('click');
+
+    await flushPromises();
+
+    progressStats = wrapper.find('[data-testid="progress-stats"]');
+    expect(progressStats.text()).toContain('1 / 1 タスク完了');
+  });
 });

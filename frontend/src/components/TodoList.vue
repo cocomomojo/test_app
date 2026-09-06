@@ -7,6 +7,35 @@
           <h3 class="ma-0">TODO リスト</h3>
         </v-row>
 
+        <v-row class="mb-6">
+          <v-col cols="12">
+            <v-card variant="outlined" class="pa-4">
+              <v-row class="mb-3">
+                <v-col>
+                  <v-progress-linear
+                    data-testid="progress-bar"
+                    :value="progressPercentage"
+                    :color="progressColor"
+                    height="24"
+                    rounded
+                  >
+                    <span class="text-white font-weight-bold" style="font-size: 12px">
+                      {{ progressPercentage }}%
+                    </span>
+                  </v-progress-linear>
+                </v-col>
+              </v-row>
+              <v-row>
+                <v-col class="text-center">
+                  <div data-testid="progress-stats" class="text-caption">
+                    {{ completedCount }} / {{ totalCount }} タスク完了
+                  </div>
+                </v-col>
+              </v-row>
+            </v-card>
+          </v-col>
+        </v-row>
+
         <v-row class="mb-4">
           <v-col>
             <v-text-field v-model="newTitle" label="新しい TODO を入力" outlined dense />
@@ -113,6 +142,24 @@ const filteredTodos = computed(() => {
     return todos.value.filter(todo => todo.done);
   }
   return todos.value;
+});
+
+const totalCount = computed(() => todos.value.length);
+
+const completedCount = computed(() => 
+  todos.value.filter(todo => todo.done).length
+);
+
+const progressPercentage = computed(() => {
+  if (totalCount.value === 0) return 0;
+  return Math.round((completedCount.value / totalCount.value) * 100);
+});
+
+const progressColor = computed(() => {
+  const percentage = progressPercentage.value;
+  if (percentage <= 30) return 'red';
+  if (percentage <= 60) return 'warning';
+  return 'green';
 });
 
 const load = async () => {
