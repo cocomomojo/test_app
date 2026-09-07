@@ -69,9 +69,9 @@ jobs:
             text=True,
             cwd='.'
           )
-           
+
           commits = result.stdout.strip().split('\n') if result.stdout.strip() else []
-           
+
           # Extract commit messages
           commit_keywords = []
           for commit in commits:
@@ -85,14 +85,15 @@ jobs:
               )
               msg = msg_result.stdout.lower()
               commit_keywords.extend(msg.split())
-           
+
           # Get list of open feature issues
           open_issues_result = subprocess.run(
-            ['gh', 'issue', 'list', '--search', 'label:feature state:open', '--json', 'body,title'],
+            ['gh', 'issue', 'list', '--search',
+             'label:feature state:open', '--json', 'body,title'],
             capture_output=True,
             text=True
           )
-           
+
           open_issues_text = ''
           try:
             if open_issues_result.stdout:
@@ -103,15 +104,18 @@ jobs:
               ])
           except:
             pass
-           
+
           # Save analysis results
           with open('./existing_implementations.txt', 'w') as f:
             f.write('### Recent Commits (past 30 days)\n')
             for commit in commits[:20]:  # Last 20 commits
               f.write(f'{commit}\n')
             f.write('\n### Open Feature Issues\n')
-            f.write(open_issues_text if open_issues_text else '(No open feature issues)')
-           
+            f.write(
+              open_issues_text if open_issues_text
+              else '(No open feature issues)'
+            )
+
           print('✓ Existing implementations analyzed')
           PY
 
@@ -126,9 +130,11 @@ jobs:
 
           category = os.environ.get('FEATURE_CATEGORY', 'Both')
           difficulty = os.environ.get('DIFFICULTY_LEVEL', 'Medium')
-           
+
           # Read existing implementations
-          existing_impl = Path('./existing_implementations.txt').read_text(encoding='utf-8')
+          existing_impl = Path(
+            './existing_implementations.txt'
+          ).read_text(encoding='utf-8')
 
           # Build prompt with JSON example to avoid YAML parsing issues
           import json
@@ -139,8 +145,9 @@ jobs:
               "acceptance_criteria": ["受け入れ条件1", "受け入れ条件2", "受け入れ条件3"],
               "estimated_effort": "XS/S/M/L/XL"
           }
-          json_str = json.dumps(json_example, ensure_ascii=False, indent=2)
-          
+          json_str = json.dumps(
+            json_example, ensure_ascii=False, indent=2)
+
           prompt_lines = [
               "【重要】このリクエストへのすべての応答は日本語で行ってください。",
               "",
@@ -153,17 +160,18 @@ jobs:
               "",
               "## 重要: 重複回避",
               "既存の実装と未解決のIssueを確認してください。",
-              "**すでに実装されている、または既にIssueが存在する機能は提案しないでください。**",
+              "**すでに実装されている、または既にIssueが存在する" +
+              "機能は提案しないでください。**",
               "以下にリストされていない新しいユニークな機能を提案してください：",
               "",
               existing_impl,
               "",
               "## 要件",
-              "以下の正確な形式で有効なJSONのみを出力してください（他のテキストやマークダウンは不要）：",
+              "以下の正確な形式で有効なJSONのみを出力してください" +
+              "（他のテキストやマークダウンは不要）：",
               json_str,
           ]
           prompt = "\n".join(prompt_lines)
-
           with open('./copilot-prompt.txt', 'w') as f:
             f.write(prompt)
           print("✓ Prompt created with existing implementation context")
@@ -193,19 +201,23 @@ jobs:
           from pathlib import Path
 
           response_file = Path('./copilot-response.txt')
-          response_text = response_file.read_text(encoding='utf-8', errors='replace')
+          response_text = response_file.read_text(
+            encoding='utf-8', errors='replace')
 
           # Extract JSON from response (try code block first, then direct match)
           json_text = None
 
           # Try to extract JSON from code block
-          match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)
+          match = re.search(
+            r'```(?:json)?\s*\n(.*?)\n```',
+            response_text, re.DOTALL)
           if match:
             json_text = match.group(1).strip()
-           
+
           # If not found in code block, try to extract JSON object
           if not json_text:
-            # Use a more robust approach: find the first '{' and match braces
+            # Use a more robust approach: find the first '{'
+            # and match braces
             start_idx = response_text.find('{')
             if start_idx != -1:
               # Count braces to find the complete JSON object
@@ -213,25 +225,25 @@ jobs:
               end_idx = start_idx
               in_string = False
               escape_next = False
-               
+
               for i in range(start_idx, len(response_text)):
                 char = response_text[i]
-                 
+
                 if escape_next:
                   escape_next = False
                   continue
-                
+
                 if char == '\\':
                   escape_next = True
                   continue
-                
+
                 if char == '"' and not escape_next:
                   in_string = not in_string
                   continue
-                
+
                 if in_string:
                   continue
-                
+
                 if char == '{':
                   brace_count += 1
                 elif char == '}':
@@ -239,7 +251,7 @@ jobs:
                   if brace_count == 0:
                     end_idx = i + 1
                     break
-               
+
               if brace_count == 0 and end_idx > start_idx:
                 json_text = response_text[start_idx:end_idx].strip()
 
@@ -254,14 +266,18 @@ jobs:
             proposal = json.loads(json_text)
 
             # Validate required fields
-            required_fields = ['title', 'background', 'feature_description', 'acceptance_criteria']
+            required_fields = [
+              'title', 'background', 'feature_description',
+              'acceptance_criteria'
+            ]
             for field in required_fields:
               if field not in proposal:
                 print(f'ERROR: Missing required field: {field}')
                 exit(1)
 
             # Validate acceptance_criteria is a list
-            if not isinstance(proposal.get('acceptance_criteria'), list):
+            if not isinstance(
+              proposal.get('acceptance_criteria'), list):
               print('ERROR: acceptance_criteria must be a list')
               exit(1)
 
@@ -274,13 +290,17 @@ jobs:
               proposal['title'] = f"[FEATURE] {proposal['title']}"
 
             # Validate title is not empty
-            if not proposal['title'] or proposal['title'].strip() == '[FEATURE]':
+            if (
+              not proposal['title']
+              or proposal['title'].strip() == '[FEATURE]'
+            ):
               print(f'ERROR: Title is empty or only contains "[FEATURE]": {proposal["title"]}')
               exit(1)
 
             # Write validated proposal
             Path('./proposal.json').write_text(
-              json.dumps(proposal, ensure_ascii=False, indent=2),
+              json.dumps(
+                proposal, ensure_ascii=False, indent=2),
               encoding='utf-8'
             )
             print('✓ Proposal validated and saved')
@@ -341,7 +361,8 @@ jobs:
 
           # Save title and body
           Path('./issue-title.txt').write_text(title, encoding='utf-8')
-          Path('./issue-body.md').write_text('\n'.join(body_parts), encoding='utf-8')
+          Path('./issue-body.md').write_text(
+            '\n'.join(body_parts), encoding='utf-8')
 
           print(f'✓ Issue content prepared')
           print(f'  Title: {title}')
@@ -358,16 +379,20 @@ jobs:
           import re
           from pathlib import Path
 
-          title = Path('./issue-title.txt').read_text(encoding='utf-8').strip()
-          body = Path('./issue-body.md').read_text(encoding='utf-8').strip()
-           
+          title = Path('./issue-title.txt').read_text(
+            encoding='utf-8').strip()
+          body = Path('./issue-body.md').read_text(
+            encoding='utf-8').strip()
+
           # Check by exact title match first (fastest)
           result = subprocess.run(
-            ['gh', 'issue', 'list', '--search', f'in:title "{title}"', '--state', 'open', '--json', 'number,title,body'],
+            ['gh', 'issue', 'list', '--search',
+             f'in:title "{title}"', '--state', 'open',
+             '--json', 'number,title,body'],
             capture_output=True,
             text=True
           )
-           
+
           if result.returncode == 0 and result.stdout:
             try:
               issues = json.loads(result.stdout)
@@ -380,46 +405,60 @@ jobs:
                 exit(0)
             except:
               pass
-           
+
           # Check for similar issues by keyword match
           result = subprocess.run(
-            ['gh', 'issue', 'list', '--label', 'feature', '--state', 'open', '--json', 'number,title,body'],
+            ['gh', 'issue', 'list', '--label', 'feature',
+             '--state', 'open', '--json', 'number,title,body'],
             capture_output=True,
             text=True
           )
-           
+
           if result.returncode == 0 and result.stdout:
             try:
               open_issues = json.loads(result.stdout)
-               
+
               # Extract key terms from the new proposal
               new_keywords = set(re.findall(r'\w{3,}', title.lower()))
-              new_keywords |= set(re.findall(r'\w{5,}', body.lower()))  # Words 5+ chars
-               
+              new_keywords |= set(
+                re.findall(r'\w{5,}', body.lower())  # Words 5+ chars
+              )
+
               # Compare with existing issues
               for issue in open_issues:
-                existing_keywords = set(re.findall(r'\w{3,}', issue['title'].lower()))
-                existing_keywords |= set(re.findall(r'\w{5,}', (issue.get('body') or '').lower()))
-                 
+                existing_keywords = set(
+                  re.findall(r'\w{3,}', issue['title'].lower())
+                )
+                existing_keywords |= set(
+                  re.findall(r'\w{5,}', (issue.get('body') or '').lower())
+                )
+
                 # Calculate similarity (need 60% keyword overlap)
                 if new_keywords and existing_keywords:
                   common = new_keywords & existing_keywords
-                  similarity = len(common) / max(len(new_keywords), len(existing_keywords))
+                  similarity = (
+                    len(common) / max(
+                      len(new_keywords), len(existing_keywords)
+                    )
+                  )
                   if similarity >= 0.6:
                     with open('check_result.txt', 'w') as f:
                       f.write(f"exists=true\n")
                       f.write(f"number={issue['number']}\n")
-                    print(f"⚠️ Similar issue #{issue['number']} already exists: {issue['title']}")
+                    print(
+                      f"⚠️ Similar issue #{issue['number']} "
+                      f"already exists: {issue['title']}"
+                    )
                     exit(0)
             except:
               pass
-           
+
           # No duplicates found
           with open('check_result.txt', 'w') as f:
             f.write(f"exists=false\n")
           print(f"✓ No duplicate issues detected")
           PY
-           
+
           # Read results and export to GITHUB_OUTPUT
           cat check_result.txt >> "$GITHUB_OUTPUT"
 
@@ -428,9 +467,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh label create "enhancement" --description "New feature or request" --color a2eeef --force || true
-          gh label create "feature" --description "New feature" --color a2eeef --force || true
-          gh label create "auto-generated" --description "Automatically generated by workflow" --color cccccc --force || true
+          gh label create "enhancement" \
+            --description "New feature or request" \
+            --color a2eeef --force || true
+          gh label create "feature" \
+            --description "New feature" \
+            --color a2eeef --force || true
+          gh label create "auto-generated" \
+            --description "Automatically generated by workflow" \
+            --color cccccc --force || true
 
       - name: Create GitHub Issue
         if: steps.check.outputs.exists == 'false'
@@ -440,12 +485,12 @@ jobs:
         run: |
           TITLE=$(cat ./issue-title.txt)
           BODY=$(cat ./issue-body.md)
-           
+
           echo "DEBUG: Issue to be created"
           echo "Title: $TITLE"
           echo "Body length: ${#BODY}"
           echo "Body first 200 chars: ${BODY:0:200}"
-           
+
           ISSUE_OUTPUT=$(gh issue create \
             --title "$TITLE" \
             --label "enhancement" \
@@ -453,19 +498,22 @@ jobs:
             --label "auto-generated" \
             --body-file ./issue-body.md)
           ISSUE_URL=$(printf '%s\n' "$ISSUE_OUTPUT" | tail -n 1)
-          if [[ ! "$ISSUE_URL" =~ ^https://github\.com/[^/]+/[^/]+/issues/[0-9]+$ ]]; then
+          REGEX='^https://github\.com/[^/]+/[^/]+/issues/[0-9]+$'
+          if [[ ! "$ISSUE_URL" =~ $REGEX ]]; then
             echo "Failed to parse issue URL from gh output:"
             printf '%s\n' "$ISSUE_OUTPUT"
             exit 1
           fi
           ISSUE_NUMBER=${ISSUE_URL##*/}
-           
+
           # Verify created issue
           sleep 2
-          gh issue view "$ISSUE_NUMBER" --json number,title,body --repo "$GITHUB_REPOSITORY" > /tmp/created-issue-verify.json
+          gh issue view "$ISSUE_NUMBER" --json number,title,body \
+            --repo "$GITHUB_REPOSITORY" \
+            > /tmp/created-issue-verify.json
           echo "DEBUG: Verified created issue:"
           cat /tmp/created-issue-verify.json
-           
+
           echo "issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
           echo "issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
           echo "✓ Issue created: $ISSUE_URL"
