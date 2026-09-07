@@ -20,18 +20,21 @@ jobs:
     steps:
       - name: Validate PR context
         id: pr_context
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
-          if [ -z "${{ github.event.pull_request.number }}" ]; then
+          if [ -z "$PR_NUMBER" ]; then
             echo "❌ PR context not available (pull_request.number is empty)"
             exit 1
           fi
-          if [ -z "${{ github.event.pull_request.head.ref }}" ]; then
+          if [ -z "$HEAD_REF" ]; then
             echo "❌ PR branch context not available (head.ref is empty)"
             echo "This usually means the PR has been merged and the branch was deleted."
             exit 1
           fi
-          echo "pr_number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
-          echo "head_ref=${{ github.event.pull_request.head.ref }}" >> "$GITHUB_OUTPUT"
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
 
       - name: Setup Scripts
         uses: github/gh-aw/actions/setup@466b8ad27fcfaaa861da3f16ba7c01272df25f46
@@ -41,7 +44,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          ref: ${{ steps.pr_context.outputs.head_ref || github.ref }}
           fetch-depth: 0
 
       - name: Detect Copilot availability
@@ -159,7 +162,7 @@ jobs:
         if: steps.publication_mode.outputs.branch_sync_enabled == 'true'
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REF: ${{ steps.pr_context.outputs.head_ref }}
           PR_TEST_PLAN_GITHUB_TOKEN: ${{ secrets.PR_TEST_PLAN_GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -169,7 +172,7 @@ jobs:
           echo "Validating branch existence: $HEAD_REF"
           if ! git fetch origin "$HEAD_REF" 2>/dev/null; then
             echo "status=failed" >> "$GITHUB_OUTPUT"
-            echo "reason=PR ブランチが削除されているため同期を中止: $HEAD_REF"
+            echo "reason=PR ブランチが削除されているため同期を中止: $HEAD_REF" >> "$GITHUB_OUTPUT"
             echo "❌ Branch does not exist or is no longer accessible: $HEAD_REF"
             exit 1
           fi
