@@ -111,8 +111,10 @@ jobs:
             for commit in commits[:20]:  # Last 20 commits
               f.write(f'{commit}\n')
             f.write('\n### Open Feature Issues\n')
-            f.write(open_issues_text if open_issues_text \
-                    else '(No open feature issues)')
+            f.write(
+              open_issues_text if open_issues_text
+              else '(No open feature issues)'
+            )
 
           print('✓ Existing implementations analyzed')
           PY
