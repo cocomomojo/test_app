@@ -796,22 +796,43 @@ GitHub リポジトリ → Settings → Secrets and variables → Actions → Ne
 #### 4️⃣ E2E テスト失敗フロー
 
 ```
-┌──────────────────────────┐
-│ e2e.yml (テスト実行)     │
-│ 失敗
-└────────────┬─────────────┘
+┌─────────────────────────────┐
+│ PR Quality Checks または    │
+│ e2e.yml (テスト実行)        │
+│ E2E テスト失敗
+└────────────┬────────────────┘
              │
              ↓
-┌──────────────────────────┐
-│ e2e-failure-analysis.yml │
-│ (Copilot 分析、Issue作成) │
-└──────────────────────────┘
+┌──────────────────────────────┐
+│ e2e-failure-analysis.yml     │
+│ (Copilot 分析、Issue作成)    │
+│ ※ PR Quality Checks の失敗も │
+│   検出・分析
+└────────────┬─────────────────┘
              │
              ↓
-┌──────────────────────────┐
-│ issue-to-triage.yml      │  ← Issue 自動振り分け
-│ (自動トリアージ)        │
-└──────────────────────────┘
+┌──────────────────────────────┐
+│ issue-to-triage.yml          │  ← Issue 自動振り分け
+│ (自動トリアージ)            │
+└──────────────────────────────┘
+```
+
+#### 4️⃣ -b 週次 E2E ヘルスチェック
+
+```
+┌──────────────────────────────┐
+│ weekly-e2e-health-check.yml  │  ← 毎週日曜日 10:00 UTC
+│ (E2E安定性分析)             │
+│ - テスト成功率計算          │
+│ - トレンド分析              │
+│ - 改善提案生成
+└────────────┬─────────────────┘
+             │
+             ↓
+┌──────────────────────────────┐
+│ Health Check Issue 作成      │
+│ (e2e-health-check ラベル付与) │
+└──────────────────────────────┘
 ```
 
 #### 5️⃣ Issue 自動修正フロー
@@ -842,6 +863,7 @@ GitHub リポジトリ → Settings → Secrets and variables → Actions → Ne
 | **定期実行** | weekly-feature-issue | スケジュール | 週次タスク Issue 作成 |
 | | weekly-feature-fix | スケジュール | 週次タスク実装 |
 | | weekly-loop-engineering-report | スケジュール | ループエンジニアリング分析レポート |
+| | weekly-e2e-health-check | スケジュール | E2E テスト安定性分析レポート |
 | **Dependabot 自動化** | dependabot-label-setup | イベント | ラベル自動付与 |
 | | dependabot-auto-fix | イベント | テスト失敗時修正 |
 | | dependabot-notification | イベント | 失敗時通知 |

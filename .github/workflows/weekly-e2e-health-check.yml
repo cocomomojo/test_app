@@ -1,0 +1,187 @@
+name: Weekly E2E Health Check
+
+on:
+  schedule:
+    - cron: '0 10 * * 0'  # 毎週日曜日 10:00 UTC
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+jobs:
+  e2e-health-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+
+      - name: Analyze E2E test runs from past 7 days
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          
+          # 過去7日間のE2Eテスト関連ワークフロー実行を取得
+          echo "📊 Collecting E2E workflow data from past 7 days..."
+          
+          # PR Quality Checks内のE2Eテスト失敗を集計
+          PR_QUALITY_RUNS=$(gh run list \
+            --workflow=pr-quality.yml \
+            --created=">=2024-01-01" \
+            --status=completed \
+            --limit=50 \
+            --json=conclusion,createdAt,displayTitle,url \
+            -q '.[] | select(.createdAt | fromdateiso8601 > now - 604800)')
+          
+          # E2E Tests with Coverageワークフロー失敗を集計
+          E2E_RUNS=$(gh run list \
+            --workflow=e2e.yml \
+            --created=">=2024-01-01" \
+            --status=completed \
+            --limit=50 \
+            --json=conclusion,createdAt,displayTitle,url \
+            -q '.[] | select(.createdAt | fromdateiso8601 > now - 604800)')
+          
+          # 失敗数をカウント
+          PR_QUALITY_TOTAL=$(echo "$PR_QUALITY_RUNS" | jq 'length' 2>/dev/null || echo 0)
+          PR_QUALITY_FAILED=$(echo "$PR_QUALITY_RUNS" | jq '[.[] | select(.conclusion == "failure")] | length' 2>/dev/null || echo 0)
+          
+          E2E_TOTAL=$(echo "$E2E_RUNS" | jq 'length' 2>/dev/null || echo 0)
+          E2E_FAILED=$(echo "$E2E_RUNS" | jq '[.[] | select(.conclusion == "failure")] | length' 2>/dev/null || echo 0)
+          
+          # 成功率を計算
+          if [ "$PR_QUALITY_TOTAL" -gt 0 ]; then
+            PR_SUCCESS_RATE=$((100 * (PR_QUALITY_TOTAL - PR_QUALITY_FAILED) / PR_QUALITY_TOTAL))
+          else
+            PR_SUCCESS_RATE=0
+          fi
+          
+          if [ "$E2E_TOTAL" -gt 0 ]; then
+            E2E_SUCCESS_RATE=$((100 * (E2E_TOTAL - E2E_FAILED) / E2E_TOTAL))
+          else
+            E2E_SUCCESS_RATE=0
+          fi
+          
+          # 結果をファイルに保存
+          cat > /tmp/e2e-health.json <<EOF
+          {
+            "pr_quality_total": $PR_QUALITY_TOTAL,
+            "pr_quality_failed": $PR_QUALITY_FAILED,
+            "pr_quality_success_rate": $PR_SUCCESS_RATE,
+            "e2e_total": $E2E_TOTAL,
+            "e2e_failed": $E2E_FAILED,
+            "e2e_success_rate": $E2E_SUCCESS_RATE
+          }
+          EOF
+          
+          echo "📈 E2E Health Check Results:"
+          cat /tmp/e2e-health.json | jq .
+
+      - name: Generate health check report
+        run: |
+          set -e
+          
+          # JSON データを読み込み
+          PR_TOTAL=$(jq '.pr_quality_total' /tmp/e2e-health.json)
+          PR_FAILED=$(jq '.pr_quality_failed' /tmp/e2e-health.json)
+          PR_RATE=$(jq '.pr_quality_success_rate' /tmp/e2e-health.json)
+          E2E_TOTAL=$(jq '.e2e_total' /tmp/e2e-health.json)
+          E2E_FAILED=$(jq '.e2e_failed' /tmp/e2e-health.json)
+          E2E_RATE=$(jq '.e2e_success_rate' /tmp/e2e-health.json)
+          
+          # 健全性判定
+          get_health() {
+            rate=$1
+            if [ "$rate" -ge 95 ]; then
+              echo "✅ 良好"
+            elif [ "$rate" -ge 80 ]; then
+              echo "⚠️ 注意"
+            else
+              echo "🔴 要改善"
+            fi
+          }
+          
+          PR_HEALTH=$(get_health "$PR_RATE")
+          E2E_HEALTH=$(get_health "$E2E_RATE")
+          
+          # レポートを作成
+          TIMESTAMP=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          
+          {
+            echo "## E2E テスト安定性レポート"
+            echo ""
+            echo "生成日: $TIMESTAMP"
+            echo ""
+            echo "### テスト実行統計"
+            echo ""
+            echo "PR Quality Checks:"
+            echo "- 実行数: $PR_TOTAL"
+            echo "- 失敗数: $PR_FAILED"
+            echo "- 成功率: ${PR_RATE}%"
+            echo "- 健全性: $PR_HEALTH"
+            echo ""
+            echo "スタンドアロン E2E:"
+            echo "- 実行数: $E2E_TOTAL"
+            echo "- 失敗数: $E2E_FAILED"
+            echo "- 成功率: ${E2E_RATE}%"
+            echo "- 健全性: $E2E_HEALTH"
+            echo ""
+            echo "### 改善提案"
+            echo ""
+            echo "- 失敗ログを確認してください"
+            echo "- e2e-failure-analysis Issues を参照してください"
+            echo "- インフラ設定を見直してください"
+          } > /tmp/e2e-health-report.md
+          
+          echo "📄 Health check report generated:"
+          cat /tmp/e2e-health-report.md
+
+      - name: Create or update health check issue
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('/tmp/e2e-health-report.md', 'utf8');
+            const today = new Date().toISOString().split('T')[0];
+            const title = `[E2E HEALTH] ${today} - Weekly E2E Test Stability Report`;
+            
+            // 過去のレポート Issues を検索
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              labels: ['e2e-health-check'],
+              per_page: 10
+            });
+            
+            // 今週のレポートが既に存在するか確認
+            const existing = issues.data.find(issue => 
+              issue.title.includes('[E2E HEALTH]') &&
+              issue.created_at && 
+              new Date(issue.created_at).toISOString().split('T')[0] === today
+            );
+            
+            if (existing) {
+              core.info(`Updating existing issue #${existing.number}`);
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: report,
+                state: 'open'
+              });
+            } else {
+              core.info('Creating new health check issue');
+              const issue = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body: report,
+                labels: ['e2e-health-check']
+              });
+              core.notice(`Created issue #${issue.data.number}: ${issue.data.html_url}`);
+            }
