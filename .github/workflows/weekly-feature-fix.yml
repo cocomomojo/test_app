@@ -406,6 +406,57 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           XDG_CONFIG_HOME: /home/runner
 
+      - name: Check and push feature branch
+        if: steps.init.outputs.exceeded_max == 'false' &&
+            steps.copilot_exec.outcome == 'success'
+        id: push_branch
+        continue-on-error: true
+        run: |
+          cd "${GITHUB_WORKSPACE}"
+           
+          BRANCH_NAME="copilot/issue-${ISSUE_NUMBER}"
+           
+          # ローカルブランチの存在確認
+          if ! git rev-parse "$BRANCH_NAME" > /dev/null 2>&1; then
+            echo "❌ Local branch does not exist: $BRANCH_NAME"
+            echo "Available branches:"
+            git branch -a
+            echo "git_push_status=local_branch_not_found" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+           
+          echo "✅ Local branch exists: $BRANCH_NAME"
+           
+          # git push を実行（エラーをキャプチャ）
+          echo "📤 Attempting to push branch to remote..."
+          GIT_PUSH_OUTPUT=$( { git push origin "$BRANCH_NAME" -f 2>&1; } )
+          GIT_PUSH_EXIT_CODE=$?
+           
+          echo "$GIT_PUSH_OUTPUT"
+           
+          if [ $GIT_PUSH_EXIT_CODE -eq 0 ]; then
+            echo "✅ Git push succeeded"
+            echo "git_push_status=success" >> "$GITHUB_OUTPUT"
+          else
+            echo "❌ Git push failed with exit code $GIT_PUSH_EXIT_CODE"
+            echo "git_push_status=failed" >> "$GITHUB_OUTPUT"
+             
+            # エラータイプを分類
+            if echo "$GIT_PUSH_OUTPUT" | grep -qE '(401|Authentication failed|Unauthorized)'; then
+              echo "git_push_error_type=authentication_failed" >> "$GITHUB_OUTPUT"
+            elif echo "$GIT_PUSH_OUTPUT" | grep -qE '(403|Permission denied|Forbidden)'; then
+              echo "git_push_error_type=permission_denied" >> "$GITHUB_OUTPUT"
+            elif echo "$GIT_PUSH_OUTPUT" | grep -qE '(connection refused|timeout|Connection timed out)'; then
+              echo "git_push_error_type=network_error" >> "$GITHUB_OUTPUT"
+            else
+              echo "git_push_error_type=unknown_error" >> "$GITHUB_OUTPUT"
+            fi
+             
+            # ログを保存
+            echo "$GIT_PUSH_OUTPUT" > /tmp/git_push_error.log
+            exit 1
+          fi
+
       - name: Fetch and checkout feature branch
         if: steps.init.outputs.exceeded_max == 'false'
         id: checkout_feature
@@ -774,32 +825,65 @@ jobs:
           delete-branch: false
 
       - name: Handle branch push failure
-        if: steps.pr_meta.outputs.has_changes == 'true' && steps.verify_push.outputs.branch_exists != 'true'
+        if: steps.pr_meta.outputs.has_changes == 'true' && (steps.verify_push.outputs.branch_exists != 'true' || steps.push_branch.outcome == 'failure')
         uses: actions/github-script@v7
         env:
           BRANCH_NAME: ${{ steps.pr_meta.outputs.branch_name }}
+          PUSH_STATUS: ${{ steps.push_branch.outputs.git_push_status }}
+          PUSH_ERROR_TYPE: ${{ steps.push_branch.outputs.git_push_error_type }}
         with:
           script: |
             const issueNumber = Number(process.env.ISSUE_NUMBER);
             const branchName = process.env.BRANCH_NAME;
+            const pushStatus = process.env.PUSH_STATUS || 'unknown';
+            const pushErrorType = process.env.PUSH_ERROR_TYPE || 'unknown_error';
+              
+            // エラータイプに基づいた詳細なコメントを生成
+            let errorDetails = '';
+            let suggestedAction = '';
+             
+            switch(pushErrorType) {
+              case 'authentication_failed':
+                errorDetails = 'GitHub API 認証エラー (401)';
+                suggestedAction = '1. `COPILOT_GITHUB_TOKEN` が有効であることを確認してください\n2. トークンの有効期限を確認してください\n3. GitHub UI でトークンのスコープを確認してください';
+                break;
+              case 'permission_denied':
+                errorDetails = 'GitHub API パーミッションエラー (403)';
+                suggestedAction = '1. `COPILOT_GITHUB_TOKEN` が `contents: write` スコープを持っていることを確認してください\n2. トークンのリポジトリアクセス設定を確認してください';
+                break;
+              case 'network_error':
+                errorDetails = 'ネットワーク接続エラー (timeout/connection refused)';
+                suggestedAction = '1. GitHub のサービスステータスを確認してください\n2. ネットワーク接続を確認してください\n3. ワークフローを再実行してください';
+                break;
+              case 'local_branch_not_found':
+                errorDetails = 'ローカルブランチが見つかりません';
+                suggestedAction = '1. Copilot の実行ログを確認してください\n2. git コマンドが実行されたか確認してください\n3. Copilot が正常に実装を完了したか確認してください';
+                break;
+              default:
+                errorDetails = 'Git push エラー（詳細不明）';
+                suggestedAction = 'ワークフローのログで詳細を確認してください';
+            }
              
             const comment = [
               '<!-- weekly-feature-fix-branch-error -->',
-              '## ❌ PR作成失敗: ブランチがリモートに見つかりません',
+              '## ❌ PR作成失敗: ブランチのプッシュに失敗しました',
               '',
-              `**エラー:** ブランチ \`${branchName}\` がリモートリポジトリに存在しません`,
+              `**ブランチ:** \`${branchName}\``,
+              `**エラータイプ:** ${errorDetails}`,
               '',
-              '### 考えられる原因:',
-              '1. Copilot の実行後、ブランチが正しく push されていない',
-              '2. ネットワーク接続の問題により push が失敗した',
-              '3. GitHub トークンのパーミッション不足',
+              '### 📋 エラーの詳細:',
+              `- Push Status: ${pushStatus}`,
+              `- Error Classification: ${pushErrorType}`,
               '',
-              '### 対処方法:',
-              '1. ワークフローのログで Copilot 実行ステップを確認してください',
-              '2. エラーメッセージを確認してください（Git push エラーなど）',
+              '### 🔧 考えられる原因と対処方法:',
+              suggestedAction,
+              '',
+              '### 📝 ワークフロー確認手順:',
+              '1. [ワークフロー実行ログ](../../actions/runs/' + process.env.GITHUB_RUN_ID + ') で「Check and push feature branch」ステップを確認してください',
+              '2. 完全なエラーメッセージを確認してください',
               '3. 必要に応じて手動で修正を行うか、Issue を再度トリガーしてください',
             ].join('\n');
-
+             
             try {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
@@ -894,6 +978,8 @@ jobs:
           COPILOT_OUTCOME: ${{ steps.copilot_exec.outcome }}
           TEST_OUTCOME: ${{ steps.test_exec.outcome }}
           HAS_CHANGES: ${{ steps.pr_meta.outputs.has_changes }}
+          PUSH_BRANCH_OUTCOME: ${{ steps.push_branch.outcome }}
+          CREATE_PR_OUTCOME: ${{ steps.create_pr.outcome }}
         with:
           script: |
             const marker = '<!-- weekly-feature-fix-retry -->';
@@ -947,11 +1033,23 @@ jobs:
             // テスト成功時、または最大リトライ到達時の判定
             const hasChanges = process.env.HAS_CHANGES === 'true';
             const MAX_RETRIES = Number(process.env.MAX_RETRIES);
+            const pushBranchOutcome = process.env.PUSH_BRANCH_OUTCOME || 'unknown';
+            const createPrOutcome = process.env.CREATE_PR_OUTCOME || 'unknown';
             
-            if (testOutcome === 'success' && hasChanges) {
-              // テスト成功 & 変更あり → 完了
+            if (testOutcome === 'success' && hasChanges && pushBranchOutcome === 'success' && createPrOutcome === 'success') {
+              // テスト成功 & 変更あり & push成功 & PR作成成功 → 完了
               core.notice(
-                `Issue #${issueNumber} のテストに合格しました。✅ PR が作成されました。`
+                `Issue #${issueNumber} のテストに合格しました。✅ PR が正常に作成されました。`
+              );
+            } else if (testOutcome === 'success' && hasChanges && pushBranchOutcome === 'failure') {
+              // テスト成功 & 変更あり & push失敗 → ブランチプッシュエラー
+              core.notice(
+                `Issue #${issueNumber}: テストは成功しましたが、git push に失敗しました。❌ Issue のコメントを確認してください。`
+              );
+            } else if (testOutcome === 'success' && hasChanges && createPrOutcome === 'skipped') {
+              // テスト成功 & 変更あり & PR作成スキップ → PR検証エラー
+              core.notice(
+                `Issue #${issueNumber}: テストは成功しましたが、ブランチの検証に失敗しました。❌ Issue のコメントを確認してください。`
               );
             } else if (!hasChanges) {
               // 変更なし → リトライせず終了（Copilot実装失敗）
