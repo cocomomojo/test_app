@@ -16,8 +16,8 @@
     "coverage:report": "nyc report --reporter=html --reporter=lcov --reporter=text --temp-dir=coverage/e2e-raw --report-dir=coverage/e2e-report"
   },
   "dependencies": {
-    "axios": "^1.19.0",
-    "vue": "^3.5.41",
+    "axios": "^1.20.0",
+    "vue": "^3.5.42",
     "vue-router": "^4.5.0"
   },
   "devDependencies": {
