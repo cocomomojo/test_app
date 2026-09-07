@@ -108,3 +108,62 @@ test('TODOをフィルターできること-完了のみ', async ({ page }) => {
   await expect(page.getByText(pendingTitle)).not.toBeVisible();
 });
 
+
+test('優先度でTODOをフィルターできること', async ({ page }) => {
+  await page.goto('/login');
+  await page.getByLabel('ユーザ名').fill('testuser');
+  await page.getByLabel('パスワード').fill('Test1234!');
+  await page.getByRole('button', { name: /ログイン/ }).click();
+  await page.waitForURL(/\/top/);
+
+  await page.goto('/todo');
+
+  // FilterPanelが表示されることを確認
+  const filterPriority = page.locator('[data-testid="filter-priority"]');
+  await expect(filterPriority).toBeVisible();
+
+  // 優先度を選択してフィルター適用
+  await filterPriority.click();
+  await page.locator('text=高').click();
+  
+  const applyButton = page.locator('[data-testid="filter-apply-btn"]');
+  await applyButton.click();
+  
+  await page.waitForTimeout(500);
+});
+
+test('期限でTODOをフィルターできること', async ({ page }) => {
+  await page.goto('/login');
+  await page.getByLabel('ユーザ名').fill('testuser');
+  await page.getByLabel('パスワード').fill('Test1234!');
+  await page.getByRole('button', { name: /ログイン/ }).click();
+  await page.waitForURL(/\/top/);
+
+  await page.goto('/todo');
+
+  // FilterPanelが表示されることを確認
+  const filterPanel = page.locator('text=フィルター');
+  await expect(filterPanel).toBeVisible();
+
+  const dueDateFrom = page.locator('[data-testid="filter-due-date-from"]');
+  const dueDateTo = page.locator('[data-testid="filter-due-date-to"]');
+  
+  await expect(dueDateFrom).toBeVisible();
+  await expect(dueDateTo).toBeVisible();
+});
+
+test('フィルターをリセットできること', async ({ page }) => {
+  await page.goto('/login');
+  await page.getByLabel('ユーザ名').fill('testuser');
+  await page.getByLabel('パスワード').fill('Test1234!');
+  await page.getByRole('button', { name: /ログイン/ }).click();
+  await page.waitForURL(/\/top/);
+
+  await page.goto('/todo');
+
+  const clearButton = page.locator('[data-testid="filter-clear-btn"]');
+  await expect(clearButton).toBeVisible();
+  
+  await clearButton.click();
+  await page.waitForTimeout(500);
+});

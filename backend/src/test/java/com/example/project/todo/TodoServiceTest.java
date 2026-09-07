@@ -7,6 +7,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -85,5 +86,17 @@ class TodoServiceTest {
         todoService.delete(10L);
 
         verify(todoRepository).deleteById(10L);
+    }
+
+    @Test
+    void searchCallsRepository() {
+        List<Todo> searchResults = List.of(new Todo());
+        when(todoRepository.search(Todo.Priority.HIGH, true, LocalDate.of(2024, 12, 31), null))
+                .thenReturn(searchResults);
+
+        List<Todo> result = todoService.search(Todo.Priority.HIGH, true, LocalDate.of(2024, 12, 31), null);
+
+        assertThat(result).isEqualTo(searchResults);
+        verify(todoRepository).search(Todo.Priority.HIGH, true, LocalDate.of(2024, 12, 31), null);
     }
 }

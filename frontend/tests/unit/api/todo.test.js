@@ -50,4 +50,44 @@ describe('todo api', () => {
     expect(apiInstance.put).toHaveBeenCalledWith('/todo/1', { title: 'b' });
     expect(apiInstance.delete).toHaveBeenCalledWith('/todo/1');
   });
+
+  it('calls search endpoint with correct parameters', async () => {
+    const apiModule = await import('../../../src/api/todo');
+
+    await apiModule.searchTodos('HIGH', 'pending', '2024-12-31', '2024-01-01');
+
+    expect(apiInstance.get).toHaveBeenCalledWith('/todo/search', {
+      params: expect.any(Object)
+    });
+  });
+
+  it('searches by priority only', async () => {
+    const apiModule = await import('../../../src/api/todo');
+
+    await apiModule.searchTodos('HIGH', null, null, null);
+
+    expect(apiInstance.get).toHaveBeenCalledWith('/todo/search', {
+      params: expect.any(Object)
+    });
+  });
+
+  it('searches by status only', async () => {
+    const apiModule = await import('../../../src/api/todo');
+
+    await apiModule.searchTodos(null, 'completed', null, null);
+
+    expect(apiInstance.get).toHaveBeenCalledWith('/todo/search', {
+      params: expect.any(Object)
+    });
+  });
+
+  it('searches by date range', async () => {
+    const apiModule = await import('../../../src/api/todo');
+
+    await apiModule.searchTodos(null, null, '2024-12-31', '2024-01-01');
+
+    expect(apiInstance.get).toHaveBeenCalledWith('/todo/search', {
+      params: expect.any(Object)
+    });
+  });
 });

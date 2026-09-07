@@ -9,6 +9,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.mockito.Mockito.*;
@@ -92,5 +93,41 @@ class TodoControllerTest {
                 .andExpect(status().isOk());
 
         verify(todoService).delete(5L);
+    }
+
+    @Test
+    void searchWithPriorityAndDueDate() throws Exception {
+        Todo todo = new Todo();
+        todo.setId(1L);
+        todo.setTitle("Urgent Task");
+        todo.setPriority(Todo.Priority.HIGH);
+        todo.setDueDate(LocalDate.of(2024, 12, 31));
+
+        when(todoService.search(Todo.Priority.HIGH, null, LocalDate.of(2024, 12, 31), null))
+                .thenReturn(List.of(todo));
+
+        mockMvc.perform(get("/todo/search")
+                        .param("priority", "HIGH")
+                        .param("dueDateBefore", "2024-12-31"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(1L))
+                .andExpect(jsonPath("$[0].title").value("Urgent Task"))
+                .andExpect(jsonPath("$[0].priority").value("HIGH"));
+    }
+
+    @Test
+    void searchWithDoneStatus() throws Exception {
+        Todo todo = new Todo();
+        todo.setId(2L);
+        todo.setTitle("Completed Task");
+        todo.setDone(true);
+
+        when(todoService.search(null, true, null, null))
+                .thenReturn(List.of(todo));
+
+        mockMvc.perform(get("/todo/search")
+                        .param("done", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].done").value(true));
     }
 }

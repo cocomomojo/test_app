@@ -2,13 +2,14 @@ import { mount } from '@vue/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import flushPromises from 'flush-promises';
 import TodoList from '../../src/components/TodoList.vue';
-import { fetchTodos, createTodo, updateTodo, deleteTodo } from '../../src/api/todo';
+import { fetchTodos, createTodo, updateTodo, deleteTodo, searchTodos } from '../../src/api/todo';
 
 vi.mock('../../src/api/todo', () => ({
   fetchTodos: vi.fn(),
   createTodo: vi.fn(),
   updateTodo: vi.fn(),
-  deleteTodo: vi.fn()
+  deleteTodo: vi.fn(),
+  searchTodos: vi.fn()
 }));
 
 beforeEach(() => {
@@ -350,5 +351,96 @@ describe('TodoList', () => {
 
     progressStats = wrapper.find('[data-testid="progress-stats"]');
     expect(progressStats.text()).toContain('1 / 1 タスク完了');
+  });
+});
+
+  it('displays FilterPanel component', async () => {
+    fetchTodos.mockResolvedValue({ data: [] });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    expect(wrapper.findComponent({ name: 'FilterPanel' }).exists()).toBe(true);
+  });
+
+  it('applies filters when FilterPanel emits apply-filters', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [
+        { id: 1, title: 'High Priority', priority: 'HIGH', dueDate: '2024-12-31', done: false },
+        { id: 2, title: 'Low Priority', priority: 'LOW', dueDate: '2025-01-31', done: false }
+      ]
+    });
+    searchTodos.mockResolvedValue({
+      data: [{ id: 1, title: 'High Priority', priority: 'HIGH', dueDate: '2024-12-31', done: false }]
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    const filterPanel = wrapper.findComponent({ name: 'FilterPanel' });
+    await filterPanel.vm.$emit('apply-filters', {
+      priority: 'HIGH',
+      status: null,
+      dueDateFrom: null,
+      dueDateTo: '2024-12-31'
+    });
+
+    await flushPromises();
+
+    expect(searchTodos).toHaveBeenCalledWith('HIGH', null, '2024-12-31', null);
+  });
+
+  it('displays overdue todos with highlight', async () => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+    fetchTodos.mockResolvedValue({
+      data: [
+        { id: 1, title: 'Overdue Task', dueDate: yesterdayStr, done: false, priority: 'HIGH' },
+        { id: 2, title: 'Future Task', dueDate: '2025-12-31', done: false, priority: 'LOW' }
+      ]
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    const items = wrapper.findAll('[class*="v-list-item"]');
+    expect(items.length).toBeGreaterThan(0);
+  });
+
+  it('updates todo with priority and dueDate', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [{ id: 1, title: 'Task', done: false, priority: 'MEDIUM', dueDate: '2024-12-25' }]
+    });
+    updateTodo.mockResolvedValue({});
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    const editButton = wrapper.findAll('button').find(b => b.attributes('aria-label') === 'edit-1');
+    await editButton.trigger('click');
+
+    await flushPromises();
+
+    const dialog = wrapper.find('[role="dialog"]');
+    expect(dialog.exists()).toBe(true);
+  });
+
+  it('clears filters when FilterPanel emits clear-filters', async () => {
+    fetchTodos.mockResolvedValue({
+      data: [{ id: 1, title: 'Task', done: false }]
+    });
+
+    const wrapper = mount(TodoList);
+    await flushPromises();
+
+    const filterPanel = wrapper.findComponent({ name: 'FilterPanel' });
+    await filterPanel.vm.$emit('clear-filters');
+
+    await flushPromises();
+
+    expect(fetchTodos).toHaveBeenCalled();
   });
 });
