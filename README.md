@@ -856,6 +856,70 @@ GitHub リポジトリ → Settings → Secrets and variables → Actions → Ne
 └──────────────────────────┘
 ```
 
+### 🔒 ワークフロー実行制御（Concurrency Rules）
+
+複数のワークフローが同時に実行される際の競合を防ぐため、以下の **Concurrency ルール** が設定されています：
+
+#### PR 作成競合の防止
+
+| ワークフロー | Concurrency Group | 説明 |
+|-----------|------------------|------|
+| **issue-to-auto-fix-pr.yml** | `auto-fix-pr-{issue_number}` | 同じ Issue 番号に対する実行は1つずつ順序実行 |
+| **weekly-feature-fix.yml** | `weekly-feature-fix-{issue_number}` | 同じ Issue 番号に対する実行は1つずつ順序実行 |
+
+**動作:**
+- 同じ Issue に対して複数の `auto-fix-pr` ワークフローが実行された場合、最初のものが完了するまで次のものは待機
+- これにより、同じブランチに対する **重複した PR 作成** を防止
+- 既存 PR が検出された場合は自動的にスキップ
+
+#### PR テスト・品質チェック実行の制限
+
+| ワークフロー | Concurrency Group | 説明 |
+|-----------|------------------|------|
+| **pr-test-plan.yml** | `pr-test-plan-{pr_number}` | 同じ PR に対するテスト計画生成は1つずつ |
+| **pr-quality.yml** | `pr-quality-{pr_number}` | 同じ PR に対する品質チェックは1つずつ |
+
+**動作:**
+- PR の `opened`, `synchronize`, `reopened` イベントが連続して発火した場合、テストは順序実行
+- 不要な重複実行によるリソース浪費を削減
+
+#### 既存 PR 検出メカニズム
+
+PR 作成ステップの直前に「既存 PR 検出」ステップが実行されます：
+
+```yaml
+- name: Check for existing PR
+  run: |
+    # 同じブランチで open 状態の PR を検索
+    gh pr list \
+      --head "$BRANCH_NAME" \
+      --base main \
+      --state open \
+      -q '.[0]'
+```
+
+**処理フロー:**
+1. ✅ PR が見つからない → 新規 PR を作成
+2. ✅ PR が見つかった → Issue にコメントして状況を通知、**新規 PR 作成をスキップ**
+
+#### 📌 トラブルシューティング
+
+**症状: 複数の WIP PR が作成された**
+
+原因と対処:
+1. **複数ワークフローが同時実行** → Concurrency ルールにより防止されます
+2. **既存 PR が削除された** → 新規作成が再度実行されます
+3. **GitHub Actions ワーカーの問題** → ワークフロー実行ログで `existing-pr-found` ログを確認してください
+
+**ログで確認できる出力:**
+
+```
+✅ Existing PR found: #166 (https://github.com/...)  ← PR が見つかった場合
+ℹ️ No existing PR found for branch: copilot/...     ← PR が見つからない場合
+```
+
+---
+
 #### 📋 ワークフロー分類
 
 | 分類 | ワークフロー | 実行タイプ | 用途 |
