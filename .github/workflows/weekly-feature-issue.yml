@@ -130,31 +130,39 @@ jobs:
           # Read existing implementations
           existing_impl = Path('./existing_implementations.txt').read_text(encoding='utf-8')
 
-          prompt = f"""【重要】このリクエストへのすべての応答は日本語で行ってください。
-
-このVue 3 + Spring Bootプロジェクトを分析して、1つの新しい有用な機能改善を提案してください。
-
-          ## コンテキスト
-          - 機能カテゴリ: {category}
-          - 難易度: {difficulty}
-          - プロジェクト構成: Frontend (Vue 3 + Vuetify), Backend (Spring Boot 3)
-
-          ## 重要: 重複回避
-          既存の実装と未解決のIssueを確認してください。
-          **すでに実装されている、または既にIssueが存在する機能は提案しないでください。**
-          以下にリストされていない新しいユニークな機能を提案してください：
-
-          {existing_impl}
-
-          ## 要件
-          以下の正確な形式で有効なJSONのみを出力してください（他のテキストやマークダウンは不要）：
-          {{
-            "title": "[FEATURE] 機能名",
-            "background": "現在のシステム状態を考慮して、この機能が必要な理由",
-            "feature_description": "実装すべき内容の詳細な説明",
-            "acceptance_criteria": ["受け入れ条件1", "受け入れ条件2", "受け入れ条件3"],
-            "estimated_effort": "XS/S/M/L/XL"
-          }}"""
+          # Build prompt with JSON example to avoid YAML parsing issues
+          import json
+          json_example = {
+              "title": "[FEATURE] 機能名",
+              "background": "現在のシステム状態を考慮して、この機能が必要な理由",
+              "feature_description": "実装すべき内容の詳細な説明",
+              "acceptance_criteria": ["受け入れ条件1", "受け入れ条件2", "受け入れ条件3"],
+              "estimated_effort": "XS/S/M/L/XL"
+          }
+          json_str = json.dumps(json_example, ensure_ascii=False, indent=2)
+          
+          prompt_lines = [
+              "【重要】このリクエストへのすべての応答は日本語で行ってください。",
+              "",
+              "このVue 3 + Spring Bootプロジェクトを分析して、1つの新しい有用な機能改善を提案してください。",
+              "",
+              "## コンテキスト",
+              "- 機能カテゴリ: " + category,
+              "- 難易度: " + difficulty,
+              "- プロジェクト構成: Frontend (Vue 3 + Vuetify), Backend (Spring Boot 3)",
+              "",
+              "## 重要: 重複回避",
+              "既存の実装と未解決のIssueを確認してください。",
+              "**すでに実装されている、または既にIssueが存在する機能は提案しないでください。**",
+              "以下にリストされていない新しいユニークな機能を提案してください：",
+              "",
+              existing_impl,
+              "",
+              "## 要件",
+              "以下の正確な形式で有効なJSONのみを出力してください（他のテキストやマークダウンは不要）：",
+              json_str,
+          ]
+          prompt = "\n".join(prompt_lines)
 
           with open('./copilot-prompt.txt', 'w') as f:
             f.write(prompt)
