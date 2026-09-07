@@ -262,8 +262,7 @@ jobs:
             print('Response:', response_text[:500])
             exit(1)
 
-          print(f'DEBUG: Extracted JSON text (first 200 chars): ' +
-                f'{json_text[:200]}')
+          print(f'DEBUG: Extracted JSON text (first 200 chars): {json_text[:200]}')
 
           try:
             proposal = json.loads(json_text)
@@ -294,9 +293,8 @@ jobs:
 
             # Validate title is not empty
             if not proposal['title'] or \
-               proposal['title'].strip() == '[FEATURE]':
-              print(f'ERROR: Title is empty or only contains ' +
-                    f'"[FEATURE]": {proposal["title"]}')
+              proposal['title'].strip() == '[FEATURE]':
+              print(f'ERROR: Title is empty or only contains "[FEATURE]": {proposal["title"]}')
               exit(1)
 
             # Write validated proposal
