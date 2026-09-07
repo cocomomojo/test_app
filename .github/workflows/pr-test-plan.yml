@@ -18,6 +18,24 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      - name: Validate PR context
+        id: pr_context
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if [ -z "$PR_NUMBER" ]; then
+            echo "❌ PR context not available (pull_request.number is empty)"
+            exit 1
+          fi
+          if [ -z "$HEAD_REF" ]; then
+            echo "❌ PR branch context not available (head.ref is empty)"
+            echo "This usually means the PR has been merged and the branch was deleted."
+            exit 1
+          fi
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
+
       - name: Setup Scripts
         uses: github/gh-aw/actions/setup@466b8ad27fcfaaa861da3f16ba7c01272df25f46
         with:
@@ -26,6 +44,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ steps.pr_context.outputs.head_ref || github.ref }}
           fetch-depth: 0
 
       - name: Detect Copilot availability
@@ -143,11 +162,20 @@ jobs:
         if: steps.publication_mode.outputs.branch_sync_enabled == 'true'
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REF: ${{ steps.pr_context.outputs.head_ref }}
           PR_TEST_PLAN_GITHUB_TOKEN: ${{ secrets.PR_TEST_PLAN_GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
+
+          # Validate that the PR branch still exists
+          echo "Validating branch existence: $HEAD_REF"
+          if ! git fetch origin "$HEAD_REF" 2>/dev/null; then
+            echo "status=failed" >> "$GITHUB_OUTPUT"
+            echo "reason=PR ブランチが削除されているため同期を中止: $HEAD_REF" >> "$GITHUB_OUTPUT"
+            echo "❌ Branch does not exist or is no longer accessible: $HEAD_REF"
+            exit 1
+          fi
 
           ALLOWED_PLAN="qa/test-management/pr/PR-${PR_NUMBER}-test-plan.md"
           ALLOWED_META="qa/test-management/.meta/pr-${PR_NUMBER}.json"
@@ -170,7 +198,6 @@ jobs:
           cp "qa/test-management/ai/pr-${PR_NUMBER}-ai-suggestions.md" "$TMP_DIR/qa/test-management/ai/"
           cp frontend/tests/e2e/generated/pr-"${PR_NUMBER}"-*.spec.ts "$TMP_DIR/frontend/tests/e2e/generated/"
 
-          git fetch origin "$HEAD_REF"
           git checkout -B "$HEAD_REF" "origin/$HEAD_REF"
 
           mkdir -p qa/test-management/pr qa/test-management/.meta qa/test-management/ai frontend/tests/e2e/generated
