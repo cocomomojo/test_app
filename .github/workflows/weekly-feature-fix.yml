@@ -1,6 +1,17 @@
 ---
 name: Weekly Feature Fix with Retry
 
+# 【重要】このワークフローについて：
+# 1. 毎週スケジュール実行で、feature ラベル付きの未解決Issue を自動修正します
+# 2. E2E テスト失敗と重複について：
+#    - E2E テスト失敗時は e2e-failure-analysis.yml が別途 Issue を作成します（修正しない）
+#    - 本ワークフローは feature ラベル付きの既存Issue を自動修正します
+#    - よって重複は発生しません（e2e失敗Issue と feature修正Issue は別ラベル）
+# 3. PR Quality Checks 内での E2E 失敗：
+#    - e2e-failure-analysis.yml が e2e トラブル用の新Issue を作成
+#    - 本ワークフローは feature ラベル Issue のみ修正
+#    - 重複しないメカニズム: ラベルの分離 (feature vs. e2e-test-failure など)
+
 on:
   schedule:
     # 毎週月曜日 10:00 UTC
@@ -39,9 +50,11 @@ jobs:
             echo "Using specified issue: $ISSUE_NUMBER"
           else
             # 最新のOpen状態でfeatureラベル付きのIssueを取得
+            # GitHub CLI --search オプションは複雑なクエリに対応していないため、
+            # --label と --state を使用して単純にフィルタリング
             ISSUE_NUMBER=$(gh issue list \
-              --search 'in:title "[FEATURE]" label:feature state:open' \
-              --state open --json number -q '.[0].number' 2>/dev/null || echo "")
+              --label feature --state open \
+              --json number -q '.[0].number' 2>/dev/null || echo "")
           fi
 
           if [ -z "$ISSUE_NUMBER" ]; then
