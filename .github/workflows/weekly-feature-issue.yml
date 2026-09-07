@@ -39,17 +39,12 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Scripts
-        uses: >-
-          github/gh-aw/actions/setup@466b8ad27fcfaaa861da3f16ba7c01272df25f46
+        uses: github/gh-aw/actions/setup@466b8ad27fcfaaa861da3f16ba7c01272df25f46
         with:
           destination: /opt/gh-aw/actions
 
       - name: Validate COPILOT_GITHUB_TOKEN secret
-        run: |
-          /opt/gh-aw/actions/validate_multi_secret.sh \
-            COPILOT_GITHUB_TOKEN 'GitHub Copilot CLI' \
-            https://github.github.com/gh-aw/reference/engines/
-          # #github-copilot-default
+        run: /opt/gh-aw/actions/validate_multi_secret.sh COPILOT_GITHUB_TOKEN 'GitHub Copilot CLI' https://github.github.com/gh-aw/reference/engines/#github-copilot-default
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
 
