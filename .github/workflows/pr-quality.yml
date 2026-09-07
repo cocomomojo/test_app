@@ -18,9 +18,20 @@ jobs:
       backend_status: ${{ steps.final_status.outputs.backend_status }}
 
     steps:
+      - name: Validate PR context
+        id: pr_context
+        run: |
+          if [ -z "${{ github.head_ref }}" ]; then
+            echo "❌ PR branch context not available (head_ref is empty)"
+            echo "This usually means the PR has been merged and the branch was deleted."
+            exit 1
+          fi
+          echo "head_ref=${{ github.head_ref }}" >> "$GITHUB_OUTPUT"
+
       - name: Checkout repository
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
+          ref: ${{ github.head_ref || github.ref }}
           fetch-depth: 0
 
       - name: Setup Node.js
@@ -98,8 +109,21 @@ jobs:
       MYSQL_ROOT_PASSWORD: root
 
     steps:
+      - name: Validate PR context
+        id: pr_context
+        run: |
+          if [ -z "${{ github.head_ref }}" ]; then
+            echo "❌ PR branch context not available (head_ref is empty)"
+            echo "This usually means the PR has been merged and the branch was deleted."
+            exit 1
+          fi
+          echo "head_ref=${{ github.head_ref }}" >> "$GITHUB_OUTPUT"
+
       - name: Checkout repository
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+        with:
+          ref: ${{ github.head_ref || github.ref }}
+          fetch-depth: 0
 
       - name: Setup Java
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v4
@@ -272,8 +296,18 @@ jobs:
       issues: write
 
     steps:
+      - name: Validate PR context
+        id: pr_context
+        run: |
+          if [ -z "${{ github.event.pull_request.number }}" ]; then
+            echo "⚠️ PR context not available (pull_request.number is empty)"
+            echo "Skipping PR comment and label update."
+            exit 0
+          fi
+          echo "pr_number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+
       - name: Add bug-analysis-needed label if E2E failed
-        if: needs.e2e-tests.outputs.e2e_status == 'failure'
+        if: needs.e2e-tests.outputs.e2e_status == 'failure' && steps.pr_context.outputs.pr_number != ''
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
         with:
           script: |
@@ -291,7 +325,8 @@ jobs:
             }
 
       - name: Comment PR with quality results
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        if: steps.pr_context.outputs.pr_number != ''
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcbf1c3799cdea # v7
         env:
           FRONTEND_STATUS: ${{ needs.quality-checks.outputs.frontend_status }}
           BACKEND_STATUS: ${{ needs.quality-checks.outputs.backend_status }}
