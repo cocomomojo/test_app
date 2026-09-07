@@ -712,9 +712,43 @@ jobs:
               core.warning(`Failed to create comment: ${error.message}`);
             }
 
+      - name: Verify branch pushed to remote
+        if: steps.pr_meta.outputs.has_changes == 'true'
+        id: verify_push
+        continue-on-error: true
+        run: |
+          cd "${GITHUB_WORKSPACE}"
+          BRANCH_NAME="${{ steps.pr_meta.outputs.branch_name }}"
+           
+          echo "🔍 Checking if branch '$BRANCH_NAME' exists on remote..."
+          if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
+            echo "✅ Branch exists on remote"
+            echo "branch_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "⚠️ Branch does not exist on remote yet"
+            echo "branch_exists=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+      - name: Fetch latest from remote
+        if: steps.pr_meta.outputs.has_changes == 'true'
+        continue-on-error: true
+        run: |
+          cd "${GITHUB_WORKSPACE}"
+          BRANCH_NAME="${{ steps.pr_meta.outputs.branch_name }}"
+           
+          echo "📥 Fetching branch '$BRANCH_NAME' from remote..."
+          git fetch origin "$BRANCH_NAME" --force || {
+            echo "⚠️ Fetch failed, but continuing..."
+            exit 0
+          }
+           
+          echo "✅ Fetch completed"
+          git show-ref refs/remotes/origin/"$BRANCH_NAME" || echo "ℹ️ Local ref not updated yet"
+
       - name: Create pull request
         id: create_pr
-        if: steps.pr_meta.outputs.has_changes == 'true'
+        if: steps.pr_meta.outputs.has_changes == 'true' && steps.verify_push.outputs.branch_exists == 'true'
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v7.0.1
         with:
           token: ${{ secrets.COPILOT_GITHUB_TOKEN }}
@@ -725,6 +759,44 @@ jobs:
           commit-message: ${{ steps.pr_meta.outputs.commit_message }}
           draft: true
           delete-branch: false
+
+      - name: Handle branch push failure
+        if: steps.pr_meta.outputs.has_changes == 'true' && steps.verify_push.outputs.branch_exists != 'true'
+        uses: actions/github-script@v7
+        env:
+          BRANCH_NAME: ${{ steps.pr_meta.outputs.branch_name }}
+        with:
+          script: |
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const branchName = process.env.BRANCH_NAME;
+             
+            const comment = [
+              '<!-- weekly-feature-fix-branch-error -->',
+              '## ❌ PR作成失敗: ブランチがリモートに見つかりません',
+              '',
+              `**エラー:** ブランチ \`${branchName}\` がリモートリポジトリに存在しません`,
+              '',
+              '### 考えられる原因:',
+              '1. Copilot の実行後、ブランチが正しく push されていない',
+              '2. ネットワーク接続の問題により push が失敗した',
+              '3. GitHub トークンのパーミッション不足',
+              '',
+              '### 対処方法:',
+              '1. ワークフローのログで Copilot 実行ステップを確認してください',
+              '2. エラーメッセージを確認してください（Git push エラーなど）',
+              '3. 必要に応じて手動で修正を行うか、Issue を再度トリガーしてください',
+            ].join('\n');
+
+            try {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: comment,
+              });
+            } catch (error) {
+              core.warning(`Failed to create error comment: ${error.message}`);
+            }
 
       - name: Update issue with PR link
         if: steps.create_pr.outputs.pull-request-url != ''

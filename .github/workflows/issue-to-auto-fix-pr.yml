@@ -166,9 +166,40 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `commit_message=${commitMessage}\n`);
           NODE
 
+      - name: Verify branch pushed to remote
+        if: steps.eligibility.outputs.supported == 'true'
+        id: verify_push
+        continue-on-error: true
+        run: |
+          BRANCH_NAME="${{ steps.pr_meta.outputs.branch }}"
+           
+          echo "🔍 Checking if branch '$BRANCH_NAME' exists on remote..."
+          if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
+            echo "✅ Branch exists on remote"
+            echo "branch_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "⚠️ Branch does not exist on remote"
+            echo "branch_exists=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+      - name: Fetch latest from remote
+        if: steps.eligibility.outputs.supported == 'true'
+        continue-on-error: true
+        run: |
+          BRANCH_NAME="${{ steps.pr_meta.outputs.branch }}"
+           
+          echo "📥 Fetching branch '$BRANCH_NAME' from remote..."
+          git fetch origin "$BRANCH_NAME" --force || {
+            echo "⚠️ Fetch failed, continuing..."
+            exit 0
+          }
+           
+          echo "✅ Fetch completed"
+
       - name: Create pull request
         id: create_pr
-        if: steps.eligibility.outputs.supported == 'true'
+        if: steps.eligibility.outputs.supported == 'true' && steps.verify_push.outputs.branch_exists == 'true'
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -192,6 +223,8 @@ jobs:
           PR_URL: ${{ steps.create_pr.outputs.pull-request-url }}
           PR_OPERATION: ${{ steps.create_pr.outputs.pull-request-operation }}
           PR_BRANCH: ${{ steps.pr_meta.outputs.branch }}
+          BRANCH_EXISTS: ${{ steps.verify_push.outputs.branch_exists }}
+          VERIFY_PUSH_OUTCOME: ${{ steps.verify_push.outcome }}
         with:
           script: |
             const marker = '<!-- issue-to-auto-fix-pr -->';
@@ -208,7 +241,14 @@ jobs:
               ].join('\n');
             } else {
               const prUrl = process.env.PR_URL || '';
-              const status = prUrl ? 'pr-created' : 'failed-before-pr';
+              const branchExists = process.env.BRANCH_EXISTS === 'true';
+              let status = prUrl ? 'pr-created' : 'failed-before-pr';
+               
+              // If branch verification failed, indicate that in the status
+              if (!branchExists && process.env.VERIFY_PUSH_OUTCOME === 'failure') {
+                status = 'branch-push-failed';
+              }
+               
               body = [
                 marker,
                 '### 🤖 Auto Fix PR Pilot',
@@ -218,10 +258,12 @@ jobs:
                 `- copilot: ${process.env.COPILOT_OUTCOME || 'unknown'}`,
                 `- changed_files_validation: ${process.env.VALIDATE_OUTCOME || 'unknown'}`,
                 `- validation_tests: ${process.env.TEST_OUTCOME || 'unknown'}`,
+                `- branch_verification: ${process.env.VERIFY_PUSH_OUTCOME || 'unknown'}`,
                 `- pr_operation: ${process.env.PR_OPERATION || 'none'}`,
                 `- branch: ${process.env.PR_BRANCH || 'unknown'}`,
                 prUrl ? `- pr_url: ${prUrl}` : '- pr_url: not-created',
-              ].join('\n');
+                !branchExists ? '- note: ⚠️ Branch not found on remote (git push may have failed)' : '',
+              ].filter(line => line.trim()).join('\n');
             }
 
             const comments = await github.paginate(github.rest.issues.listComments, {
