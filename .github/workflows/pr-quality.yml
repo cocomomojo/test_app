@@ -22,11 +22,14 @@ jobs:
         id: pr_context
         env:
           HEAD_REF: ${{ github.head_ref }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           if [ -z "$HEAD_REF" ]; then
-            echo "❌ PR branch context not available (head_ref is empty)"
-            echo "This usually means the PR has been merged and the branch was deleted."
-            exit 1
+            echo "⚠️ PR context not available (head_ref is empty)"
+            echo "This usually means the PR has been merged or the workflow was triggered by workflow_dispatch."
+            echo "Event: ${EVENT_NAME}"
+            echo "This is normal for merged PRs. Proceeding with current branch logic."
+            exit 0
           fi
           echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
 
@@ -115,11 +118,14 @@ jobs:
         id: pr_context
         env:
           HEAD_REF: ${{ github.head_ref }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           if [ -z "$HEAD_REF" ]; then
-            echo "❌ PR branch context not available (head_ref is empty)"
-            echo "This usually means the PR has been merged and the branch was deleted."
-            exit 1
+            echo "⚠️ PR context not available (head_ref is empty)"
+            echo "This usually means the PR has been merged or the workflow was triggered by workflow_dispatch."
+            echo "Event: ${EVENT_NAME}"
+            echo "This is normal for merged PRs. Proceeding with current branch logic."
+            exit 0
           fi
           echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
 
