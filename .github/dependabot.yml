@@ -38,6 +38,10 @@ updates:
       - "automerge"
     reviewers:
       - "cocomomojo"
+    ignore:
+      - dependency-name: "vue-router"
+        update-types:
+          - "major"
 
   # Backend (Gradle)
   - package-ecosystem: "gradle"
