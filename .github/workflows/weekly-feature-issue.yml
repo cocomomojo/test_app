@@ -153,7 +153,7 @@ jobs:
               "",
               "## コンテキスト",
               "- 機能カテゴリ: " + category,
-             "- 難易度: " + difficulty,
+              "- 難易度: " + difficulty,
               "- プロジェクト構成: Frontend (Vue 3 + Vuetify), Backend (Spring Boot 3)",
               "",
               "## 重要: 重複回避",

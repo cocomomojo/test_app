@@ -131,7 +131,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           QUALITY_STATUS="${{ steps.quality_check.outputs.quality_status }}"
-           
+
           if [ "$QUALITY_STATUS" = "success" ] || [ "${{ github.event_name }}" = "pull_request" ]; then
             COMMENT="🤖 **Dependabot Auto-merge**"
             COMMENT="$COMMENT"$'\n\n'"✅ Auto-merge has been enabled for this PR."
@@ -145,5 +145,5 @@ jobs:
             COMMENT="$COMMENT"$'\n\n'"Current status: PR Quality Checks - ${QUALITY_STATUS}"
             COMMENT="$COMMENT"$'\n\n'"The auto-fix workflow will attempt to resolve any test failures automatically."
           fi
-           
+
           gh pr comment ${{ steps.pr_info.outputs.number }} --body "$COMMENT"
