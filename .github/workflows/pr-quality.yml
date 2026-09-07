@@ -312,7 +312,7 @@ jobs:
             };
 
             const e2eStatus = process.env.E2E_STATUS;
-            const e2eSection = e2eStatus === 'failure' 
+            const e2eSection = e2eStatus === 'failure'
               ? `- E2E Tests with Coverage: ${icon(e2eStatus)}\n  ⚠️ **E2E テストが失敗しました。** 詳細分析が自動で実行されています。\n  📊 [Workflow Run: ${process.env.RUN_URL}](${process.env.RUN_URL})`
               : `- E2E Tests with Coverage: ${icon(e2eStatus)}`;
 
