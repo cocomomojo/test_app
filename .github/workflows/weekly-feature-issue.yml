@@ -172,11 +172,10 @@ jobs:
               json_str,
           ]
           prompt = "\n".join(prompt_lines)
-
           with open('./copilot-prompt.txt', 'w') as f:
             f.write(prompt)
-          print("✓ Prompt created with existing " +
-                "implementation context")
+            f.write(prompt)
+          print("✓ Prompt created with existing implementation context")
           PY
 
       - name: Execute Copilot for feature proposal
@@ -292,8 +291,10 @@ jobs:
               proposal['title'] = f"[FEATURE] {proposal['title']}"
 
             # Validate title is not empty
-            if not proposal['title'] or \
-              proposal['title'].strip() == '[FEATURE]':
+            if (
+              not proposal['title']
+              or proposal['title'].strip() == '[FEATURE]'
+            ):
               print(f'ERROR: Title is empty or only contains "[FEATURE]": {proposal["title"]}')
               exit(1)
 
@@ -437,14 +438,19 @@ jobs:
                 # Calculate similarity (need 60% keyword overlap)
                 if new_keywords and existing_keywords:
                   common = new_keywords & existing_keywords
-                  similarity = len(common) / \
-                    max(len(new_keywords), len(existing_keywords))
+                  similarity = (
+                    len(common) / max(
+                      len(new_keywords), len(existing_keywords)
+                    )
+                  )
                   if similarity >= 0.6:
                     with open('check_result.txt', 'w') as f:
                       f.write(f"exists=true\n")
                       f.write(f"number={issue['number']}\n")
-                    print(f"⚠️ Similar issue #{issue['number']} " +
-                          f"already exists: {issue['title']}")
+                    print(
+                      f"⚠️ Similar issue #{issue['number']} "
+                      f"already exists: {issue['title']}"
+                    )
                     exit(0)
             except:
               pass
