@@ -21,7 +21,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: weekly-feature-fix-${{ github.event.inputs.issue_number || 'auto' }}
+  group: weekly-feature-fix-${{ github.event.inputs.issue_number || github.run_id }}
   cancel-in-progress: false
 
 jobs:

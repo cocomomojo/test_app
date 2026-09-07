@@ -864,8 +864,8 @@ GitHub リポジトリ → Settings → Secrets and variables → Actions → Ne
 
 | ワークフロー | Concurrency Group | 説明 |
 |-----------|------------------|------|
-| **issue-to-auto-fix-pr.yml** | `auto-fix-pr-{issue_number}` | 同じ Issue 番号に対する実行は1つずつ順序実行 |
-| **weekly-feature-fix.yml** | `weekly-feature-fix-{issue_number}` | 同じ Issue 番号に対する実行は1つずつ順序実行 |
+| **issue-to-auto-fix-pr.yml** | `auto-fix-pr-{issue_number \|\| run_id}` | 同じ Issue 番号に対する実行は1つずつ順序実行。Issue 番号未指定時は run_id でユニーク性確保 |
+| **weekly-feature-fix.yml** | `weekly-feature-fix-{issue_number \|\| run_id}` | 同じ Issue 番号に対する実行は1つずつ順序実行。Issue 番号未指定時は run_id でユニーク性確保 |
 
 **動作:**
 - 同じ Issue に対して複数の `auto-fix-pr` ワークフローが実行された場合、最初のものが完了するまで次のものは待機
