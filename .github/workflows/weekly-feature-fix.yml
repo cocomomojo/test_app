@@ -843,6 +843,7 @@ jobs:
         if: steps.check_existing_pr.outputs.existing_pr_found == 'true'
         uses: actions/github-script@v7
         env:
+          ISSUE_NUMBER: ${{ env.ISSUE_NUMBER }}
           EXISTING_PR_NUMBER: ${{ steps.check_existing_pr.outputs.existing_pr_number }}
           EXISTING_PR_URL: ${{ steps.check_existing_pr.outputs.existing_pr_url }}
         with:
