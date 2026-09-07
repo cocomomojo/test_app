@@ -20,6 +20,10 @@ permissions:
   actions: write
   pull-requests: write
 
+concurrency:
+  group: weekly-feature-fix-${{ github.event.inputs.issue_number || 'auto' }}
+  cancel-in-progress: false
+
 jobs:
   find-feature-issue:
     runs-on: ubuntu-latest
@@ -736,19 +740,48 @@ jobs:
         run: |
           cd "${GITHUB_WORKSPACE}"
           BRANCH_NAME="${{ steps.pr_meta.outputs.branch_name }}"
-           
+            
           echo "📥 Fetching branch '$BRANCH_NAME' from remote..."
           git fetch origin "$BRANCH_NAME" --force || {
             echo "⚠️ Fetch failed, but continuing..."
             exit 0
           }
-           
+            
           echo "✅ Fetch completed"
           git show-ref refs/remotes/origin/"$BRANCH_NAME" || echo "ℹ️ Local ref not updated yet"
 
+      - name: Check for existing PR
+        id: check_existing_pr
+        if: steps.pr_meta.outputs.has_changes == 'true'
+        env:
+          BRANCH_NAME: ${{ steps.pr_meta.outputs.branch_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+           
+          # Check if PR already exists for this branch
+          EXISTING_PR=$(gh pr list \
+            --head "$BRANCH_NAME" \
+            --base main \
+            --state open \
+            --json number,title,url \
+            -q '.[0]')
+           
+          if [ -n "$EXISTING_PR" ]; then
+            PR_NUMBER=$(echo "$EXISTING_PR" | jq -r '.number')
+            PR_URL=$(echo "$EXISTING_PR" | jq -r '.url')
+            echo "✅ Existing PR found: #$PR_NUMBER ($PR_URL)"
+            echo "existing_pr_found=true" >> "$GITHUB_OUTPUT"
+            echo "existing_pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+            echo "existing_pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+          else
+            echo "ℹ️ No existing PR found for branch: $BRANCH_NAME"
+            echo "existing_pr_found=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create pull request
         id: create_pr
-        if: steps.pr_meta.outputs.has_changes == 'true' && steps.verify_push.outputs.branch_exists == 'true'
+        if: steps.pr_meta.outputs.has_changes == 'true' && steps.verify_push.outputs.branch_exists == 'true' && steps.check_existing_pr.outputs.existing_pr_found == 'false'
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v7.0.1
         with:
           token: ${{ secrets.COPILOT_GITHUB_TOKEN }}
@@ -796,6 +829,53 @@ jobs:
               });
             } catch (error) {
               core.warning(`Failed to create error comment: ${error.message}`);
+            }
+
+      - name: Handle existing PR detected
+        if: steps.check_existing_pr.outputs.existing_pr_found == 'true'
+        uses: actions/github-script@v7
+        env:
+          EXISTING_PR_NUMBER: ${{ steps.check_existing_pr.outputs.existing_pr_number }}
+          EXISTING_PR_URL: ${{ steps.check_existing_pr.outputs.existing_pr_url }}
+        with:
+          script: |
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const existingPrNumber = Number(process.env.EXISTING_PR_NUMBER);
+            const existingPrUrl = process.env.EXISTING_PR_URL;
+             
+            const marker = '<!-- weekly-feature-fix-existing-pr -->';
+            const comment = [
+              marker,
+              '### ℹ️ PR Already Exists',
+              '',
+              `既にこのブランチに対する PR が存在しています: [PR #${existingPrNumber}](${existingPrUrl})`,
+              '',
+              'このワークフローの実行では新しい PR を作成しませんでした。既存の PR を確認してください。',
+            ].join('\n');
+             
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              per_page: 100,
+            });
+             
+            const existing = comments.find((comment) => (comment.body || '').includes(marker));
+             
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: comment,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: comment,
+              });
             }
 
       - name: Update issue with PR link

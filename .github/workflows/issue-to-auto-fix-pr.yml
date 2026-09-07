@@ -14,6 +14,10 @@ permissions:
   issues: write
   pull-requests: write
 
+concurrency:
+  group: auto-fix-pr-${{ github.event.inputs.issue_number }}
+  cancel-in-progress: false
+
 jobs:
   auto-fix-pr:
     runs-on: ubuntu-latest
@@ -197,9 +201,38 @@ jobs:
            
           echo "✅ Fetch completed"
 
+      - name: Check for existing PR
+        id: check_existing_pr
+        if: steps.eligibility.outputs.supported == 'true' && steps.verify_push.outputs.branch_exists == 'true'
+        env:
+          BRANCH_NAME: ${{ steps.pr_meta.outputs.branch }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+           
+          # Check if PR already exists for this branch
+          EXISTING_PR=$(gh pr list \
+            --head "$BRANCH_NAME" \
+            --base main \
+            --state open \
+            --json number,title,url \
+            -q '.[0]')
+           
+          if [ -n "$EXISTING_PR" ]; then
+            PR_NUMBER=$(echo "$EXISTING_PR" | jq -r '.number')
+            PR_URL=$(echo "$EXISTING_PR" | jq -r '.url')
+            echo "✅ Existing PR found: #$PR_NUMBER ($PR_URL)"
+            echo "existing_pr_found=true" >> "$GITHUB_OUTPUT"
+            echo "existing_pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+            echo "existing_pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+          else
+            echo "ℹ️ No existing PR found for branch: $BRANCH_NAME"
+            echo "existing_pr_found=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create pull request
         id: create_pr
-        if: steps.eligibility.outputs.supported == 'true' && steps.verify_push.outputs.branch_exists == 'true'
+        if: steps.eligibility.outputs.supported == 'true' && steps.verify_push.outputs.branch_exists == 'true' && steps.check_existing_pr.outputs.existing_pr_found == 'false'
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -225,6 +258,9 @@ jobs:
           PR_BRANCH: ${{ steps.pr_meta.outputs.branch }}
           BRANCH_EXISTS: ${{ steps.verify_push.outputs.branch_exists }}
           VERIFY_PUSH_OUTCOME: ${{ steps.verify_push.outcome }}
+          EXISTING_PR_FOUND: ${{ steps.check_existing_pr.outputs.existing_pr_found }}
+          EXISTING_PR_URL: ${{ steps.check_existing_pr.outputs.existing_pr_url }}
+          EXISTING_PR_NUMBER: ${{ steps.check_existing_pr.outputs.existing_pr_number }}
         with:
           script: |
             const marker = '<!-- issue-to-auto-fix-pr -->';
@@ -242,13 +278,23 @@ jobs:
             } else {
               const prUrl = process.env.PR_URL || '';
               const branchExists = process.env.BRANCH_EXISTS === 'true';
-              let status = prUrl ? 'pr-created' : 'failed-before-pr';
+              const existingPrFound = process.env.EXISTING_PR_FOUND === 'true';
+              const existingPrUrl = process.env.EXISTING_PR_URL || '';
                
-              // If branch verification failed, indicate that in the status
-              if (!branchExists && process.env.VERIFY_PUSH_OUTCOME === 'failure') {
+              let status = 'unknown';
+              let statusDetails = [];
+               
+              if (existingPrFound) {
+                status = 'existing-pr-found';
+                statusDetails.push(`ℹ️ **既存PR検出:** PR [#${process.env.EXISTING_PR_NUMBER}](${existingPrUrl}) が既に存在します`);
+              } else if (prUrl) {
+                status = 'pr-created';
+              } else if (!branchExists && process.env.VERIFY_PUSH_OUTCOME === 'failure') {
                 status = 'branch-push-failed';
+              } else {
+                status = 'failed-before-pr';
               }
-               
+                
               body = [
                 marker,
                 '### 🤖 Auto Fix PR Pilot',
@@ -263,7 +309,7 @@ jobs:
                 `- branch: ${process.env.PR_BRANCH || 'unknown'}`,
                 prUrl ? `- pr_url: ${prUrl}` : '- pr_url: not-created',
                 !branchExists ? '- note: ⚠️ Branch not found on remote (git push may have failed)' : '',
-              ].filter(line => line.trim()).join('\n');
+              ].filter(line => line.trim()).concat(statusDetails).join('\n');
             }
 
             const comments = await github.paginate(github.rest.issues.listComments, {

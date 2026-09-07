@@ -10,6 +10,10 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: pr-test-plan-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
 jobs:
   generate-pr-test-assets:
     # Skip for Dependabot PRs as they don't need test plan assets
