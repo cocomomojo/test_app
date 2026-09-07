@@ -950,12 +950,19 @@ GitHub リポジトリ → Settings → Secrets and variables → Actions → Ne
 
 #### E2E Failure Analysis with Copilot
 - **ファイル:** `.github/workflows/e2e-failure-analysis.yml`
-- **トリガー:** E2E テスト失敗時
+- **トリガー:** E2E テスト失敗時（`PR Quality Checks` または `E2E Tests with Coverage` の失敗）
 - **処理内容:**
   1. 失敗した workflow run のログ・artifact をダウンロード
   2. GitHub Copilot CLI で失敗原因を分析
   3. Issue を自動作成（原因・対応案を含む）
 - **前提条件:** `COPILOT_GITHUB_TOKEN`
+- **重複防止メカニズム:**
+  - **weekly-feature-fix.yml との棲み分け:**
+    - `weekly-feature-fix.yml`: `feature` ラベル付きIssue を**修正**（既存Issue対象）
+    - `e2e-failure-analysis.yml`: E2E失敗を**分析**してIssue作成（新規Issue作成）
+    - **異なるトリガー:** weekly-feature はスケジュール実行、e2e-failure は失敗時
+    - **異なる対象:** weekly-feature は feature ラベル既存Issue、e2e-failure は新規作成
+    - **結果:** ラベル分離により重複Issue は発生しない
 
 #### Dependabot Auto-merge
 - **ファイル:** `.github/workflows/dependabot-auto-merge.yml`
