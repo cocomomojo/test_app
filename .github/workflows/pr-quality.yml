@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   quality-checks:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     outputs:
@@ -107,6 +108,7 @@ jobs:
           fi
 
   e2e-tests:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     outputs:
