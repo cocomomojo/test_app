@@ -83,124 +83,62 @@ jobs:
 
       - name: Generate health check report
         run: |
-          python3 <<'PY'
-          import json
-          from datetime import datetime, timedelta
-          from pathlib import Path
-
-          # データ読み込み
-          with open('/tmp/e2e-health.json', 'r') as f:
-            data = json.load(f)
-
-          pr_quality_total = data['pr_quality_total']
-          pr_quality_failed = data['pr_quality_failed']
-          pr_quality_rate = data['pr_quality_success_rate']
-          e2e_total = data['e2e_total']
-          e2e_failed = data['e2e_failed']
-          e2e_rate = data['e2e_success_rate']
-
-          # 健全性の判定
-          def get_health_status(success_rate):
-            if success_rate >= 95:
-              return "✅ 良好"
-            elif success_rate >= 80:
-              return "⚠️ 注意"
-            else:
-              return "🔴 要改善"
-
-          pr_health = get_health_status(pr_quality_rate)
-          e2e_health = get_health_status(e2e_rate)
-
-          # レポート本文を作成
-          report = f"""## 概要
+          set -e
           
-本レポートは、過去7日間の E2E テスト実行状況を分析したものです。
-
-## 📊 テスト実行統計
-
-### PR Quality Checks 内の E2E テスト
-- **実行数**: {pr_quality_total} 回
-- **失敗数**: {pr_quality_failed} 回
-- **成功率**: {pr_quality_rate}%
-- **健全性**: {pr_health}
-
-### スタンドアロン E2E テスト
-- **実行数**: {e2e_total} 回
-- **失敗数**: {e2e_failed} 回
-- **成功率**: {e2e_rate}%
-- **健全性**: {e2e_health}
-
-## 🔍 分析と改善提案
-
-"""
-
-          if pr_quality_rate < 95 and pr_quality_total > 0:
-            report += f"""### PR Quality Checks の E2E テスト失敗の改善
-- **課題**: {pr_quality_failed} 回の失敗が検出されています（成功率 {pr_quality_rate}%）
-- **原因仮説**:
-  - インフラの不安定性（Docker Compose サービスの起動失敗）
-  - タイミング依存のテストフレイク
-  - 環境変数や設定の不整合
-  - ブラウザー/Playwright のバージョン非互換性
-- **改善提案**:
-  1. 失敗したワークフロー実行を確認し、エラーログを分析してください
-  2. 「Finalize E2E test status」ステップの条件ロジックを強化してください
-  3. Docker Compose のヘルスチェック タイムアウトを調整してください（現在: 5分）
-  4. テストの再試行メカニズムを追加することを検討してください
-
-"""
-
-          if e2e_rate < 95 and e2e_total > 0:
-            report += f"""### スタンドアロン E2E テストの失敗の改善
-- **課題**: {e2e_failed} 回の失敗が検出されています（成功率 {e2e_rate}%）
-- **原因仮説**:
-  - ブラウザー互換性の問題
-  - カバレッジ収集の失敗
-  - バージョン固定やキャッシュの問題
-- **改善提案**:
-  1. `e2e.yml` の失敗ステップの詳細ログを確認してください
-  2. Playwright ブラウザーのインストール時のキャッシュ機構を確認してください
-  3. カバレッジ収集ステップの path 設定を改善してください
-
-"""
-
-          if pr_quality_rate >= 95 and e2e_rate >= 95:
-            report += f"""### ✅ テスト環境は良好な状態です
-- 両方のテストスイートで 95% 以上の成功率を達成しています
-- 引き続き現在の設定を維持してください
-- 週次分析を継続し、トレンドを監視してください
-
-"""
-
-          report += f"""## 📋 次のアクション
-
-1. **即座に対応** (成功率 < 80%)
-   - 失敗ログを詳細確認
-   - `e2e-failure-analysis` Issue を確認
-   - インフラ/環境の再セットアップ検討
-
-2. **短期対応** (成功率 80-95%)
-   - テストフレイク削減対策
-   - タイムアウト設定の最適化
-   - 再試行ロジックの強化
-
-3. **継続監視**
-   - 毎週のこのレポートを確認
-   - 長期トレンドを追跡
-   - 改善施策の効果を測定
-
----
-
-**レポート生成日**: {datetime.now(datetime.timezone.utc).isoformat(timespec='seconds')}
-"""
-
-          # レポートを保存
-          with open('/tmp/e2e-health-report.md', 'w') as f:
-            f.write(report)
-
-          print("📄 Health check report generated:")
-          print(report)
-          PY
+          # JSON データを読み込み
+          PR_TOTAL=$(jq '.pr_quality_total' /tmp/e2e-health.json)
+          PR_FAILED=$(jq '.pr_quality_failed' /tmp/e2e-health.json)
+          PR_RATE=$(jq '.pr_quality_success_rate' /tmp/e2e-health.json)
+          E2E_TOTAL=$(jq '.e2e_total' /tmp/e2e-health.json)
+          E2E_FAILED=$(jq '.e2e_failed' /tmp/e2e-health.json)
+          E2E_RATE=$(jq '.e2e_success_rate' /tmp/e2e-health.json)
+          
+          # 健全性判定
+          get_health() {
+            rate=$1
+            if [ "$rate" -ge 95 ]; then
+              echo "✅ 良好"
+            elif [ "$rate" -ge 80 ]; then
+              echo "⚠️ 注意"
+            else
+              echo "🔴 要改善"
+            fi
+          }
+          
+          PR_HEALTH=$(get_health "$PR_RATE")
+          E2E_HEALTH=$(get_health "$E2E_RATE")
+          
+          # レポートを作成
+          TIMESTAMP=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          
+          {
+            echo "## E2E テスト安定性レポート"
+            echo ""
+            echo "生成日: $TIMESTAMP"
+            echo ""
+            echo "### テスト実行統計"
+            echo ""
+            echo "PR Quality Checks:"
+            echo "- 実行数: $PR_TOTAL"
+            echo "- 失敗数: $PR_FAILED"
+            echo "- 成功率: ${PR_RATE}%"
+            echo "- 健全性: $PR_HEALTH"
+            echo ""
+            echo "スタンドアロン E2E:"
+            echo "- 実行数: $E2E_TOTAL"
+            echo "- 失敗数: $E2E_FAILED"
+            echo "- 成功率: ${E2E_RATE}%"
+            echo "- 健全性: $E2E_HEALTH"
+            echo ""
+            echo "### 改善提案"
+            echo ""
+            echo "- 失敗ログを確認してください"
+            echo "- e2e-failure-analysis Issues を参照してください"
+            echo "- インフラ設定を見直してください"
+          } > /tmp/e2e-health-report.md
+          
+          echo "📄 Health check report generated:"
+          cat /tmp/e2e-health-report.md
 
       - name: Create or update health check issue
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
