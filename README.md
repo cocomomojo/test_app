@@ -895,6 +895,7 @@ PR 作成ステップの直前に「既存 PR 検出」ステップが実行さ�
       --head "$BRANCH_NAME" \
       --base main \
       --state open \
+      --json number,title,url \
       -q '.[0]'
 ```
 

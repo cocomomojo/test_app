@@ -757,7 +757,8 @@ jobs:
           BRANCH_NAME: ${{ steps.pr_meta.outputs.branch_name }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set +e
+          # エラー時も続行するが、コマンド失敗時は明示的に処理
+          set -e
            
           # Check if PR already exists for this branch
           EXISTING_PR=$(gh pr list \
@@ -765,17 +766,24 @@ jobs:
             --base main \
             --state open \
             --json number,title,url \
-            -q '.[0]')
+            -q '.[0]' 2>&1 || echo "")
            
-          if [ -n "$EXISTING_PR" ]; then
-            PR_NUMBER=$(echo "$EXISTING_PR" | jq -r '.number')
-            PR_URL=$(echo "$EXISTING_PR" | jq -r '.url')
-            echo "✅ Existing PR found: #$PR_NUMBER ($PR_URL)"
-            echo "existing_pr_found=true" >> "$GITHUB_OUTPUT"
-            echo "existing_pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
-            echo "existing_pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+          if [ -n "$EXISTING_PR" ] && ! echo "$EXISTING_PR" | grep -q "error\|Error"; then
+            PR_NUMBER=$(echo "$EXISTING_PR" | jq -r '.number' 2>/dev/null || echo "")
+            PR_URL=$(echo "$EXISTING_PR" | jq -r '.url' 2>/dev/null || echo "")
+             
+            if [ -n "$PR_NUMBER" ] && [ "$PR_NUMBER" != "null" ]; then
+              echo "✅ Existing PR found: #$PR_NUMBER ($PR_URL)"
+              echo "existing_pr_found=true" >> "$GITHUB_OUTPUT"
+              echo "existing_pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+              echo "existing_pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+            else
+              echo "ℹ️ No existing PR found for branch: $BRANCH_NAME"
+              echo "existing_pr_found=false" >> "$GITHUB_OUTPUT"
+            fi
           else
-            echo "ℹ️ No existing PR found for branch: $BRANCH_NAME"
+            # エラーの場合は PR 作成を進める（重複のリスク許容）
+            echo "⚠️ Could not verify existing PRs (API may be unavailable). Proceeding with PR creation attempt."
             echo "existing_pr_found=false" >> "$GITHUB_OUTPUT"
           fi
 
