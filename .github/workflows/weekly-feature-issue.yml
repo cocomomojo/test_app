@@ -401,8 +401,7 @@ jobs:
                 with open('check_result.txt', 'w') as f:
                   f.write(f"exists=true\n")
                   f.write(f"number={issue_num}\n")
-                print(f"ℹ️ Issue #{issue_num} already exists " +
-                      f"with this title")
+                print(f"ℹ️ Issue #{issue_num} already exists with this title")
                 exit(0)
             except:
               pass
