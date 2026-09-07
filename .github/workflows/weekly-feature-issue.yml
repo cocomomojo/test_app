@@ -69,9 +69,9 @@ jobs:
             text=True,
             cwd='.'
           )
-           
+
           commits = result.stdout.strip().split('\n') if result.stdout.strip() else []
-           
+
           # Extract commit messages
           commit_keywords = []
           for commit in commits:
@@ -85,14 +85,14 @@ jobs:
               )
               msg = msg_result.stdout.lower()
               commit_keywords.extend(msg.split())
-           
+
           # Get list of open feature issues
           open_issues_result = subprocess.run(
             ['gh', 'issue', 'list', '--search', 'label:feature state:open', '--json', 'body,title'],
             capture_output=True,
             text=True
           )
-           
+
           open_issues_text = ''
           try:
             if open_issues_result.stdout:
@@ -103,7 +103,7 @@ jobs:
               ])
           except:
             pass
-           
+
           # Save analysis results
           with open('./existing_implementations.txt', 'w') as f:
             f.write('### Recent Commits (past 30 days)\n')
@@ -111,7 +111,7 @@ jobs:
               f.write(f'{commit}\n')
             f.write('\n### Open Feature Issues\n')
             f.write(open_issues_text if open_issues_text else '(No open feature issues)')
-           
+
           print('✓ Existing implementations analyzed')
           PY
 
@@ -126,7 +126,7 @@ jobs:
 
           category = os.environ.get('FEATURE_CATEGORY', 'Both')
           difficulty = os.environ.get('DIFFICULTY_LEVEL', 'Medium')
-           
+
           # Read existing implementations
           existing_impl = Path('./existing_implementations.txt').read_text(encoding='utf-8')
 
@@ -140,7 +140,7 @@ jobs:
               "estimated_effort": "XS/S/M/L/XL"
           }
           json_str = json.dumps(json_example, ensure_ascii=False, indent=2)
-          
+
           prompt_lines = [
               "【重要】このリクエストへのすべての応答は日本語で行ってください。",
               "",
@@ -202,7 +202,7 @@ jobs:
           match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response_text, re.DOTALL)
           if match:
             json_text = match.group(1).strip()
-           
+
           # If not found in code block, try to extract JSON object
           if not json_text:
             # Use a more robust approach: find the first '{' and match braces
@@ -213,25 +213,25 @@ jobs:
               end_idx = start_idx
               in_string = False
               escape_next = False
-               
+
               for i in range(start_idx, len(response_text)):
                 char = response_text[i]
-                 
+
                 if escape_next:
                   escape_next = False
                   continue
-                
+
                 if char == '\\':
                   escape_next = True
                   continue
-                
+
                 if char == '"' and not escape_next:
                   in_string = not in_string
                   continue
-                
+
                 if in_string:
                   continue
-                
+
                 if char == '{':
                   brace_count += 1
                 elif char == '}':
@@ -239,7 +239,7 @@ jobs:
                   if brace_count == 0:
                     end_idx = i + 1
                     break
-               
+
               if brace_count == 0 and end_idx > start_idx:
                 json_text = response_text[start_idx:end_idx].strip()
 
@@ -360,14 +360,14 @@ jobs:
 
           title = Path('./issue-title.txt').read_text(encoding='utf-8').strip()
           body = Path('./issue-body.md').read_text(encoding='utf-8').strip()
-           
+
           # Check by exact title match first (fastest)
           result = subprocess.run(
             ['gh', 'issue', 'list', '--search', f'in:title "{title}"', '--state', 'open', '--json', 'number,title,body'],
             capture_output=True,
             text=True
           )
-           
+
           if result.returncode == 0 and result.stdout:
             try:
               issues = json.loads(result.stdout)
@@ -380,27 +380,27 @@ jobs:
                 exit(0)
             except:
               pass
-           
+
           # Check for similar issues by keyword match
           result = subprocess.run(
             ['gh', 'issue', 'list', '--label', 'feature', '--state', 'open', '--json', 'number,title,body'],
             capture_output=True,
             text=True
           )
-           
+
           if result.returncode == 0 and result.stdout:
             try:
               open_issues = json.loads(result.stdout)
-               
+
               # Extract key terms from the new proposal
               new_keywords = set(re.findall(r'\w{3,}', title.lower()))
               new_keywords |= set(re.findall(r'\w{5,}', body.lower()))  # Words 5+ chars
-               
+
               # Compare with existing issues
               for issue in open_issues:
                 existing_keywords = set(re.findall(r'\w{3,}', issue['title'].lower()))
                 existing_keywords |= set(re.findall(r'\w{5,}', (issue.get('body') or '').lower()))
-                 
+
                 # Calculate similarity (need 60% keyword overlap)
                 if new_keywords and existing_keywords:
                   common = new_keywords & existing_keywords
@@ -413,13 +413,13 @@ jobs:
                     exit(0)
             except:
               pass
-           
+
           # No duplicates found
           with open('check_result.txt', 'w') as f:
             f.write(f"exists=false\n")
           print(f"✓ No duplicate issues detected")
           PY
-           
+
           # Read results and export to GITHUB_OUTPUT
           cat check_result.txt >> "$GITHUB_OUTPUT"
 
@@ -440,12 +440,12 @@ jobs:
         run: |
           TITLE=$(cat ./issue-title.txt)
           BODY=$(cat ./issue-body.md)
-           
+
           echo "DEBUG: Issue to be created"
           echo "Title: $TITLE"
           echo "Body length: ${#BODY}"
           echo "Body first 200 chars: ${BODY:0:200}"
-           
+
           ISSUE_OUTPUT=$(gh issue create \
             --title "$TITLE" \
             --label "enhancement" \
@@ -459,13 +459,13 @@ jobs:
             exit 1
           fi
           ISSUE_NUMBER=${ISSUE_URL##*/}
-           
+
           # Verify created issue
           sleep 2
           gh issue view "$ISSUE_NUMBER" --json number,title,body --repo "$GITHUB_REPOSITORY" > /tmp/created-issue-verify.json
           echo "DEBUG: Verified created issue:"
           cat /tmp/created-issue-verify.json
-           
+
           echo "issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
           echo "issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
           echo "✓ Issue created: $ISSUE_URL"
