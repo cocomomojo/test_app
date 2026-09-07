@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   quality-checks:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     outputs:
@@ -24,8 +25,7 @@ jobs:
           HEAD_REF: ${{ github.head_ref }}
         run: |
           if [ -z "$HEAD_REF" ]; then
-            echo "❌ PR branch context not available (head_ref is empty)"
-            echo "This usually means the PR has been merged and the branch was deleted."
+            echo "❌ Unexpected: PR context not available (head_ref is empty) despite pull_request event"
             exit 1
           fi
           echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
@@ -103,6 +103,7 @@ jobs:
           fi
 
   e2e-tests:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     outputs:
@@ -117,8 +118,7 @@ jobs:
           HEAD_REF: ${{ github.head_ref }}
         run: |
           if [ -z "$HEAD_REF" ]; then
-            echo "❌ PR branch context not available (head_ref is empty)"
-            echo "This usually means the PR has been merged and the branch was deleted."
+            echo "❌ Unexpected: PR context not available (head_ref is empty) despite pull_request event"
             exit 1
           fi
           echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
