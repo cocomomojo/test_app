@@ -116,7 +116,7 @@
           <v-divider />
         </v-list>
 
-        <v-dialog v-model="editing" persistent max-width="500">
+        <v-dialog v-model="editing" persistent max-width="500" data-testid="edit-dialog">
           <v-card>
             <v-card-title>編集</v-card-title>
             <v-card-text>
