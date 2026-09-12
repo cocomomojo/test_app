@@ -129,28 +129,36 @@ await getResponse;  // ✅ 正しく await
 />
 ```
 
-### **修正2: Frontend toggleDone 関数（dcd0440）**
+### **修正2: Frontend toggleDone 関数を API レスポンスベースに改善**
 
-**TodoList.vue 行306-330**
+**TodoList.vue 行307-330**
 
 ```typescript
 // Before
-const toggleDone = async (todo) => {
-  await updateTodo(todo.id, { done: todo.done, ... });
-  await load();
+const toggleDone = async (todo, newValue) => {
+  await updateTodo(todo.id, { done: newValue, ... });
+  await load();  // ← 全体再読み込み（不要な GET リクエスト）
 };
 
 // After
 const toggleDone = async (todo, newValue) => {
   try {
-    await updateTodo(todo.id, { done: newValue, ... });
-    await load();
+    const response = await updateTodo(todo.id, { done: newValue, ... });
+    if (response.data) {
+      Object.assign(todo, response.data);  // ← API レスポンスから直接更新
+    }
     // エラーハンドリング
   } catch (error) {
-    await load();  // UI をリセット
+    await load();  // エラー時のみ全体再読み込み
   }
 };
 ```
+
+**メリット**:
+- 不要な GET リクエストを削減
+- API レスポンスを信頼できる情報源として使用
+- エラーハンドリングが明確
+
 
 ### **修正3: E2E テスト waitForResponse パターン（9b33151）**
 

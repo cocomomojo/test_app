@@ -114,7 +114,7 @@
 
 ```bash
 # 全 E2E テスト実行
-npm test:e2e
+npm run test:e2e
 
 # 期待される結果
 # ✅ すべてのテストが成功
