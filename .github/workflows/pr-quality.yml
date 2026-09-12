@@ -282,7 +282,7 @@ jobs:
           steps.e2e_run.outcome == 'failure' ||
           steps.docker_start.outcome == 'failure' ||
           steps.health_check.outcome == 'failure'
-        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        uses: actions/github-script@v7
         with:
           script: |
             // E2E失敗時に自動分析をdispatch
@@ -319,7 +319,7 @@ jobs:
 
     steps:
       - name: Add bug-analysis-needed label if E2E failed
-        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        uses: actions/github-script@v7
         with:
           script: |
             const prNumber = context.payload.pull_request?.number;
@@ -351,7 +351,7 @@ jobs:
 
     steps:
       - name: Comment PR with quality results
-        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        uses: actions/github-script@v7
         env:
           FRONTEND_STATUS: >-
             ${{ needs.quality-checks.outputs.frontend_status || 'unknown' }}
