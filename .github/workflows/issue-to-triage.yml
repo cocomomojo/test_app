@@ -66,7 +66,7 @@ jobs:
           cat /tmp/issue-triage/result.json
 
       - name: Apply triage labels and summary
-        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        uses: actions/github-script@v9.0.0 # Verified SHA: d746ffe35508b1917358783b479e04febd2b8f71
         env:
           RESULT_PATH: /tmp/issue-triage/result.json
         with:
@@ -172,7 +172,7 @@ jobs:
             }
 
       - name: Dispatch fix brief workflow
-        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        uses: actions/github-script@v9.0.0 # Verified SHA: d746ffe35508b1917358783b479e04febd2b8f71
         env:
           RESULT_PATH: /tmp/issue-triage/result.json
         with:

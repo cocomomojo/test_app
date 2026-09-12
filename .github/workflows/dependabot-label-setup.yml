@@ -15,7 +15,7 @@ jobs:
     
     steps:
       - name: Add labels to Dependabot PR
-        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        uses: actions/github-script@v9.0.0 # Verified SHA: d746ffe35508b1917358783b479e04febd2b8f71
         with:
           script: |
             const prNumber = context.payload.pull_request.number;
