@@ -103,7 +103,6 @@ jobs:
           npm run test:e2e
           echo "E2E_EXIT_CODE=$?" >> $GITHUB_ENV
           set -e
-        continue-on-error: true
 
       - name: Debug - Check Playwright coverage collection
         if: always()
@@ -418,21 +417,21 @@ PLACEHOLDER
           echo "=== 🔗 Service Health Check ==="
           docker compose -f docker-compose.ci.yml ps || echo "Could not get service status"
 
-      - name: Check E2E test results and fail if needed
-        if: always()
+      - name: Report E2E test success
+        if: always() && (env.E2E_EXIT_CODE == '0' || env.E2E_EXIT_CODE == '')
         run: |
           echo "=== E2E Test Result Check ==="
-          E2E_EXIT_CODE="${{ env.E2E_EXIT_CODE }}"
-          
-          if [ "$E2E_EXIT_CODE" = "0" ] || [ -z "$E2E_EXIT_CODE" ]; then
-           echo "✓ E2E tests passed (exit code: ${E2E_EXIT_CODE:-0})"
-          else
-           echo "✗ E2E tests failed (exit code: $E2E_EXIT_CODE)"
-           echo ""
-           echo "Note: All Allure reports and coverage reports have been generated."
-           echo "Please check the workflow artifacts and GitHub Pages for details."
-           exit 1
-          fi
+          echo "✓ E2E tests passed"
+
+      - name: Report E2E test failure and fail job
+        if: always() && env.E2E_EXIT_CODE != '0'
+        run: |
+          echo "=== E2E Test Result Check ==="
+          echo "✗ E2E tests failed (exit code: ${{ env.E2E_EXIT_CODE }})"
+          echo ""
+          echo "Note: All Allure reports and coverage reports have been generated."
+          echo "Please check the workflow artifacts and GitHub Pages for details."
+          exit 1
 
       - name: Stop Docker Compose services
         if: always()
