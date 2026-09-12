@@ -900,11 +900,18 @@ GitHub リポジトリ → Settings → Secrets and variables → Actions → Ne
 - **ファイル:** `.github/workflows/pr-quality.yml`
 - **トリガー:** PR 作成・更新時
 - **処理内容:**
-  1. フロントエンドのユニットテスト実行
-  2. バックエンドのユニットテスト実行
-  3. カバレッジレポート生成
-  4. PR にコメント投稿
+  1. **E2E 関連性分析** - PR 変更内容から E2E テスト実行の必要性を自動判定
+     - UI/API 変更を検出 → E2E 実行必須
+     - ドキュメント・CI 設定・依存関係更新のみ → E2E スキップ
+  2. フロントエンドのユニットテスト実行
+  3. バックエンドのユニットテスト実行
+  4. （E2E 必要と判定した場合のみ）E2E テスト実行
+  5. カバレッジレポート生成
+  6. PR にコメント投稿（E2E スキップ理由を記載）
 - **成果物:** テスト結果、カバレッジレポート
+- **E2E スキップロジック:**
+  - ✅ **E2E 実行必須:** UI コンポーネント、API 仕様変更、認証機能
+  - ❌ **E2E スキップ可能:** ドキュメント、CI 設定、依存関係更新のみ
 
 #### PR Test Plan Assets
 - **ファイル:** `.github/workflows/pr-test-plan.yml`
@@ -1154,6 +1161,91 @@ git push origin main
 3. **ブラウザキャッシュをクリア**
    - Ctrl + Shift + R（Windows/Linux）
    - Cmd + Shift + R（Mac）
+
+---
+
+## 🚀 E2E スキップ最適化
+
+PR Quality Checks ワークフローでは、**修正内容がE2Eテストに関連するかを自動判定**し、不要な E2E テスト実行をスキップして CI/CD の時間を短縮します。
+
+### 🎯 判定ロジック
+
+#### ✅ E2E テスト実行が必須
+以下に該当する場合、E2E テストが自動実行されます：
+- **フロントエンド UI 変更**
+  - `frontend/src/components/**/*.vue` - コンポーネント修正
+  - `frontend/src/views/**/*.vue` - ページコンポーネント修正
+  - `frontend/src/router/**` - ルーティング修正
+- **API 仕様・契約の変更**
+  - `backend/src/main/java/**/Controller.java` - エンドポイント追加・修正
+  - `backend/src/main/java/**/Service.java` - API ロジック変更
+- **認証・認可機能**
+- **データベーススキーマ変更**
+
+#### ❌ E2E テストをスキップ可能
+以下に該当する場合、E2E テストは自動スキップされます：
+- **ドキュメント変更**：`*.md`, `README`, `CHANGELOG` など
+- **CI/CD 設定**：`.github/workflows/**`, `Dockerfile`, `.dockerignore` など
+- **依存関係更新のみ**：`package-lock.json`, `build.gradle.kts` など
+- **バックエンド内部実装**：ユーティリティ、ヘルパー関数（API 仕様に影響なし）
+- **テストコードのみ**：ユニットテスト、テスト設定ファイル
+- **ログ・デバッグ出力**
+
+### 📊 ワークフロー処理フロー
+
+```
+1. PR 作成・更新
+   ↓
+2. analyze-e2e-needed ジョブ
+   ├─ 変更ファイル一覧を取得
+   ├─ ファイルパターンで分析
+   ├─ E2E 実行必要性を判定
+   └─ 判定結果を output に保存
+   ↓
+3. quality-checks ジョブ（常に実行）
+   ├─ フロントエンドユニットテスト
+   └─ バックエンドユニットテスト
+   ↓
+4. e2e-tests ジョブ（条件付き実行）
+   ├─ 判定結果が true → E2E テスト実行
+   └─ 判定結果が false → スキップ
+   ↓
+5. report-to-pr ジョブ
+   └─ PR コメント投稿（E2E スキップ理由を記載）
+```
+
+### 💡 PR コメント表示例
+
+**E2E が実行される場合：**
+```
+### 🔎 PR Quality Checks
+
+- Frontend Unit Tests: ✅ success
+- Backend Unit Tests: ✅ success
+- E2E Tests with Coverage: ⏱️ running (変更がE2E関連：UI/API changes detected)
+```
+
+**E2E がスキップされる場合：**
+```
+### 🔎 PR Quality Checks
+
+- Frontend Unit Tests: ✅ success
+- Backend Unit Tests: ✅ success
+- E2E Tests with Coverage: ⏭️ skipped
+  💡 E2E テストはスキップされました (理由: only_non_e2e_files_changed)
+```
+
+### 🛠️ カスタマイズ
+
+`.github/workflows/pr-quality.yml` の `analyze-e2e-needed` ジョブ内の以下の部分を修正することで、判定ルールをカスタマイズできます：
+
+```bash
+# 確実にE2Eが必要なパターン
+E2E_MUST_PATTERNS="frontend/src/components|frontend/src/views|frontend/src/router|backend/src/main/java/.*Controller|backend/src/main/java/.*Service"
+
+# 確実にスキップ可能なパターン
+E2E_SKIP_PATTERNS="\.md$|CHANGELOG|\.github/workflows|Dockerfile|package-lock\.json$|build\.gradle\.kts?$|\.gitignore"
+```
 
 ---
 
