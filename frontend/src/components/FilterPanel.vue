@@ -2,7 +2,7 @@
   <v-card variant="outlined" class="pa-4 mb-4">
     <v-row class="mb-3">
       <v-col cols="12">
-        <h4 class="ma-0">フィルター</h4>
+        <h4 class="ma-0" data-testid="filter-panel-title">フィルター</h4>
       </v-col>
     </v-row>
 

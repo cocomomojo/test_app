@@ -142,7 +142,7 @@ test('期限でTODOをフィルターできること', async ({ page }) => {
   await page.goto('/todo');
 
   // FilterPanelが表示されることを確認
-  const filterPanel = page.locator('text=フィルター');
+  const filterPanel = page.locator('[data-testid="filter-panel-title"]');
   await expect(filterPanel).toBeVisible();
 
   const dueDateFrom = page.locator('[data-testid="filter-due-date-from"]');
