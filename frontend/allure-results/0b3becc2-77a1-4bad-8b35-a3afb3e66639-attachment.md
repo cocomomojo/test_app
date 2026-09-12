@@ -1,0 +1,140 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: todo.spec.ts >> フィルターをリセットできること
+- Location: tests/e2e/todo.spec.ts:155:1
+
+# Error details
+
+```
+Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5173/login
+Call log:
+  - navigating to "http://localhost:5173/login", waiting until "load"
+
+```
+
+# Test source
+
+```ts
+  56  |   await page.goto('/todo');
+  57  | 
+  58  |   const completedTitle = `completed-${Date.now()}`;
+  59  |   const pendingTitle = `pending-${Date.now()}`;
+  60  | 
+  61  |   await page.getByLabel('新しい TODO を入力').fill(completedTitle);
+  62  |   await page.getByRole('button', { name: '追加' }).click();
+  63  |   await expect(page.getByText(completedTitle)).toBeVisible();
+  64  | 
+  65  |   const checkbox = page.locator('input[type="checkbox"]').first();
+  66  |   await checkbox.check();
+  67  |   await page.waitForTimeout(500);
+  68  | 
+  69  |   await page.getByLabel('新しい TODO を入力').fill(pendingTitle);
+  70  |   await page.getByRole('button', { name: '追加' }).click();
+  71  |   await expect(page.getByText(pendingTitle)).toBeVisible();
+  72  | 
+  73  |   const pendingFilterChip = page.locator('[data-testid="filter-chip-pending"]');
+  74  |   await pendingFilterChip.click();
+  75  | 
+  76  |   await expect(page.getByText(pendingTitle)).toBeVisible();
+  77  |   await expect(page.getByText(completedTitle)).not.toBeVisible();
+  78  | });
+  79  | 
+  80  | test('TODOをフィルターできること-完了のみ', async ({ page }) => {
+  81  |   await page.goto('/login');
+  82  |   await page.getByLabel('ユーザ名').fill('testuser');
+  83  |   await page.getByLabel('パスワード').fill('Test1234!');
+  84  |   await page.getByRole('button', { name: /ログイン/ }).click();
+  85  |   await page.waitForURL(/\/top/);
+  86  | 
+  87  |   await page.goto('/todo');
+  88  | 
+  89  |   const completedTitle = `completed-${Date.now()}`;
+  90  |   const pendingTitle = `pending-${Date.now()}`;
+  91  | 
+  92  |   await page.getByLabel('新しい TODO を入力').fill(completedTitle);
+  93  |   await page.getByRole('button', { name: '追加' }).click();
+  94  |   await expect(page.getByText(completedTitle)).toBeVisible();
+  95  | 
+  96  |   const checkbox = page.locator('input[type="checkbox"]').first();
+  97  |   await checkbox.check();
+  98  |   await page.waitForTimeout(500);
+  99  | 
+  100 |   await page.getByLabel('新しい TODO を入力').fill(pendingTitle);
+  101 |   await page.getByRole('button', { name: '追加' }).click();
+  102 |   await expect(page.getByText(pendingTitle)).toBeVisible();
+  103 | 
+  104 |   const completedFilterChip = page.locator('[data-testid="filter-chip-completed"]');
+  105 |   await completedFilterChip.click();
+  106 | 
+  107 |   await expect(page.getByText(completedTitle)).toBeVisible();
+  108 |   await expect(page.getByText(pendingTitle)).not.toBeVisible();
+  109 | });
+  110 | 
+  111 | 
+  112 | test('優先度でTODOをフィルターできること', async ({ page }) => {
+  113 |   await page.goto('/login');
+  114 |   await page.getByLabel('ユーザ名').fill('testuser');
+  115 |   await page.getByLabel('パスワード').fill('Test1234!');
+  116 |   await page.getByRole('button', { name: /ログイン/ }).click();
+  117 |   await page.waitForURL(/\/top/);
+  118 | 
+  119 |   await page.goto('/todo');
+  120 | 
+  121 |   // FilterPanelが表示されることを確認
+  122 |   const filterPriority = page.locator('[data-testid="filter-priority"]');
+  123 |   await expect(filterPriority).toBeVisible();
+  124 | 
+  125 |   // 優先度を選択してフィルター適用
+  126 |   await filterPriority.click();
+  127 |   await page.locator('text=高').click();
+  128 |   
+  129 |   const applyButton = page.locator('[data-testid="filter-apply-btn"]');
+  130 |   await applyButton.click();
+  131 |   
+  132 |   await page.waitForTimeout(500);
+  133 | });
+  134 | 
+  135 | test('期限でTODOをフィルターできること', async ({ page }) => {
+  136 |   await page.goto('/login');
+  137 |   await page.getByLabel('ユーザ名').fill('testuser');
+  138 |   await page.getByLabel('パスワード').fill('Test1234!');
+  139 |   await page.getByRole('button', { name: /ログイン/ }).click();
+  140 |   await page.waitForURL(/\/top/);
+  141 | 
+  142 |   await page.goto('/todo');
+  143 | 
+  144 |   // FilterPanelが表示されることを確認
+  145 |   const filterPanel = page.locator('[data-testid="filter-panel-title"]');
+  146 |   await expect(filterPanel).toBeVisible();
+  147 | 
+  148 |   const dueDateFrom = page.locator('[data-testid="filter-due-date-from"]');
+  149 |   const dueDateTo = page.locator('[data-testid="filter-due-date-to"]');
+  150 |   
+  151 |   await expect(dueDateFrom).toBeVisible();
+  152 |   await expect(dueDateTo).toBeVisible();
+  153 | });
+  154 | 
+  155 | test('フィルターをリセットできること', async ({ page }) => {
+> 156 |   await page.goto('/login');
+      |              ^ Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5173/login
+  157 |   await page.getByLabel('ユーザ名').fill('testuser');
+  158 |   await page.getByLabel('パスワード').fill('Test1234!');
+  159 |   await page.getByRole('button', { name: /ログイン/ }).click();
+  160 |   await page.waitForURL(/\/top/);
+  161 | 
+  162 |   await page.goto('/todo');
+  163 | 
+  164 |   const clearButton = page.locator('[data-testid="filter-clear-btn"]');
+  165 |   await expect(clearButton).toBeVisible();
+  166 |   
+  167 |   await clearButton.click();
+  168 |   await page.waitForTimeout(500);
+  169 | });
+  170 | 
+```
