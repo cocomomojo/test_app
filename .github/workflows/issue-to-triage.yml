@@ -1,6 +1,6 @@
 name: Issue Triage for AI Fix Flow
 
-on:
+"on":
   issues:
     types: [opened, edited, labeled]
   workflow_dispatch:

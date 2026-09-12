@@ -1,6 +1,6 @@
 name: Dependabot Notification
 
-on:
+"on":
   workflow_run:
     workflows: ["Dependabot Auto-Fix"]
     types: [completed]

@@ -1,6 +1,6 @@
 name: E2E Tests with Coverage
 
-on:
+"on":
   workflow_dispatch:
 
 permissions:

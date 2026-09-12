@@ -1,6 +1,6 @@
 name: Dependabot Auto-Fix
 
-on:
+"on":
   workflow_run:
     workflows: ["PR Quality Checks"]
     types: [completed]

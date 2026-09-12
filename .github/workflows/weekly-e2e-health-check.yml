@@ -1,6 +1,6 @@
 name: Weekly E2E Health Check
 
-on:
+"on":
   schedule:
     - cron: '0 10 * * 0'  # 毎週日曜日 10:00 UTC
   workflow_dispatch:

@@ -1,6 +1,6 @@
 name: Close Old Dependabot PRs
 
-on:
+"on":
   workflow_dispatch:
 
 permissions:
