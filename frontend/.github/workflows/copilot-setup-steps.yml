@@ -27,9 +27,11 @@ jobs:
       run: npm ci
 
     - name: Reset stale Playwright cache
+      if: ${{ success() }}
       run: rm -rf ~/.cache/ms-playwright
 
     - name: Install Playwright Browsers
+      if: ${{ success() }}
       run: npx playwright install --with-deps
 
     # Customize this step as needed
