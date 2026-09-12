@@ -193,9 +193,9 @@ const filteredTodos = computed(() => {
   let result = todos.value;
 
   if (activeFilter.value === "pending") {
-    result = result.filter((todo) => todo.done);
-  } else if (activeFilter.value === "completed") {
     result = result.filter((todo) => !todo.done);
+  } else if (activeFilter.value === "completed") {
+    result = result.filter((todo) => todo.done);
   }
 
   return result;

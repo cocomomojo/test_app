@@ -58,21 +58,31 @@ test('TODOをフィルターできること-未完了のみ', async ({ page }) =
   const completedTitle = `completed-${Date.now()}`;
   const pendingTitle = `pending-${Date.now()}`;
 
+  // Create a completed TODO
   await page.getByLabel('新しい TODO を入力').fill(completedTitle);
   await page.getByRole('button', { name: '追加' }).click();
   await expect(page.getByText(completedTitle)).toBeVisible();
 
+  // Check the TODO to mark it as done
   const checkbox = page.locator('input[type="checkbox"]').first();
   await checkbox.check();
-  await page.waitForTimeout(500);
+  
+  // Wait for the backend to process the state change
+  await page.waitForTimeout(1000);
 
+  // Create a pending TODO
   await page.getByLabel('新しい TODO を入力').fill(pendingTitle);
   await page.getByRole('button', { name: '追加' }).click();
   await expect(page.getByText(pendingTitle)).toBeVisible();
 
+  // Apply pending filter
   const pendingFilterChip = page.locator('[data-testid="filter-chip-pending"]');
   await pendingFilterChip.click();
+  
+  // Wait for filter to be applied
+  await page.waitForTimeout(500);
 
+  // Verify pending TODO is visible and completed TODO is not
   await expect(page.getByText(pendingTitle)).toBeVisible();
   await expect(page.getByText(completedTitle)).not.toBeVisible();
 });
