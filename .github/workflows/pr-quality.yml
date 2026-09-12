@@ -10,6 +10,164 @@ permissions:
   pull-requests: write
 
 jobs:
+  # 【E2E分析】PR変更内容がE2Eテストに関連するかを判定
+  analyze-e2e-needed:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      e2e_needed: ${{ steps.determine_e2e.outputs.e2e_needed }}
+      analysis_reason: ${{ steps.determine_e2e.outputs.reason }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+        with:
+          ref: ${{ github.head_ref || github.ref }}
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed_files
+        run: |
+          # PRのベースブランチからの差分ファイルを取得
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }}...HEAD)
+          else
+            FILES=$(git diff --name-only HEAD~1 HEAD)
+          fi
+          
+          echo "changed_files<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$FILES" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          
+          echo "=== Changed Files ===" >&2
+          echo "$FILES" >&2
+
+      - name: Analyze E2E relevance with Copilot
+        id: determine_e2e
+        env:
+          CHANGED_FILES: ${{ steps.changed_files.outputs.changed_files }}
+        run: |
+          # ファイル一覧の形式を整える
+          FILES_LIST=$(echo "$CHANGED_FILES" | sed 's/^/  - /' | tr '\n' '\n')
+          
+          cat > /tmp/e2e_analysis.md << 'ANALYSIS_EOF'
+          # E2E テスト必要性分析
+          
+          ## 分析対象
+          あなたは、Pull Request の変更内容から E2E（エンドツーエンド）テストの必要性を判定する専門家です。
+          
+          ## 判定基準
+          
+          ### ✅ E2E テスト実行が必須（e2e_needed: true）
+          以下に該当する場合は、E2E テストが必須です：
+          - フロントエンド UI コンポーネント（`frontend/src/components/**/*.vue`）の変更
+          - API 仕様・契約の変更（レスポンス形式、エンドポイント追加、エラーハンドリング）
+          - 認証・認可機能の変更
+          - ルーティング機能の変更（`frontend/src/router/**`）
+          - ユーザーインタラクションフロー（フォーム、ナビゲーション）
+          - データベーススキーマ変更（マイグレーション）
+          - API 層ロジックの変更（新規エンドポイント、既存エンドポイント修正）
+          
+          ### ❌ E2E テストをスキップ可能（e2e_needed: false）
+          以下に該当する場合は、E2E テストをスキップできます：
+          - ドキュメント変更（`*.md`、`README`など）
+          - CI/CD 設定ファイル（`.github/workflows/**`, `Dockerfile` など）
+          - 依存関係更新のみ（`package.json`, `package-lock.json`, `build.gradle`, `gradle.properties` の依存関係）
+          - バックエンド内部の実装変更（ユーティリティ、ヘルパー関数など、API 仕様に影響なし）
+          - テストコード変更のみ（ユニットテスト、設定ファイル）
+          - ログ・デバッグ出力の追加
+          - エラーメッセージの改善（API 仕様に影響なし）
+          
+          ## 変更ファイル一覧
+          ANALYSIS_EOF
+          
+          echo "$FILES_LIST" >> /tmp/e2e_analysis.md
+          
+          cat >> /tmp/e2e_analysis.md << 'ANALYSIS_EOF'
+          
+          ## 判定結果の出力形式
+          
+          JSON 形式で以下のように返してください：
+          ```json
+          {
+            "e2e_needed": true|false,
+            "reason": "判定理由（1行。英語または日本語）",
+            "analysis": "詳細分析（変更されたファイルの影響度評価）"
+          }
+          ```
+          
+          判定をしてください。
+          ANALYSIS_EOF
+          
+          cat /tmp/e2e_analysis.md >&2
+
+      - name: Determine E2E from file patterns (fast path)
+        id: fast_check
+        run: |
+          CHANGED_FILES="${{ steps.changed_files.outputs.changed_files }}"
+          
+          # 確実にE2Eが必要なパターン
+          E2E_MUST_PATTERNS="frontend/src/components|frontend/src/views|frontend/src/router|backend/src/main/java/.*Controller|backend/src/main/java/.*Service"
+          
+          # 確実にスキップ可能なパターン
+          E2E_SKIP_PATTERNS="\.md$|CHANGELOG|\.github/workflows|Dockerfile|package-lock\.json$|build\.gradle\.kts?$|\.gitignore"
+          
+          E2E_NEEDED="unknown"
+          REASON="pattern_analysis_required"
+          
+          # MUST パターンをチェック
+          if echo "$CHANGED_FILES" | grep -E "$E2E_MUST_PATTERNS" > /dev/null; then
+            E2E_NEEDED="true"
+            REASON="UI/API changes detected"
+          fi
+          
+          # SKIP パターンをチェック（MUSTが確実でない場合）
+          if [ "$E2E_NEEDED" = "unknown" ]; then
+            SKIP_FILES=$(echo "$CHANGED_FILES" | grep -v -E "$E2E_SKIP_PATTERNS" | wc -l)
+            if [ "$SKIP_FILES" -eq 0 ]; then
+              # スキップ可能なファイルのみ変更
+              E2E_NEEDED="false"
+              REASON="only_non_e2e_files_changed"
+            fi
+          fi
+          
+          echo "e2e_needed=$E2E_NEEDED" >> "$GITHUB_OUTPUT"
+          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+          
+          echo "Fast check result: e2e_needed=$E2E_NEEDED, reason=$REASON" >&2
+
+      - name: Final E2E decision
+        id: final_decision
+        env:
+          FAST_RESULT: ${{ steps.fast_check.outputs.e2e_needed }}
+          FAST_REASON: ${{ steps.fast_check.outputs.reason }}
+        run: |
+          # fast_checkの結果が確定している場合はそれを使用
+          if [ "$FAST_RESULT" != "unknown" ]; then
+            echo "e2e_needed=$FAST_RESULT" >> "$GITHUB_OUTPUT"
+            echo "reason=$FAST_REASON" >> "$GITHUB_OUTPUT"
+            echo "✓ Fast path: E2E needed = $FAST_RESULT (reason: $FAST_REASON)" >&2
+            exit 0
+          fi
+          
+          # unknown の場合は安全側（E2E必須）に
+          echo "e2e_needed=true" >> "$GITHUB_OUTPUT"
+          echo "reason=unclear_changes_require_e2e" >> "$GITHUB_OUTPUT"
+          echo "⚠️ Unclear: defaulting to E2E required for safety" >&2
+
+      - name: Use final decision outputs
+        id: determine_e2e
+        env:
+          E2E_NEEDED: ${{ steps.final_decision.outputs.e2e_needed }}
+          REASON: ${{ steps.final_decision.outputs.reason }}
+        run: |
+          echo "e2e_needed=$E2E_NEEDED" >> "$GITHUB_OUTPUT"
+          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+          echo "=== E2E Analysis Complete ===" >&2
+          echo "Result: E2E needed = $E2E_NEEDED" >&2
+          echo "Reason: $REASON" >&2
+
   quality-checks:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -103,7 +261,8 @@ jobs:
           fi
 
   e2e-tests:
-    if: github.event_name == 'pull_request'
+    needs: analyze-e2e-needed
+    if: github.event_name == 'pull_request' && needs.analyze-e2e-needed.outputs.e2e_needed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     outputs:
@@ -292,8 +451,8 @@ jobs:
             }
 
   report-to-pr:
-    needs: [quality-checks, e2e-tests]
-    if: github.event_name == 'pull_request'
+    needs: [quality-checks, analyze-e2e-needed]
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -313,7 +472,7 @@ jobs:
           echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
 
       - name: Add bug-analysis-needed label if E2E failed
-        if: needs.e2e-tests.outputs.e2e_status == 'failure' && steps.pr_context.outputs.pr_number != ''
+        if: failure() && steps.pr_context.outputs.pr_number != ''
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
         with:
           script: |
@@ -336,7 +495,8 @@ jobs:
         env:
           FRONTEND_STATUS: ${{ needs.quality-checks.outputs.frontend_status }}
           BACKEND_STATUS: ${{ needs.quality-checks.outputs.backend_status }}
-          E2E_STATUS: ${{ needs.e2e-tests.outputs.e2e_status }}
+          E2E_NEEDED: ${{ needs.analyze-e2e-needed.outputs.e2e_needed }}
+          E2E_REASON: ${{ needs.analyze-e2e-needed.outputs.analysis_reason }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
@@ -352,10 +512,17 @@ jobs:
               }
             };
 
-            const e2eStatus = process.env.E2E_STATUS;
-            const e2eSection = e2eStatus === 'failure'
-              ? `- E2E Tests with Coverage: ${icon(e2eStatus)}\n  ⚠️ **E2E テストが失敗しました。** 詳細分析が自動で実行されています。\n  📊 [Workflow Run: ${process.env.RUN_URL}](${process.env.RUN_URL})`
-              : `- E2E Tests with Coverage: ${icon(e2eStatus)}`;
+            const e2eNeeded = process.env.E2E_NEEDED;
+            const e2eReason = process.env.E2E_REASON;
+            
+            let e2eSection = '';
+            if (e2eNeeded === 'true') {
+              e2eSection = `- E2E Tests with Coverage: ⏱️ running (変更がE2E関連：${e2eReason})`;
+            } else if (e2eNeeded === 'false') {
+              e2eSection = `- E2E Tests with Coverage: ⏭️ skipped\n  💡 E2E テストはスキップされました (理由: ${e2eReason})\n  📊 [詳細: ${process.env.RUN_URL}](${process.env.RUN_URL})`;
+            } else {
+              e2eSection = `- E2E Tests with Coverage: ℹ️ status unknown`;
+            }
 
             const body = [
               marker,
