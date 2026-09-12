@@ -414,10 +414,11 @@ jobs:
         run: |
           cd "${GITHUB_WORKSPACE}"
           echo "🔍 Starting syntax validation..."
-           
+            
           SYNTAX_ERRORS=""
           YAML_ERRORS=""
           JS_ERRORS=""
+          TS_ERRORS=""
            
           # Install yamllint if not available
           if ! command -v yamllint &> /dev/null; then
@@ -455,8 +456,31 @@ jobs:
             done <<< "$JS_FILES"
           fi
            
+          # Check TypeScript files
+          echo "✅ Checking TypeScript files..."
+          TS_FILES=$( { git diff --name-only origin/main HEAD 2>/dev/null || git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ""; } | grep -E '\.(ts|tsx)$' || true)
+           
+          if [ -n "$TS_FILES" ]; then
+            # Setup tsconfig check if needed
+            if [ -f "frontend/tsconfig.json" ] || [ -f "tsconfig.json" ]; then
+              echo "  Found TypeScript configuration, validating..."
+              while IFS= read -r file; do
+                if [ -f "$file" ]; then
+                  echo "  Validating: $file"
+                  if ! npx tsc --noEmit "$file" 2>/dev/null; then
+                    # Check if it's a legitimate TS error or just missing type definitions
+                    # For now, report the error but note that it might be a type issue
+                    TS_ERRORS="${TS_ERRORS}⚠️ TypeScript Type/Syntax Issue in $file\n"
+                  fi
+                fi
+              done <<< "$TS_FILES"
+            else
+              echo "  No TypeScript configuration found, skipping TS validation"
+            fi
+          fi
+           
           # Output results
-          if [ -n "$YAML_ERRORS" ] || [ -n "$JS_ERRORS" ]; then
+          if [ -n "$YAML_ERRORS" ] || [ -n "$JS_ERRORS" ] || [ -n "$TS_ERRORS" ]; then
             echo -e "\n⚠️ Syntax validation found issues:"
             if [ -n "$YAML_ERRORS" ]; then
               echo -e "YAML Issues:\n$YAML_ERRORS"
@@ -464,7 +488,10 @@ jobs:
             if [ -n "$JS_ERRORS" ]; then
               echo -e "JavaScript Issues:\n$JS_ERRORS"
             fi
-            SYNTAX_ERRORS="${YAML_ERRORS}${JS_ERRORS}"
+            if [ -n "$TS_ERRORS" ]; then
+              echo -e "TypeScript Issues:\n$TS_ERRORS"
+            fi
+            SYNTAX_ERRORS="${YAML_ERRORS}${JS_ERRORS}${TS_ERRORS}"
           else
             echo "✅ All modified files passed syntax validation!"
           fi
@@ -943,6 +970,7 @@ jobs:
         if: steps.syntax_check.outputs.syntax_check_status == 'failed'
         uses: actions/github-script@v7
         env:
+          ISSUE_NUMBER: ${{ env.ISSUE_NUMBER }}
           SYNTAX_ERRORS: ${{ steps.syntax_check.outputs.syntax_errors }}
         with:
           script: |
