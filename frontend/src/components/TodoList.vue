@@ -84,7 +84,10 @@
             :class="{ 'expired-todo': isExpired(todo) }"
           >
             <v-list-item-action>
-              <v-checkbox v-model="todo.done" @change="toggleDone(todo)" />
+              <v-checkbox 
+                :model-value="todo.done" 
+                @update:model-value="toggleDone(todo, $event)"
+              />
             </v-list-item-action>
             <v-list-item-content>
               <v-list-item-title :class="{ 'text-decoration-line-through': todo.done }">
@@ -280,7 +283,10 @@ const applyFilters = async (filters) => {
 };
 
 const applySimpleFilter = async (filter) => {
+  activeFilter.value = filter;
   currentFilters.value = {};
+  // フィルター値を設定してから、最新データを読み込む
+  // （filteredTodos computed が自動的にフィルタリング）
   await load();
 };
 
@@ -298,17 +304,33 @@ const addTodo = async () => {
   snackbar.value = true;
 };
 
-const toggleDone = async (todo) => {
-  await updateTodo(todo.id, {
-    title: todo.title,
-    done: todo.done,
-    priority: todo.priority,
-    dueDate: todo.dueDate,
-  });
-  await load();
-  snackMsg.value = "状態を更新しました";
-  snackColor.value = "success";
-  snackbar.value = true;
+const toggleDone = async (todo, newValue) => {
+  try {
+    // API を呼び出して状態を更新
+    const response = await updateTodo(todo.id, {
+      title: todo.title,
+      done: newValue,
+      priority: todo.priority,
+      dueDate: todo.dueDate,
+    });
+    
+    // API レスポンスから直接 todo オブジェクトを更新
+    // これにより UI が即座に反映され、追加の GET リクエストを削減できる
+    if (response.data) {
+      Object.assign(todo, response.data);
+    }
+    
+    snackMsg.value = "状態を更新しました";
+    snackColor.value = "success";
+    snackbar.value = true;
+  } catch (error) {
+    console.error("TODO状態更新エラー:", error);
+    // エラー時は Backend から最新データを取得
+    await load();
+    snackMsg.value = "更新に失敗しました";
+    snackColor.value = "error";
+    snackbar.value = true;
+  }
 };
 
 const edit = (todo) => {
