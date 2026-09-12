@@ -26,8 +26,7 @@ jobs:
           HEAD_REF: ${{ github.head_ref }}
         run: |
           if [ -z "$HEAD_REF" ]; then
-            echo "❌ Unexpected: PR context not available"
-            echo "(head_ref is empty) despite pull_request event"
+            echo "❌ Unexpected: PR context not available (head_ref is empty)"
             exit 1
           fi
           echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
@@ -120,8 +119,7 @@ jobs:
           HEAD_REF: ${{ github.head_ref }}
         run: |
           if [ -z "$HEAD_REF" ]; then
-            echo "❌ Unexpected: PR context not available"
-            echo "(head_ref is empty) despite pull_request event"
+            echo "❌ Unexpected: PR context not available (head_ref is empty)"
             exit 1
           fi
           echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
@@ -307,8 +305,9 @@ jobs:
   add-pr-labels:
     needs: e2e-tests
     if: |
+      always() &&
       github.event_name == 'pull_request' &&
-      needs.e2e-tests.outputs.e2e_status == 'failure'
+      needs.e2e-tests.result == 'failure'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
