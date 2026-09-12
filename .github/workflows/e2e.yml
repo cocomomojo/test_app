@@ -99,8 +99,10 @@ jobs:
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:8081
         run: |
+          set +e
           npm run test:e2e
           echo "E2E_EXIT_CODE=$?" >> $GITHUB_ENV
+          set -e
         continue-on-error: true
 
       - name: Debug - Check Playwright coverage collection
@@ -419,12 +421,7 @@ PLACEHOLDER
         if: always()
         run: |
           echo "=== E2E Test Result Check ==="
-          E2E_EXIT_CODE=${{ env.E2E_EXIT_CODE }}
-          
-          if [ -z "$E2E_EXIT_CODE" ]; then
-           echo "⚠️ E2E_EXIT_CODE not set (test step may have been skipped)"
-           E2E_EXIT_CODE=0
-          fi
+          E2E_EXIT_CODE="${E2E_EXIT_CODE:-0}"
           
           if [ "$E2E_EXIT_CODE" = "0" ]; then
            echo "✓ E2E tests passed (exit code: 0)"
@@ -436,7 +433,7 @@ PLACEHOLDER
            exit 1
           fi
 
-       - name: Stop Docker Compose services
-         if: always()
-         working-directory: infra
-         run: docker compose -f docker-compose.ci.yml down -v
+      - name: Stop Docker Compose services
+        if: always()
+        working-directory: infra
+        run: docker compose -f docker-compose.ci.yml down -v
