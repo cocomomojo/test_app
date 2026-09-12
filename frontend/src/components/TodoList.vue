@@ -279,8 +279,9 @@ const applyFilters = async (filters) => {
   todos.value = res.data;
 };
 
-const applySimpleFilter = (filter) => {
+const applySimpleFilter = async (filter) => {
   currentFilters.value = {};
+  await load();
 };
 
 const clearFilters = async () => {
