@@ -112,7 +112,8 @@ jobs:
             echo "✓ Test results file exists"
             echo "  - Total size: $(wc -c < test-results/results.json) bytes"
             
-            test_count=$(grep -o '"test"' test-results/results.json | wc -l)
+            # Use more specific patterns for counting
+            test_count=$(grep -o '"type":"test"' test-results/results.json | wc -l)
             failed_count=$(grep -o '"status":"failed"' test-results/results.json | wc -l)
             passed_count=$(grep -o '"status":"passed"' test-results/results.json | wc -l)
             
@@ -189,25 +190,25 @@ jobs:
             echo "⚠ No allure-results found, creating placeholder report..."
             mkdir -p allure-report
             cat > allure-report/index.html << 'PLACEHOLDER'
-          <!DOCTYPE html>
-          <html>
-          <head>
-              <meta charset="UTF-8">
-              <title>Allure Report - No Results</title>
-              <style>
-                  body { font-family: Arial, sans-serif; margin: 20px; }
-                  .warning { background-color: #fff3cd; padding: 15px; border: 1px solid #ffc107; border-radius: 4px; }
-              </style>
-          </head>
-          <body>
-              <div class="warning">
-                  <h1>⚠️ Allure Report - No Test Results Available</h1>
-                  <p>The E2E test execution may have failed before generating results.</p>
-                  <p>Please check the workflow logs for more details.</p>
-              </div>
-          </body>
-          </html>
-          PLACEHOLDER
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Allure Report - No Results</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .warning { background-color: #fff3cd; padding: 15px; border: 1px solid #ffc107; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="warning">
+        <h1>⚠️ Allure Report - No Test Results Available</h1>
+        <p>The E2E test execution may have failed before generating results.</p>
+        <p>Please check the workflow logs for more details.</p>
+    </div>
+</body>
+</html>
+PLACEHOLDER
           fi
           
           echo "=== Allure report verification ==="
