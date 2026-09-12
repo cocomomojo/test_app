@@ -2,6 +2,7 @@
 
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -9,30 +10,40 @@ public class TodoService {
 
     private final TodoRepository repo;
 
-<span class="fc" id="L12">    public TodoService(TodoRepository repo) {</span>
-<span class="fc" id="L13">        this.repo = repo;</span>
-<span class="fc" id="L14">    }</span>
+<span class="fc" id="L13">    public TodoService(TodoRepository repo) {</span>
+<span class="fc" id="L14">        this.repo = repo;</span>
+<span class="fc" id="L15">    }</span>
 
     public List&lt;Todo&gt; findAll() {
-<span class="fc" id="L17">        return repo.findAll();</span>
+<span class="fc" id="L18">        return repo.findAll();</span>
     }
 
     public Todo create(Todo todo) {
-<span class="fc" id="L21">        return repo.save(todo);</span>
+<span class="fc" id="L22">        return repo.save(todo);</span>
     }
 
     public Todo update(Long id, Todo todo) {
-<span class="nc" id="L25">        Todo existing = repo.findById(id)</span>
-<span class="nc" id="L26">                .orElseThrow(() -&gt; new RuntimeException(&quot;Not found&quot;));</span>
+<span class="fc" id="L26">        Todo existing = repo.findById(id)</span>
+<span class="pc" id="L27">                .orElseThrow(() -&gt; new RuntimeException(&quot;Not found&quot;));</span>
 
-<span class="nc" id="L28">        existing.setTitle(todo.getTitle());</span>
-<span class="nc" id="L29">        existing.setDone(todo.isDone());</span>
+<span class="fc" id="L29">        existing.setTitle(todo.getTitle());</span>
+<span class="fc" id="L30">        existing.setDone(todo.isDone());</span>
+<span class="pc bpc" id="L31" title="1 of 2 branches missed.">        if (todo.getPriority() != null) {</span>
+<span class="fc" id="L32">            existing.setPriority(todo.getPriority());</span>
+        }
+<span class="pc bpc" id="L34" title="1 of 2 branches missed.">        if (todo.getDueDate() != null) {</span>
+<span class="nc" id="L35">            existing.setDueDate(todo.getDueDate());</span>
+        }
 
-<span class="nc" id="L31">        return repo.save(existing);</span>
+<span class="fc" id="L38">        return repo.save(existing);</span>
     }
 
     public void delete(Long id) {
-<span class="nc" id="L35">        repo.deleteById(id);</span>
-<span class="nc" id="L36">    }</span>
+<span class="nc" id="L42">        repo.deleteById(id);</span>
+<span class="nc" id="L43">    }</span>
+
+    public List&lt;Todo&gt; search(Todo.Priority priority, Boolean done, LocalDate dueDateBefore, LocalDate dueDateAfter) {
+<span class="fc" id="L46">        return repo.search(priority, done, dueDateBefore, dueDateAfter);</span>
+    }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

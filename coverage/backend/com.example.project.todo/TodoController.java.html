@@ -2,6 +2,7 @@
 
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -10,28 +11,37 @@ public class TodoController {
 
     private final TodoService service;
 
-<span class="fc" id="L13">    public TodoController(TodoService service) {</span>
-<span class="fc" id="L14">        this.service = service;</span>
-<span class="fc" id="L15">    }</span>
+<span class="fc" id="L14">    public TodoController(TodoService service) {</span>
+<span class="fc" id="L15">        this.service = service;</span>
+<span class="fc" id="L16">    }</span>
 
     @GetMapping
     public List&lt;Todo&gt; list() {
-<span class="fc" id="L19">        return service.findAll();</span>
+<span class="fc" id="L20">        return service.findAll();</span>
     }
 
     @PostMapping
     public Todo create(@RequestBody Todo todo) {
-<span class="fc" id="L24">        return service.create(todo);</span>
+<span class="fc" id="L25">        return service.create(todo);</span>
     }
 
     @PutMapping(&quot;/{id}&quot;)
     public Todo update(@PathVariable Long id, @RequestBody Todo todo) {
-<span class="nc" id="L29">        return service.update(id, todo);</span>
+<span class="fc" id="L30">        return service.update(id, todo);</span>
     }
 
     @DeleteMapping(&quot;/{id}&quot;)
     public void delete(@PathVariable Long id) {
-<span class="nc" id="L34">        service.delete(id);</span>
-<span class="nc" id="L35">    }</span>
+<span class="nc" id="L35">        service.delete(id);</span>
+<span class="nc" id="L36">    }</span>
+
+    @GetMapping(&quot;/search&quot;)
+    public List&lt;Todo&gt; search(
+            @RequestParam(required = false) Todo.Priority priority,
+            @RequestParam(required = false) Boolean done,
+            @RequestParam(required = false) LocalDate dueDateBefore,
+            @RequestParam(required = false) LocalDate dueDateAfter) {
+<span class="fc" id="L44">        return service.search(priority, done, dueDateBefore, dueDateAfter);</span>
+    }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

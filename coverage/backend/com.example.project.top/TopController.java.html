@@ -34,7 +34,7 @@ public class TopController {
 
 <span class="fc" id="L35">        int todoCount = (int) todoRepository.findAll()</span>
 <span class="fc" id="L36">                .stream()</span>
-<span class="pc bnc" id="L37" title="All 2 branches missed.">                .filter(t -&gt; !t.isDone())</span>
+<span class="fc bfc" id="L37" title="All 2 branches covered.">                .filter(t -&gt; !t.isDone())</span>
 <span class="fc" id="L38">                .count();</span>
 
 <span class="fc" id="L40">        return new TopResponse(</span>
