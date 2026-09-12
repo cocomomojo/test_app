@@ -98,13 +98,7 @@ jobs:
         working-directory: frontend
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:8081
-        run: |
-          npm run test:e2e || {
-            test_exit_code=$?
-            echo "⚠️ E2E tests exited with code: $test_exit_code"
-            echo "test_exit_code=$test_exit_code" >> $GITHUB_ENV
-            exit 0
-          }
+        run: npm run test:e2e
         continue-on-error: true
 
       - name: Debug - Check Playwright coverage collection
