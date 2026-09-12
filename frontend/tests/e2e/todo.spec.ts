@@ -32,15 +32,31 @@ test('TODOをフィルターできること-すべて', async ({ page }) => {
   await expect(page.getByText(completedTitle)).toBeVisible();
 
   const checkbox = page.locator('input[type="checkbox"]').first();
+  
+  // ネットワークリクエストを待機してから次のステップへ
+  const updateResponse = page.waitForResponse(resp => 
+    resp.url().includes('/todo') && resp.request().method() === 'PUT'
+  );
   await checkbox.check();
-  await page.waitForTimeout(500);
+  await updateResponse;
+  
+  // Backend から最新データが読み込まれたことを確認
+  await page.waitForResponse(resp => 
+    resp.url().includes('/todo') && resp.request().method() === 'GET'
+  );
 
   await page.getByLabel('新しい TODO を入力').fill(pendingTitle);
   await page.getByRole('button', { name: '追加' }).click();
   await expect(page.getByText(pendingTitle)).toBeVisible();
 
   const allFilterChip = page.locator('[data-testid="filter-chip-all"]');
+  
+  // フィルター適用時のデータ読み込みを待機
+  const filterLoadResponse = page.waitForResponse(resp => 
+    resp.url().includes('/todo') && resp.request().method() === 'GET'
+  );
   await allFilterChip.click();
+  await filterLoadResponse;
 
   await expect(page.getByText(completedTitle)).toBeVisible();
   await expect(page.getByText(pendingTitle)).toBeVisible();
@@ -65,10 +81,18 @@ test('TODOをフィルターできること-未完了のみ', async ({ page }) =
 
   // Check the TODO to mark it as done
   const checkbox = page.locator('input[type="checkbox"]').first();
-  await checkbox.check();
   
-  // Wait for the backend to process the state change
-  await page.waitForTimeout(1000);
+  // ネットワークリクエストを待機してから次のステップへ
+  const updateResponse = page.waitForResponse(resp => 
+    resp.url().includes('/todo') && resp.request().method() === 'PUT'
+  );
+  await checkbox.check();
+  await updateResponse;
+  
+  // Backend から最新データが読み込まれたことを確認
+  await page.waitForResponse(resp => 
+    resp.url().includes('/todo') && resp.request().method() === 'GET'
+  );
 
   // Create a pending TODO
   await page.getByLabel('新しい TODO を入力').fill(pendingTitle);
@@ -77,10 +101,13 @@ test('TODOをフィルターできること-未完了のみ', async ({ page }) =
 
   // Apply pending filter
   const pendingFilterChip = page.locator('[data-testid="filter-chip-pending"]');
-  await pendingFilterChip.click();
   
-  // Wait for filter to be applied
-  await page.waitForTimeout(500);
+  // フィルター適用時のデータ読み込みを待機
+  const filterLoadResponse = page.waitForResponse(resp => 
+    resp.url().includes('/todo') && resp.request().method() === 'GET'
+  );
+  await pendingFilterChip.click();
+  await filterLoadResponse;
 
   // Verify pending TODO is visible and completed TODO is not
   await expect(page.getByText(pendingTitle)).toBeVisible();
@@ -104,15 +131,31 @@ test('TODOをフィルターできること-完了のみ', async ({ page }) => {
   await expect(page.getByText(completedTitle)).toBeVisible();
 
   const checkbox = page.locator('input[type="checkbox"]').first();
+  
+  // ネットワークリクエストを待機してから次のステップへ
+  const updateResponse = page.waitForResponse(resp => 
+    resp.url().includes('/todo') && resp.request().method() === 'PUT'
+  );
   await checkbox.check();
-  await page.waitForTimeout(500);
+  await updateResponse;
+  
+  // Backend から最新データが読み込まれたことを確認
+  await page.waitForResponse(resp => 
+    resp.url().includes('/todo') && resp.request().method() === 'GET'
+  );
 
   await page.getByLabel('新しい TODO を入力').fill(pendingTitle);
   await page.getByRole('button', { name: '追加' }).click();
   await expect(page.getByText(pendingTitle)).toBeVisible();
 
   const completedFilterChip = page.locator('[data-testid="filter-chip-completed"]');
+  
+  // フィルター適用時のデータ読み込みを待機
+  const filterLoadResponse = page.waitForResponse(resp => 
+    resp.url().includes('/todo') && resp.request().method() === 'GET'
+  );
   await completedFilterChip.click();
+  await filterLoadResponse;
 
   await expect(page.getByText(completedTitle)).toBeVisible();
   await expect(page.getByText(pendingTitle)).not.toBeVisible();
