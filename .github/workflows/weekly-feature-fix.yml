@@ -414,11 +414,12 @@ jobs:
         run: |
           cd "${GITHUB_WORKSPACE}"
           echo "🔍 Starting syntax validation..."
-            
+           
           SYNTAX_ERRORS=""
           YAML_ERRORS=""
           JS_ERRORS=""
           TS_ERRORS=""
+          EXIT_CODE=0
            
           # Install yamllint if not available
           if ! command -v yamllint &> /dev/null; then
@@ -464,12 +465,14 @@ jobs:
             # Check if frontend directory has TypeScript files
             if [ -f "frontend/tsconfig.json" ]; then
               echo "  Found TypeScript configuration in frontend, validating..."
-              if ! (cd frontend && npx tsc --noEmit 2>&1 | grep -q "error"); then
-                echo "  ✅ TypeScript compilation check passed"
-              else
-                # Get the errors but only report the first one for brevity
-                TS_ERROR=$(cd frontend && npx tsc --noEmit 2>&1 | grep "error" | head -1)
+              # Capture output once to avoid running tsc twice
+              TS_OUTPUT=$(cd frontend && npx tsc --noEmit 2>&1)
+              if echo "$TS_OUTPUT" | grep -q "error"; then
+                # Extract first error message
+                TS_ERROR=$(echo "$TS_OUTPUT" | grep "error" | head -1)
                 TS_ERRORS="${TS_ERRORS}⚠️ TypeScript Issue: $TS_ERROR\n"
+              else
+                echo "  ✅ TypeScript compilation check passed"
               fi
             else
               echo "  No TypeScript configuration found, skipping TS validation"
@@ -494,10 +497,13 @@ jobs:
           fi
            
           # Store result for later use
-          echo "syntax_check_status=$([ -n "$SYNTAX_ERRORS" ] && echo "failed" || echo "success")" >> "$GITHUB_OUTPUT"
-          echo "syntax_errors<<SYNTAXEOF" >> "$GITHUB_OUTPUT"
-          echo -e "$SYNTAX_ERRORS" >> "$GITHUB_OUTPUT"
-          echo "SYNTAXEOF" >> "$GITHUB_OUTPUT"
+          # Overwrite the default output values with actual results
+          {
+            echo "syntax_check_status=$([ -n "$SYNTAX_ERRORS" ] && echo "failed" || echo "success")"
+            echo "syntax_errors<<SYNTAXEOF"
+            echo -e "$SYNTAX_ERRORS"
+            echo "SYNTAXEOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Check and push feature branch
         if: steps.init.outputs.exceeded_max == 'false' &&
