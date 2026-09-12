@@ -461,19 +461,16 @@ jobs:
           TS_FILES=$( { git diff --name-only origin/main HEAD 2>/dev/null || git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ""; } | grep -E '\.(ts|tsx)$' || true)
            
           if [ -n "$TS_FILES" ]; then
-            # Setup tsconfig check if needed
-            if [ -f "frontend/tsconfig.json" ] || [ -f "tsconfig.json" ]; then
-              echo "  Found TypeScript configuration, validating..."
-              while IFS= read -r file; do
-                if [ -f "$file" ]; then
-                  echo "  Validating: $file"
-                  if ! npx tsc --noEmit "$file" 2>/dev/null; then
-                    # Check if it's a legitimate TS error or just missing type definitions
-                    # For now, report the error but note that it might be a type issue
-                    TS_ERRORS="${TS_ERRORS}⚠️ TypeScript Type/Syntax Issue in $file\n"
-                  fi
-                fi
-              done <<< "$TS_FILES"
+            # Check if frontend directory has TypeScript files
+            if [ -f "frontend/tsconfig.json" ]; then
+              echo "  Found TypeScript configuration in frontend, validating..."
+              if ! (cd frontend && npx tsc --noEmit 2>&1 | grep -q "error"); then
+                echo "  ✅ TypeScript compilation check passed"
+              else
+                # Get the errors but only report the first one for brevity
+                TS_ERROR=$(cd frontend && npx tsc --noEmit 2>&1 | grep "error" | head -1)
+                TS_ERRORS="${TS_ERRORS}⚠️ TypeScript Issue: $TS_ERROR\n"
+              fi
             else
               echo "  No TypeScript configuration found, skipping TS validation"
             fi
@@ -971,11 +968,11 @@ jobs:
         uses: actions/github-script@v7
         env:
           ISSUE_NUMBER: ${{ env.ISSUE_NUMBER }}
-          SYNTAX_ERRORS: ${{ steps.syntax_check.outputs.syntax_errors }}
+          SYNTAX_ERRORS: ${{ toJSON(steps.syntax_check.outputs.syntax_errors) }}
         with:
           script: |
             const issueNumber = Number(process.env.ISSUE_NUMBER);
-            const syntaxErrors = process.env.SYNTAX_ERRORS || '';
+            const syntaxErrors = (process.env.SYNTAX_ERRORS || '').replace(/^"(.*)"$/s, '$1');
              
             const comment = [
               '<!-- weekly-feature-fix-syntax-error -->',
