@@ -307,6 +307,7 @@ jobs:
     if: |
       always() &&
       github.event_name == 'pull_request' &&
+      needs.quality-checks.result != 'cancelled' &&
       needs.e2e-tests.result == 'failure'
     runs-on: ubuntu-latest
     permissions:
@@ -337,7 +338,9 @@ jobs:
 
   report-to-pr:
     needs: [quality-checks, e2e-tests]
-    if: github.event_name == 'pull_request'
+    if: |
+      always() &&
+      github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
