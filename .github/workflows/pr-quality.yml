@@ -316,7 +316,7 @@ jobs:
 
     steps:
       - name: Add bug-analysis-needed label if E2E failed
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcbf961  # v7
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7
         with:
           script: |
             const prNumber = context.payload.pull_request.number;
@@ -342,15 +342,15 @@ jobs:
 
     steps:
       - name: Comment PR with quality results
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcbf961  # v7
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7
         env:
-          FRONTEND_STATUS: |
+          FRONTEND_STATUS: >-
             ${{ needs.quality-checks.outputs.frontend_status || 'unknown' }}
-          BACKEND_STATUS: |
+          BACKEND_STATUS: >-
             ${{ needs.quality-checks.outputs.backend_status || 'unknown' }}
-          E2E_STATUS: |
+          E2E_STATUS: >-
             ${{ needs.e2e-tests.outputs.e2e_status || 'unknown' }}
-          RUN_URL: |
+          RUN_URL: >-
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
@@ -371,7 +371,7 @@ jobs:
               ? `- E2E Tests with Coverage: ${icon(e2eStatus)}\n` +
                 `  ⚠️ **E2E テストが失敗しました。** ` +
                 `詳細分析が自動で実行されています。\n` +
-                `  📊 [Workflow Run: ${process.env.RUN_URL}](${process.env.RUN_URL})`
+                `  📊 [Workflow Run: ${process.env.RUN_URL.trim()}](${process.env.RUN_URL.trim()})`
               : `- E2E Tests with Coverage: ${icon(e2eStatus)}`;
 
             const body = [
