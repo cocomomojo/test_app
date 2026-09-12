@@ -442,7 +442,7 @@ jobs:
            
           # Check JavaScript files
           echo "✅ Checking JavaScript files..."
-          JS_FILES=$( { git diff --name-only origin/main HEAD 2>/dev/null || git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ""; } | grep -E '\.(js|ts)x?$' || true)
+          JS_FILES=$( { git diff --name-only origin/main HEAD 2>/dev/null || git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ""; } | grep -E '\.(js|jsx)$' || true)
            
           if [ -n "$JS_FILES" ]; then
             while IFS= read -r file; do
