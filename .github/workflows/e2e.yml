@@ -156,6 +156,7 @@ jobs:
           echo "=== 🎞️ Playwright Artifacts ==="
           [ -d "test-results" ] && echo "✓ test-results exists ($(find test-results -type f | wc -l) files)" || echo "⚠ test-results missing"
           [ -d "playwright-report" ] && echo "✓ playwright-report exists" || echo "⚠ playwright-report missing"
+
       - name: Upload frontend E2E raw coverage (early)
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -421,10 +422,10 @@ PLACEHOLDER
         if: always()
         run: |
           echo "=== E2E Test Result Check ==="
-          E2E_EXIT_CODE="${E2E_EXIT_CODE:-0}"
+          E2E_EXIT_CODE="${{ env.E2E_EXIT_CODE }}"
           
-          if [ "$E2E_EXIT_CODE" = "0" ]; then
-           echo "✓ E2E tests passed (exit code: 0)"
+          if [ "$E2E_EXIT_CODE" = "0" ] || [ -z "$E2E_EXIT_CODE" ]; then
+           echo "✓ E2E tests passed (exit code: ${E2E_EXIT_CODE:-0})"
           else
            echo "✗ E2E tests failed (exit code: $E2E_EXIT_CODE)"
            echo ""
