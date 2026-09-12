@@ -33,20 +33,13 @@ test('TODOをフィルターできること-すべて', async ({ page }) => {
 
   const checkbox = page.locator('input[type="checkbox"]').first();
   
-  // 1. チェックボックス操作の PUT リクエスト待機を事前登録
+  // チェックボックス操作の PUT リクエスト完了を待機
   const updateResponse = page.waitForResponse(resp => 
     resp.url().includes('/todo') && resp.request().method() === 'PUT' && resp.status() === 200
   );
   
-  // 2. Backend データ再読み込みの GET リクエスト待機を事前登録
-  const getResponse = page.waitForResponse(resp => 
-    resp.url().includes('/todo') && resp.request().method() === 'GET' && resp.status() === 200
-  );
-  // toggleDone内のload()がGETリクエストを発行するため、ここで自動的に完了
-  
   await checkbox.check();
   await updateResponse;
-  await getResponse;
 
   await page.getByLabel('新しい TODO を入力').fill(pendingTitle);
   await page.getByRole('button', { name: '追加' }).click();
@@ -54,12 +47,8 @@ test('TODOをフィルターできること-すべて', async ({ page }) => {
 
   const allFilterChip = page.locator('[data-testid="filter-chip-all"]');
   
-  // 3. フィルター適用時の GET リクエスト待機を事前登録
-  const filterLoadResponse = page.waitForResponse(resp => 
-    resp.url().includes('/todo') && resp.request().method() === 'GET' && resp.status() === 200
-  );
+  // フィルター適用はクライアント側の状態変更のみ（GET リクエストなし）
   await allFilterChip.click();
-  await filterLoadResponse;
 
   await expect(page.getByText(completedTitle)).toBeVisible();
   await expect(page.getByText(pendingTitle)).toBeVisible();
@@ -85,20 +74,13 @@ test('TODOをフィルターできること-未完了のみ', async ({ page }) =
   // Check the TODO to mark it as done
   const checkbox = page.locator('input[type="checkbox"]').first();
   
-  // 1. チェックボックス操作の PUT リクエスト待機を事前登録
+  // チェックボックス操作の PUT リクエスト完了を待機
   const updateResponse = page.waitForResponse(resp => 
     resp.url().includes('/todo') && resp.request().method() === 'PUT' && resp.status() === 200
   );
   
-  // 2. Backend データ再読み込みの GET リクエスト待機を事前登録
-  const getResponse = page.waitForResponse(resp => 
-    resp.url().includes('/todo') && resp.request().method() === 'GET' && resp.status() === 200
-  );
-  // toggleDone内のload()がGETリクエストを発行するため、ここで自動的に完了
-  
   await checkbox.check();
   await updateResponse;
-  await getResponse;
 
   // Create a pending TODO
   await page.getByLabel('新しい TODO を入力').fill(pendingTitle);
@@ -108,12 +90,8 @@ test('TODOをフィルターできること-未完了のみ', async ({ page }) =
   // Apply pending filter
   const pendingFilterChip = page.locator('[data-testid="filter-chip-pending"]');
   
-  // 3. フィルター適用時の GET リクエスト待機を事前登録
-  const filterLoadResponse = page.waitForResponse(resp => 
-    resp.url().includes('/todo') && resp.request().method() === 'GET' && resp.status() === 200
-  );
+  // フィルター適用はクライアント側の状態変更のみ（GET リクエストなし）
   await pendingFilterChip.click();
-  await filterLoadResponse;
 
   // Verify pending TODO is visible and completed TODO is not
   await expect(page.getByText(pendingTitle)).toBeVisible();
@@ -138,20 +116,13 @@ test('TODOをフィルターできること-完了のみ', async ({ page }) => {
 
   const checkbox = page.locator('input[type="checkbox"]').first();
   
-  // 1. チェックボックス操作の PUT リクエスト待機を事前登録
+  // チェックボックス操作の PUT リクエスト完了を待機
   const updateResponse = page.waitForResponse(resp => 
     resp.url().includes('/todo') && resp.request().method() === 'PUT' && resp.status() === 200
   );
   
-  // 2. Backend データ再読み込みの GET リクエスト待機を事前登録
-  const getResponse = page.waitForResponse(resp => 
-    resp.url().includes('/todo') && resp.request().method() === 'GET' && resp.status() === 200
-  );
-  // toggleDone内のload()がGETリクエストを発行するため、ここで自動的に完了
-  
   await checkbox.check();
   await updateResponse;
-  await getResponse;
 
   await page.getByLabel('新しい TODO を入力').fill(pendingTitle);
   await page.getByRole('button', { name: '追加' }).click();
@@ -159,12 +130,8 @@ test('TODOをフィルターできること-完了のみ', async ({ page }) => {
 
   const completedFilterChip = page.locator('[data-testid="filter-chip-completed"]');
   
-  // 3. フィルター適用時の GET リクエスト待機を事前登録
-  const filterLoadResponse = page.waitForResponse(resp => 
-    resp.url().includes('/todo') && resp.request().method() === 'GET' && resp.status() === 200
-  );
+  // フィルター適用はクライアント側の状態変更のみ（GET リクエストなし）
   await completedFilterChip.click();
-  await filterLoadResponse;
 
   await expect(page.getByText(completedTitle)).toBeVisible();
   await expect(page.getByText(pendingTitle)).not.toBeVisible();

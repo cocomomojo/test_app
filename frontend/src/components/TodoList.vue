@@ -307,22 +307,25 @@ const addTodo = async () => {
 const toggleDone = async (todo, newValue) => {
   try {
     // API を呼び出して状態を更新
-    await updateTodo(todo.id, {
+    const response = await updateTodo(todo.id, {
       title: todo.title,
       done: newValue,
       priority: todo.priority,
       dueDate: todo.dueDate,
     });
     
-    // Backend から最新データを取得して、UI に反映
-    await load();
+    // API レスポンスから直接 todo オブジェクトを更新
+    // これにより UI が即座に反映され、追加の GET リクエストを削減できる
+    if (response.data) {
+      Object.assign(todo, response.data);
+    }
     
     snackMsg.value = "状態を更新しました";
     snackColor.value = "success";
     snackbar.value = true;
   } catch (error) {
     console.error("TODO状態更新エラー:", error);
-    // エラー時は UI をリセット（重要）
+    // エラー時は Backend から最新データを取得
     await load();
     snackMsg.value = "更新に失敗しました";
     snackColor.value = "error";

@@ -176,12 +176,13 @@ await getResponse;
 ### **正しいパターン**
 
 ```typescript
-// ❌ 間違い: Promise が放棄される
+// ❌ 間違い: 登録後にアクション実行（レスポンスを見逃す可能性）
 await page.waitForResponse(resp => ...);
+await action();  // ← アクション実行時にレスポンスが来ても、waitForResponse は実行中なので完了待ちができない
 
-// ✅ 正解: Promise を変数に保存して await
+// ✅ 正解: アクション前に登録（確実にレスポンスを捕捉）
 const response = page.waitForResponse(resp => ...);
-// アクション実行
+// アクション実行（待機中にレスポンスが来る）
 await action();
 // 完了を待機
 await response;
