@@ -198,6 +198,10 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Reset stale Playwright cache
+        if: steps.health_check.outcome == 'success'
+        run: rm -rf ~/.cache/ms-playwright
+
       - name: Install Playwright browsers
         if: steps.health_check.outcome == 'success'
         working-directory: frontend

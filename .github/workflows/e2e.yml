@@ -71,6 +71,9 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Reset stale Playwright cache
+        run: rm -rf ~/.cache/ms-playwright
+
       - name: Install Playwright browsers
         working-directory: frontend
         run: npx playwright install --with-deps chromium
