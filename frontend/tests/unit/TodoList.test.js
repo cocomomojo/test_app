@@ -421,16 +421,18 @@ describe('TodoList', () => {
     // Verify the todo item is rendered
     expect(wrapper.text()).toContain('Task');
     
-    // Verify the edit button can be found and clicked without errors
+    // Verify the edit button can be found and clicked
     const editButton = wrapper.findAll('button').find(b => b.attributes('aria-label') === 'edit-1');
     expect(editButton).toBeDefined();
     
-    // Trigger the click to ensure the edit function is callable
+    // Trigger the click to open the edit dialog
     await editButton.trigger('click');
     await flushPromises();
     
-    // Verify no errors occurred
-    expect(updateTodo).not.toHaveBeenCalled(); // updateTodo should not be called just from opening the dialog
+    // Verify the edit dialog is opened by checking the component's editing state
+    expect(wrapper.vm.editing).toBe(true);
+    expect(wrapper.vm.editId).toBe(1);
+    expect(wrapper.vm.editTitle).toBe('Task');
   });
 
   it('clears filters when FilterPanel emits clear-filters', async () => {
