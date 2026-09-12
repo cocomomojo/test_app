@@ -186,9 +186,9 @@ jobs:
             if [ -f "allure-report/index.html" ]; then
               echo "✓ Allure report generated successfully"
             else
-              echo "⚠ Allure report generation may have failed"
+              echo "⚠ Allure report generation command may have failed"
               mkdir -p allure-report
-              echo "<h1>Allure report generation failed</h1><p>No test results were available.</p>" > allure-report/index.html
+              echo "<h1>Allure Report Generation Failed</h1><p>The 'npx allure generate' command did not produce expected output. Please check the workflow logs.</p>" > allure-report/index.html
             fi
           else
             echo "⚠ No allure-results found, creating placeholder report..."
@@ -418,7 +418,7 @@ PLACEHOLDER
           docker compose -f docker-compose.ci.yml ps || echo "Could not get service status"
 
       - name: Report E2E test success
-        if: always() && (env.E2E_EXIT_CODE == '0' || env.E2E_EXIT_CODE == '')
+        if: always() && env.E2E_EXIT_CODE == '0'
         run: |
           echo "=== E2E Test Result Check ==="
           echo "✓ E2E tests passed"
