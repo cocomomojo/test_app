@@ -421,6 +421,9 @@ jobs:
           TS_ERRORS=""
           EXIT_CODE=0
            
+          # Capture list of changed files once to avoid redundant git invocations
+          CHANGED_FILES=$( { git diff --name-only origin/main HEAD 2>/dev/null || git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ""; } )
+           
           # Install yamllint if not available
           if ! command -v yamllint &> /dev/null; then
             echo "📦 Installing yamllint..."
@@ -429,7 +432,7 @@ jobs:
            
           # Check YAML files in .github/workflows/
           echo "✅ Checking YAML workflow files..."
-          YAML_FILES=$( { git diff --name-only origin/main HEAD 2>/dev/null || git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ""; } | grep -E '\.github/workflows/.*\.yml$' || true)
+          YAML_FILES=$(echo "$CHANGED_FILES" | grep -E '\.github/workflows/.*\.yml$' || true)
            
           if [ -n "$YAML_FILES" ]; then
             while IFS= read -r file; do
@@ -444,7 +447,7 @@ jobs:
            
           # Check JavaScript files
           echo "✅ Checking JavaScript files..."
-          JS_FILES=$( { git diff --name-only origin/main HEAD 2>/dev/null || git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ""; } | grep -E '\.(js|jsx)$' || true)
+          JS_FILES=$(echo "$CHANGED_FILES" | grep -E '\.(js|jsx)$' || true)
            
           if [ -n "$JS_FILES" ]; then
             while IFS= read -r file; do
@@ -459,7 +462,7 @@ jobs:
            
           # Check TypeScript files
           echo "✅ Checking TypeScript files..."
-          TS_FILES=$( { git diff --name-only origin/main HEAD 2>/dev/null || git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ""; } | grep -E '\.(ts|tsx)$' || true)
+          TS_FILES=$(echo "$CHANGED_FILES" | grep -E '\.(ts|tsx)$' || true)
            
           if [ -n "$TS_FILES" ]; then
             # Check if frontend directory has TypeScript files
@@ -978,7 +981,7 @@ jobs:
         with:
           script: |
             const issueNumber = Number(process.env.ISSUE_NUMBER);
-            const syntaxErrors = (process.env.SYNTAX_ERRORS || '').replace(/^"(.*)"$/s, '$1');
+            const syntaxErrors = JSON.parse(process.env.SYNTAX_ERRORS || '""');
              
             const comment = [
               '<!-- weekly-feature-fix-syntax-error -->',
