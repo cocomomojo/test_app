@@ -193,26 +193,25 @@ jobs:
           else
             echo "⚠ No allure-results found, creating placeholder report..."
             mkdir -p allure-report
-            cat > allure-report/index.html <<'PLACEHOLDER'
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <title>Allure Report - No Results</title>
-                <style>
-                    body { font-family: Arial, sans-serif; margin: 20px; }
-                    .warning { background-color: #fff3cd; padding: 15px; border: 1px solid #ffc107; border-radius: 4px; }
-                </style>
-            </head>
-            <body>
-                <div class="warning">
-                    <h1>⚠️ Allure Report - No Test Results Available</h1>
-                    <p>The E2E test execution may have failed before generating results.</p>
-                    <p>Please check the workflow logs for more details.</p>
-                </div>
-            </body>
-            </html>
-            PLACEHOLDER
+            printf '%s\n' \
+              '<!DOCTYPE html>' \
+              '<html>' \
+              '<head>' \
+              '    <meta charset="UTF-8">' \
+              '    <title>Allure Report - No Results</title>' \
+              '    <style>' \
+              '        body { font-family: Arial, sans-serif; margin: 20px; }' \
+              '        .warning { background-color: #fff3cd; padding: 15px; border: 1px solid #ffc107; border-radius: 4px; }' \
+              '    </style>' \
+              '</head>' \
+              '<body>' \
+              '    <div class="warning">' \
+              '        <h1>⚠️ Allure Report - No Test Results Available</h1>' \
+              '        <p>The E2E test execution may have failed before generating results.</p>' \
+              '        <p>Please check the workflow logs for more details.</p>' \
+              '    </div>' \
+              '</body>' \
+              '</html>' > allure-report/index.html
           fi
           
           echo "=== Allure report verification ==="
