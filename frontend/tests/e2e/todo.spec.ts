@@ -72,8 +72,7 @@ test('TODOをフィルターできること-未完了のみ', async ({ page }) =
 
   const pendingFilterChip = page.locator('[data-testid="filter-chip-pending"]');
   await pendingFilterChip.click();
-  
-  // Wait for the pending TODO to be visible after filter is applied
+
   await expect(page.getByText(pendingTitle)).toBeVisible();
   await expect(page.getByText(completedTitle)).not.toBeVisible();
 });
@@ -104,8 +103,7 @@ test('TODOをフィルターできること-完了のみ', async ({ page }) => {
 
   const completedFilterChip = page.locator('[data-testid="filter-chip-completed"]');
   await completedFilterChip.click();
-  
-  // Wait for the completed TODO to be visible after filter is applied
+
   await expect(page.getByText(completedTitle)).toBeVisible();
   await expect(page.getByText(pendingTitle)).not.toBeVisible();
 });
