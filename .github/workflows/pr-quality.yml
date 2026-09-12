@@ -32,20 +32,20 @@ jobs:
           echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
 
       - name: Checkout repository
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332  # v4
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref || github.ref }}
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
       - name: Setup Java
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961  # v4
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
@@ -62,7 +62,7 @@ jobs:
 
       - name: Upload frontend coverage artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-unit-coverage
           path: |
@@ -80,7 +80,7 @@ jobs:
 
       - name: Upload backend test artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@v7
         with:
           name: backend-unit-reports
           path: |
@@ -125,13 +125,13 @@ jobs:
           echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
 
       - name: Checkout repository
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332  # v4
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref || github.ref }}
           fetch-depth: 0
 
       - name: Setup Java
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961  # v4
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
@@ -187,7 +187,7 @@ jobs:
 
       - name: Setup Node.js
         if: steps.health_check.outcome == 'success'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: 'npm'
@@ -229,7 +229,7 @@ jobs:
 
       - name: Upload frontend E2E coverage
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-coverage
           path: frontend/coverage/e2e-report
@@ -248,7 +248,7 @@ jobs:
 
       - name: Upload backend E2E coverage
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@v7
         with:
           name: backend-e2e-coverage
           path: backend/build/reports/jacoco/jacocoE2EReport/html
@@ -282,7 +282,7 @@ jobs:
           steps.e2e_run.outcome == 'failure' ||
           steps.docker_start.outcome == 'failure' ||
           steps.health_check.outcome == 'failure'
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7
+        uses: actions/github-script@v7
         with:
           script: |
             // E2E失敗時に自動分析をdispatch
@@ -319,7 +319,7 @@ jobs:
 
     steps:
       - name: Add bug-analysis-needed label if E2E failed
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7
+        uses: actions/github-script@v7
         with:
           script: |
             const prNumber = context.payload.pull_request?.number;
@@ -351,7 +351,7 @@ jobs:
 
     steps:
       - name: Comment PR with quality results
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7
+        uses: actions/github-script@v7
         env:
           FRONTEND_STATUS: >-
             ${{ needs.quality-checks.outputs.frontend_status || 'unknown' }}
