@@ -260,7 +260,7 @@ jobs:
 
       - name: Deploy reports to GitHub Pages
         if: github.ref == 'refs/heads/main'
-        uses: peaceiris/actions-gh-pages@v4.1.0
+        uses: peaceiris/actions-gh-pages@v4.1.0 # v4.1.0 (tag format required by this GitHub Actions environment; commit hash: 84c30a85c19949d7eee79c4ff27748b70285e453)
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: gh-pages
