@@ -1,6 +1,6 @@
 name: Issue to Auto Fix PR (Pilot)
 
-on:
+"on":
   workflow_dispatch:
     inputs:
       issue_number:

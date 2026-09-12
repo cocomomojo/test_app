@@ -1,6 +1,6 @@
 name: Weekly Loop Engineering Report
 
-on:
+"on":
   schedule:
     # 毎週土曜日 9:00 UTC
     - cron: '0 9 * * 6'

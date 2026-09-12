@@ -1,6 +1,6 @@
 name: E2E Failure Analysis with Copilot
 
-on:
+"on":
   workflow_run:
     workflows: 
       - 'PR Quality Checks'           # PR内のE2Eテスト失敗も監視

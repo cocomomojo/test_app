@@ -1,6 +1,6 @@
 name: Issue to Fix Brief
 
-on:
+"on":
   issues:
     types: [labeled]
   workflow_dispatch:

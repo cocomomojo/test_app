@@ -12,7 +12,7 @@ name: Weekly Feature Fix with Retry
 #    - 本ワークフローは feature ラベル Issue のみ修正
 #    - 重複しないメカニズム: ラベルの分離 (feature vs. e2e-test-failure など)
 
-on:
+"on":
   schedule:
     # 毎週月曜日 10:00 UTC
     - cron: '0 10 * * 1'
