@@ -37,14 +37,15 @@ test('TODOをフィルターできること-すべて', async ({ page }) => {
   const updateResponse = page.waitForResponse(resp => 
     resp.url().includes('/todo') && resp.request().method() === 'PUT' && resp.status() === 200
   );
-  await checkbox.check();
-  await updateResponse;
   
   // 2. Backend データ再読み込みの GET リクエスト待機を事前登録
   const getResponse = page.waitForResponse(resp => 
     resp.url().includes('/todo') && resp.request().method() === 'GET' && resp.status() === 200
   );
   // toggleDone内のload()がGETリクエストを発行するため、ここで自動的に完了
+  
+  await checkbox.check();
+  await updateResponse;
   await getResponse;
 
   await page.getByLabel('新しい TODO を入力').fill(pendingTitle);
@@ -88,14 +89,15 @@ test('TODOをフィルターできること-未完了のみ', async ({ page }) =
   const updateResponse = page.waitForResponse(resp => 
     resp.url().includes('/todo') && resp.request().method() === 'PUT' && resp.status() === 200
   );
-  await checkbox.check();
-  await updateResponse;
   
   // 2. Backend データ再読み込みの GET リクエスト待機を事前登録
   const getResponse = page.waitForResponse(resp => 
     resp.url().includes('/todo') && resp.request().method() === 'GET' && resp.status() === 200
   );
   // toggleDone内のload()がGETリクエストを発行するため、ここで自動的に完了
+  
+  await checkbox.check();
+  await updateResponse;
   await getResponse;
 
   // Create a pending TODO
@@ -140,14 +142,15 @@ test('TODOをフィルターできること-完了のみ', async ({ page }) => {
   const updateResponse = page.waitForResponse(resp => 
     resp.url().includes('/todo') && resp.request().method() === 'PUT' && resp.status() === 200
   );
-  await checkbox.check();
-  await updateResponse;
   
   // 2. Backend データ再読み込みの GET リクエスト待機を事前登録
   const getResponse = page.waitForResponse(resp => 
     resp.url().includes('/todo') && resp.request().method() === 'GET' && resp.status() === 200
   );
   // toggleDone内のload()がGETリクエストを発行するため、ここで自動的に完了
+  
+  await checkbox.check();
+  await updateResponse;
   await getResponse;
 
   await page.getByLabel('新しい TODO を入力').fill(pendingTitle);
