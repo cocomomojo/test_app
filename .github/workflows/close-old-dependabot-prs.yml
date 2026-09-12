@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Close old Dependabot PRs
-        uses: actions/github-script@v9.0.0
+        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
         with:
           script: |
             const prNumbers = [90, 89, 88, 87, 86, 85, 84, 83, 82, 81, 80];
