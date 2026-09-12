@@ -18,7 +18,7 @@ jobs:
     steps:
       - name: Get PR details
         id: pr_info
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: actions/github-script@v9.0.0
         with:
           script: |
             const run = context.payload.workflow_run;
@@ -42,7 +42,7 @@ jobs:
       - name: Check PR comments for auto-fix status
         if: steps.pr_info.outputs.is_dependabot == 'true'
         id: check_status
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: actions/github-script@v9.0.0
         env:
           PR_NUMBER: ${{ steps.pr_info.outputs.number }}
         with:
@@ -86,7 +86,7 @@ jobs:
         if: |
           steps.pr_info.outputs.is_dependabot == 'true' &&
           steps.check_status.outputs.auto_fix_failed == 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        uses: actions/github-script@v9.0.0
         env:
           PR_NUMBER: ${{ steps.pr_info.outputs.number }}
           PR_TITLE: ${{ steps.pr_info.outputs.title }}
