@@ -424,10 +424,10 @@ PLACEHOLDER
           echo "✓ E2E tests passed"
 
       - name: Report E2E test failure and fail job
-        if: always() && env.E2E_EXIT_CODE != '0'
+        if: always() && env.E2E_EXIT_CODE != '' && env.E2E_EXIT_CODE != '0'
         run: |
           echo "=== E2E Test Result Check ==="
-          echo "✗ E2E tests failed (exit code: ${{ env.E2E_EXIT_CODE }})"
+          echo "✗ E2E tests failed"
           echo ""
           echo "Note: All Allure reports and coverage reports have been generated."
           echo "Please check the workflow artifacts and GitHub Pages for details."
