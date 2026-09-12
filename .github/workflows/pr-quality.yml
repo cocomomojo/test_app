@@ -308,6 +308,7 @@ jobs:
       always() &&
       github.event_name == 'pull_request' &&
       needs.quality-checks.result != 'cancelled' &&
+      needs.quality-checks.result != 'skipped' &&
       needs.e2e-tests.result == 'failure'
     runs-on: ubuntu-latest
     permissions:
