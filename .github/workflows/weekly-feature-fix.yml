@@ -406,6 +406,75 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           XDG_CONFIG_HOME: /home/runner
 
+      - name: Validate syntax for modified files
+        if: steps.init.outputs.exceeded_max == 'false' &&
+            steps.copilot_exec.outcome == 'success'
+        id: syntax_check
+        continue-on-error: true
+        run: |
+          cd "${GITHUB_WORKSPACE}"
+          echo "🔍 Starting syntax validation..."
+           
+          SYNTAX_ERRORS=""
+          YAML_ERRORS=""
+          JS_ERRORS=""
+           
+          # Install yamllint if not available
+          if ! command -v yamllint &> /dev/null; then
+            echo "📦 Installing yamllint..."
+            pip install yamllint -q
+          fi
+           
+          # Check YAML files in .github/workflows/
+          echo "✅ Checking YAML workflow files..."
+          YAML_FILES=$( { git diff --name-only origin/main HEAD 2>/dev/null || git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ""; } | grep -E '\.github/workflows/.*\.yml$' || true)
+           
+          if [ -n "$YAML_FILES" ]; then
+            while IFS= read -r file; do
+              if [ -f "$file" ]; then
+                echo "  Validating: $file"
+                if ! yamllint -d '{rules: {line-length: disable, comments: disable, truthy: disable, document-start: disable}}' "$file" 2>/dev/null; then
+                  YAML_ERRORS="${YAML_ERRORS}❌ YAML Syntax Error in $file\n"
+                fi
+              fi
+            done <<< "$YAML_FILES"
+          fi
+           
+          # Check JavaScript files
+          echo "✅ Checking JavaScript files..."
+          JS_FILES=$( { git diff --name-only origin/main HEAD 2>/dev/null || git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ""; } | grep -E '\.(js|ts)x?$' || true)
+           
+          if [ -n "$JS_FILES" ]; then
+            while IFS= read -r file; do
+              if [ -f "$file" ]; then
+                echo "  Validating: $file"
+                if ! node -c "$file" 2>/dev/null; then
+                  JS_ERRORS="${JS_ERRORS}❌ JavaScript Syntax Error in $file\n"
+                fi
+              fi
+            done <<< "$JS_FILES"
+          fi
+           
+          # Output results
+          if [ -n "$YAML_ERRORS" ] || [ -n "$JS_ERRORS" ]; then
+            echo -e "\n⚠️ Syntax validation found issues:"
+            if [ -n "$YAML_ERRORS" ]; then
+              echo -e "YAML Issues:\n$YAML_ERRORS"
+            fi
+            if [ -n "$JS_ERRORS" ]; then
+              echo -e "JavaScript Issues:\n$JS_ERRORS"
+            fi
+            SYNTAX_ERRORS="${YAML_ERRORS}${JS_ERRORS}"
+          else
+            echo "✅ All modified files passed syntax validation!"
+          fi
+           
+          # Store result for later use
+          echo "syntax_check_status=$([ -n "$SYNTAX_ERRORS" ] && echo "failed" || echo "success")" >> "$GITHUB_OUTPUT"
+          echo "syntax_errors<<SYNTAXEOF" >> "$GITHUB_OUTPUT"
+          echo -e "$SYNTAX_ERRORS" >> "$GITHUB_OUTPUT"
+          echo "SYNTAXEOF" >> "$GITHUB_OUTPUT"
+
       - name: Check and push feature branch
         if: steps.init.outputs.exceeded_max == 'false' &&
             steps.copilot_exec.outcome == 'success'
@@ -869,7 +938,53 @@ jobs:
             echo "pull-request-operation=none" >> "$GITHUB_OUTPUT"
             exit 1
           fi
-
+ 
+      - name: Handle syntax check errors
+        if: steps.syntax_check.outputs.syntax_check_status == 'failed'
+        uses: actions/github-script@v7
+        env:
+          SYNTAX_ERRORS: ${{ steps.syntax_check.outputs.syntax_errors }}
+        with:
+          script: |
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const syntaxErrors = process.env.SYNTAX_ERRORS || '';
+             
+            const comment = [
+              '<!-- weekly-feature-fix-syntax-error -->',
+              '## ⚠️ 構文エラーが検出されました',
+              '',
+              'Copilot が生成したコード内に構文エラーが見つかりました。',
+              '',
+              '### 🔍 エラーの詳細:',
+              '```',
+              syntaxErrors.trim(),
+              '```',
+              '',
+              '### 🔧 対応方法:',
+              '1. ワークフローのログで詳細なエラーメッセージを確認してください',
+              '2. 以下のコマンドで構文を検証できます:',
+              '   - YAML: `yamllint .github/workflows/*.yml`',
+              '   - JavaScript: `node -c <file.js>`',
+              '3. Issue の要件をより詳細に説明して、ワークフローを再実行してください',
+              '',
+              '### 📝 確認項目:',
+              '- [ ] 生成されたコードの構文エラーを手動で修正',
+              '- [ ] テストケースが正しいか確認',
+              '- [ ] Issue の説明をより具体的な要件で更新',
+              '- [ ] ワークフロー実行ログを確認: [GitHub Actions](../../actions/runs/' + process.env.GITHUB_RUN_ID + ')',
+            ].join('\n');
+             
+            try {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: comment,
+              });
+            } catch (error) {
+              core.warning(`Failed to create syntax error comment: ${error.message}`);
+            }
+ 
       - name: Handle branch push failure
         if: steps.pr_meta.outputs.has_changes == 'true' && (steps.verify_push.outputs.branch_exists != 'true' || steps.push_branch.outcome == 'failure')
         uses: actions/github-script@v7
