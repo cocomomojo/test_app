@@ -438,8 +438,9 @@ jobs:
             while IFS= read -r file; do
               if [ -f "$file" ]; then
                 echo "  Validating: $file"
-                if ! yamllint -d '{rules: {line-length: disable, comments: disable, truthy: disable, document-start: disable}}' "$file" 2>/dev/null; then
-                  YAML_ERRORS="${YAML_ERRORS}❌ YAML Syntax Error in $file\n"
+                YAMLLINT_OUTPUT=$(yamllint -d '{rules: {line-length: disable, comments: disable, truthy: disable, document-start: disable}}' "$file" 2>&1)
+                if [ -n "$YAMLLINT_OUTPUT" ]; then
+                  YAML_ERRORS="${YAML_ERRORS}❌ YAML Syntax Error in $file:\n$YAMLLINT_OUTPUT\n"
                 fi
               fi
             done <<< "$YAML_FILES"
@@ -453,8 +454,9 @@ jobs:
             while IFS= read -r file; do
               if [ -f "$file" ]; then
                 echo "  Validating: $file"
-                if ! node -c "$file" 2>/dev/null; then
-                  JS_ERRORS="${JS_ERRORS}❌ JavaScript Syntax Error in $file\n"
+                JS_OUTPUT=$(node -c "$file" 2>&1)
+                if [ -n "$JS_OUTPUT" ]; then
+                  JS_ERRORS="${JS_ERRORS}❌ JavaScript Syntax Error in $file:\n$JS_OUTPUT\n"
                 fi
               fi
             done <<< "$JS_FILES"
@@ -470,9 +472,9 @@ jobs:
               echo "  Found TypeScript configuration in frontend, validating..."
               # Capture output once to avoid running tsc twice
               TS_OUTPUT=$(cd frontend && npx tsc --noEmit 2>&1)
-              if echo "$TS_OUTPUT" | grep -q "error"; then
-                # Extract first error message
-                TS_ERROR=$(echo "$TS_OUTPUT" | grep "error" | head -1)
+              if echo "$TS_OUTPUT" | grep -qE ": error TS[0-9]+"; then
+                # Extract first error message with proper pattern
+                TS_ERROR=$(echo "$TS_OUTPUT" | grep -E ": error TS[0-9]+" | head -1)
                 TS_ERRORS="${TS_ERRORS}⚠️ TypeScript Issue: $TS_ERROR\n"
               else
                 echo "  ✅ TypeScript compilation check passed"
@@ -973,7 +975,7 @@ jobs:
           fi
  
       - name: Handle syntax check errors
-        if: steps.syntax_check.outputs.syntax_check_status == 'failed'
+        if: always() && steps.syntax_check.outputs.syntax_check_status == 'failed'
         uses: actions/github-script@v7
         env:
           ISSUE_NUMBER: ${{ env.ISSUE_NUMBER }}
