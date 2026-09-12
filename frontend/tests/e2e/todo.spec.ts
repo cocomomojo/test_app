@@ -35,14 +35,14 @@ test('TODOをフィルターできること-すべて', async ({ page }) => {
   
   // ネットワークリクエストを待機してから次のステップへ
   const updateResponse = page.waitForResponse(resp => 
-    resp.url().includes('/todo') && resp.request().method() === 'PUT'
+    resp.url().includes('/todo') && resp.request().method() === 'PUT' && resp.status() === 200
   );
   await checkbox.check();
   await updateResponse;
   
   // Backend から最新データが読み込まれたことを確認
   await page.waitForResponse(resp => 
-    resp.url().includes('/todo') && resp.request().method() === 'GET'
+    resp.url().includes('/todo') && resp.request().method() === 'GET' && resp.status() === 200
   );
 
   await page.getByLabel('新しい TODO を入力').fill(pendingTitle);
@@ -53,7 +53,7 @@ test('TODOをフィルターできること-すべて', async ({ page }) => {
   
   // フィルター適用時のデータ読み込みを待機
   const filterLoadResponse = page.waitForResponse(resp => 
-    resp.url().includes('/todo') && resp.request().method() === 'GET'
+    resp.url().includes('/todo') && resp.request().method() === 'GET' && resp.status() === 200
   );
   await allFilterChip.click();
   await filterLoadResponse;
@@ -84,14 +84,14 @@ test('TODOをフィルターできること-未完了のみ', async ({ page }) =
   
   // ネットワークリクエストを待機してから次のステップへ
   const updateResponse = page.waitForResponse(resp => 
-    resp.url().includes('/todo') && resp.request().method() === 'PUT'
+    resp.url().includes('/todo') && resp.request().method() === 'PUT' && resp.status() === 200
   );
   await checkbox.check();
   await updateResponse;
   
   // Backend から最新データが読み込まれたことを確認
   await page.waitForResponse(resp => 
-    resp.url().includes('/todo') && resp.request().method() === 'GET'
+    resp.url().includes('/todo') && resp.request().method() === 'GET' && resp.status() === 200
   );
 
   // Create a pending TODO
@@ -104,7 +104,7 @@ test('TODOをフィルターできること-未完了のみ', async ({ page }) =
   
   // フィルター適用時のデータ読み込みを待機
   const filterLoadResponse = page.waitForResponse(resp => 
-    resp.url().includes('/todo') && resp.request().method() === 'GET'
+    resp.url().includes('/todo') && resp.request().method() === 'GET' && resp.status() === 200
   );
   await pendingFilterChip.click();
   await filterLoadResponse;
@@ -134,14 +134,14 @@ test('TODOをフィルターできること-完了のみ', async ({ page }) => {
   
   // ネットワークリクエストを待機してから次のステップへ
   const updateResponse = page.waitForResponse(resp => 
-    resp.url().includes('/todo') && resp.request().method() === 'PUT'
+    resp.url().includes('/todo') && resp.request().method() === 'PUT' && resp.status() === 200
   );
   await checkbox.check();
   await updateResponse;
   
   // Backend から最新データが読み込まれたことを確認
   await page.waitForResponse(resp => 
-    resp.url().includes('/todo') && resp.request().method() === 'GET'
+    resp.url().includes('/todo') && resp.request().method() === 'GET' && resp.status() === 200
   );
 
   await page.getByLabel('新しい TODO を入力').fill(pendingTitle);
@@ -152,7 +152,7 @@ test('TODOをフィルターできること-完了のみ', async ({ page }) => {
   
   // フィルター適用時のデータ読み込みを待機
   const filterLoadResponse = page.waitForResponse(resp => 
-    resp.url().includes('/todo') && resp.request().method() === 'GET'
+    resp.url().includes('/todo') && resp.request().method() === 'GET' && resp.status() === 200
   );
   await completedFilterChip.click();
   await filterLoadResponse;

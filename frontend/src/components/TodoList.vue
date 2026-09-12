@@ -283,6 +283,7 @@ const applyFilters = async (filters) => {
 };
 
 const applySimpleFilter = async (filter) => {
+  activeFilter.value = filter;
   currentFilters.value = {};
   // フィルター値を設定してから、最新データを読み込む
   // （filteredTodos computed が自動的にフィルタリング）
