@@ -352,7 +352,6 @@ describe('TodoList', () => {
     progressStats = wrapper.find('[data-testid="progress-stats"]');
     expect(progressStats.text()).toContain('1 / 1 タスク完了');
   });
-});
 
   it('displays FilterPanel component', async () => {
     fetchTodos.mockResolvedValue({ data: [] });
