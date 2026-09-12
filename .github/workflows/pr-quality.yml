@@ -1,3 +1,4 @@
+---
 name: PR Quality Checks
 
 "on":
@@ -25,26 +26,26 @@ jobs:
           HEAD_REF: ${{ github.head_ref }}
         run: |
           if [ -z "$HEAD_REF" ]; then
-            echo "❌ Unexpected: PR context not available (head_ref is empty) despite pull_request event"
+            echo "❌ Unexpected: PR context not available (head_ref is empty)"
             exit 1
           fi
           echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
 
       - name: Checkout repository
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332  # v4
         with:
           ref: ${{ github.head_ref || github.ref }}
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
       - name: Setup Java
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v4
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961  # v4
         with:
           distribution: temurin
           java-version: '17'
@@ -61,7 +62,7 @@ jobs:
 
       - name: Upload frontend coverage artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: frontend-unit-coverage
           path: |
@@ -79,7 +80,7 @@ jobs:
 
       - name: Upload backend test artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: backend-unit-reports
           path: |
@@ -118,19 +119,19 @@ jobs:
           HEAD_REF: ${{ github.head_ref }}
         run: |
           if [ -z "$HEAD_REF" ]; then
-            echo "❌ Unexpected: PR context not available (head_ref is empty) despite pull_request event"
+            echo "❌ Unexpected: PR context not available (head_ref is empty)"
             exit 1
           fi
           echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
 
       - name: Checkout repository
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332  # v4
         with:
           ref: ${{ github.head_ref || github.ref }}
           fetch-depth: 0
 
       - name: Setup Java
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v4
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961  # v4
         with:
           distribution: temurin
           java-version: '17'
@@ -159,28 +160,34 @@ jobs:
         run: |
           echo "Waiting for MySQL..."
           for i in $(seq 1 30); do
-            docker compose -f docker-compose.ci.yml exec -T mysql mysqladmin ping -h localhost -uroot -p"${MYSQL_ROOT_PASSWORD}" 2>/dev/null && break
+            docker compose -f docker-compose.ci.yml exec -T mysql \
+              mysqladmin ping -h localhost -uroot -p"${MYSQL_ROOT_PASSWORD}" \
+              2>/dev/null && break
             [ "$i" -eq 30 ] && { echo "MySQL failed"; exit 1; }
             sleep 3
           done
 
           echo "Waiting for Spring Boot..."
           for i in $(seq 1 60); do
-            curl -sf http://localhost:8080/actuator/health > /dev/null && { echo "Spring Boot ready"; break; }
-            [ "$i" -eq 60 ] && { docker compose -f docker-compose.ci.yml logs springboot; exit 1; }
+            curl -sf http://localhost:8080/actuator/health > /dev/null && \
+              { echo "Spring Boot ready"; break; }
+            [ "$i" -eq 60 ] && \
+              { docker compose -f docker-compose.ci.yml logs springboot; exit 1; }
             sleep 3
           done
 
           echo "Waiting for Frontend..."
           for i in $(seq 1 30); do
-            curl -sf http://localhost:8081 > /dev/null && { echo "Frontend ready"; break; }
-            [ "$i" -eq 30 ] && { docker compose -f docker-compose.ci.yml logs frontend; exit 1; }
+            curl -sf http://localhost:8081 > /dev/null && \
+              { echo "Frontend ready"; break; }
+            [ "$i" -eq 30 ] && \
+              { docker compose -f docker-compose.ci.yml logs frontend; exit 1; }
             sleep 2
           done
 
       - name: Setup Node.js
         if: steps.health_check.outcome == 'success'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version: '20'
           cache: 'npm'
@@ -216,12 +223,13 @@ jobs:
           else
             echo "✗ No frontend coverage data found"
             mkdir -p coverage/e2e-report
-            echo "<h1>No frontend coverage data available</h1>" > coverage/e2e-report/index.html
+            echo "<h1>No frontend coverage data available</h1>" \
+              > coverage/e2e-report/index.html
           fi
 
       - name: Upload frontend E2E coverage
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: e2e-coverage
           path: frontend/coverage/e2e-report
@@ -240,7 +248,7 @@ jobs:
 
       - name: Upload backend E2E coverage
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: backend-e2e-coverage
           path: backend/build/reports/jacoco/jacocoE2EReport/html
@@ -270,8 +278,11 @@ jobs:
         run: docker compose -f docker-compose.ci.yml down -v
 
       - name: Trigger E2E analysis if failed
-        if: steps.e2e_run.outcome == 'failure' || steps.docker_start.outcome == 'failure' || steps.health_check.outcome == 'failure'
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        if: |
+          steps.e2e_run.outcome == 'failure' ||
+          steps.docker_start.outcome == 'failure' ||
+          steps.health_check.outcome == 'failure'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7
         with:
           script: |
             // E2E失敗時に自動分析をdispatch
@@ -291,33 +302,31 @@ jobs:
               core.warning(`Failed to dispatch e2e-failure-analysis: ${error.message}`);
             }
 
-  report-to-pr:
+  add-pr-labels:
     needs: [quality-checks, e2e-tests]
-    if: github.event_name == 'pull_request'
+    if: |
+      always() &&
+      github.event_name == 'pull_request' &&
+      needs.quality-checks.result != 'cancelled' &&
+      needs.quality-checks.result != 'skipped' &&
+      needs.e2e-tests.result != 'cancelled' &&
+      needs.e2e-tests.result != 'skipped' &&
+      needs.e2e-tests.result == 'failure'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
       issues: write
 
     steps:
-      - name: Validate PR context
-        id: pr_context
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          if [ -z "$PR_NUMBER" ]; then
-            echo "⚠️ PR context not available (pull_request.number is empty)"
-            echo "Skipping PR comment and label update."
-            exit 0
-          fi
-          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
-
       - name: Add bug-analysis-needed label if E2E failed
-        if: needs.e2e-tests.outputs.e2e_status == 'failure' && steps.pr_context.outputs.pr_number != ''
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7
         with:
           script: |
-            const prNumber = context.payload.pull_request.number;
+            const prNumber = context.payload.pull_request?.number;
+            if (!prNumber) {
+              core.info('⚠️ PR number not available. Skipping label addition.');
+              return;
+            }
             try {
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
@@ -330,18 +339,37 @@ jobs:
               core.warning(`Failed to add label: ${error.message}`);
             }
 
+  report-to-pr:
+    needs: [quality-checks, e2e-tests, add-pr-labels]
+    if: |
+      always() &&
+      github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+
+    steps:
       - name: Comment PR with quality results
-        if: steps.pr_context.outputs.pr_number != ''
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7
         env:
-          FRONTEND_STATUS: ${{ needs.quality-checks.outputs.frontend_status }}
-          BACKEND_STATUS: ${{ needs.quality-checks.outputs.backend_status }}
-          E2E_STATUS: ${{ needs.e2e-tests.outputs.e2e_status }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          FRONTEND_STATUS: >-
+            ${{ needs.quality-checks.outputs.frontend_status || 'unknown' }}
+          BACKEND_STATUS: >-
+            ${{ needs.quality-checks.outputs.backend_status || 'unknown' }}
+          E2E_STATUS: >-
+            ${{ needs.e2e-tests.outputs.e2e_status || 'unknown' }}
+          RUN_URL: >-
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
             const marker = '<!-- pr-quality-checks -->';
-            const prNumber = context.payload.pull_request.number;
+            const prNumber = context.payload.pull_request?.number;
+            
+            if (!prNumber) {
+              core.info('⚠️ PR number not available. Skipping PR comment.');
+              return;
+            }
 
             const icon = (status) => {
               switch (status) {
@@ -352,28 +380,36 @@ jobs:
               }
             };
 
-            const e2eStatus = process.env.E2E_STATUS;
+            const e2eStatus = process.env.E2E_STATUS.trim();
             const e2eSection = e2eStatus === 'failure'
-              ? `- E2E Tests with Coverage: ${icon(e2eStatus)}\n  ⚠️ **E2E テストが失敗しました。** 詳細分析が自動で実行されています。\n  📊 [Workflow Run: ${process.env.RUN_URL}](${process.env.RUN_URL})`
+              ? `- E2E Tests with Coverage: ${icon(e2eStatus)}\n` +
+                `  ⚠️ **E2E テストが失敗しました。** ` +
+                `詳細分析が自動で実行されています。\n` +
+                `  📊 [Workflow Run: ${process.env.RUN_URL.trim()}](${process.env.RUN_URL.trim()})`
               : `- E2E Tests with Coverage: ${icon(e2eStatus)}`;
 
             const body = [
               marker,
               '### 🔎 PR Quality Checks',
               '',
-              `- Frontend Unit Tests: ${icon(process.env.FRONTEND_STATUS)}`,
-              `- Backend Unit Tests: ${icon(process.env.BACKEND_STATUS)}`,
+              `- Frontend Unit Tests: ${icon(process.env.FRONTEND_STATUS.trim())}`,
+              `- Backend Unit Tests: ${icon(process.env.BACKEND_STATUS.trim())}`,
               e2eSection,
             ].join('\n');
 
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-              per_page: 100,
-            });
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                per_page: 100,
+              }
+            );
 
-            const existing = comments.find((comment) => (comment.body || '').includes(marker));
+            const existing = comments.find(
+              (comment) => (comment.body || '').includes(marker)
+            );
 
             if (existing) {
               await github.rest.issues.updateComment({
