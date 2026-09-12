@@ -303,7 +303,7 @@ jobs:
             }
 
   add-pr-labels:
-    needs: e2e-tests
+    needs: [quality-checks, e2e-tests]
     if: |
       always() &&
       github.event_name == 'pull_request' &&
@@ -318,7 +318,11 @@ jobs:
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7
         with:
           script: |
-            const prNumber = context.payload.pull_request.number;
+            const prNumber = context.payload.pull_request?.number;
+            if (!prNumber) {
+              core.info('⚠️ PR number not available. Skipping label addition.');
+              return;
+            }
             try {
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
@@ -354,7 +358,12 @@ jobs:
         with:
           script: |
             const marker = '<!-- pr-quality-checks -->';
-            const prNumber = context.payload.pull_request.number;
+            const prNumber = context.payload.pull_request?.number;
+            
+            if (!prNumber) {
+              core.info('⚠️ PR number not available. Skipping PR comment.');
+              return;
+            }
 
             const icon = (status) => {
               switch (status) {
