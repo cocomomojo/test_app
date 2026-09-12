@@ -75,30 +75,87 @@ jobs:
         working-directory: frontend
         run: npx playwright install --with-deps chromium
 
+      - name: Verify E2E test setup
+        working-directory: frontend
+        run: |
+          echo "=== Playwright Test Setup Verification ==="
+          echo "📁 Frontend directory:"
+          pwd
+          echo ""
+          echo "📋 Test files:"
+          ls -la tests/e2e/*.spec.ts 2>/dev/null | head -10 || echo "No test files found"
+          echo ""
+          echo "🔧 Playwright config:"
+          [ -f "playwright.config.ts" ] && echo "✓ playwright.config.ts exists" || echo "✗ playwright.config.ts missing"
+          echo ""
+          echo "📦 Playwright version:"
+          npx playwright --version
+          echo ""
+          echo "🌐 Base URL (will use):"
+          echo "PLAYWRIGHT_BASE_URL=${PLAYWRIGHT_BASE_URL:-http://localhost:8081}"
+
       - name: Run Playwright E2E tests (with JS coverage)
         working-directory: frontend
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:8081
-        run: npm run test:e2e
+        run: |
+          set +e
+          npm run test:e2e
+          echo "E2E_EXIT_CODE=$?" >> $GITHUB_ENV
+          set -e
 
       - name: Debug - Check Playwright coverage collection
         if: always()
         working-directory: frontend
         run: |
-          echo "=== Playwright test output ==="
-          cat test-results/results.json 2>/dev/null | jq '.tests[0]' || echo "No test results found"
+          echo "=== 🔍 E2E Test Execution Summary ==="
+          
+          # Check test results
+          if [ -f "test-results/results.json" ]; then
+            echo "✓ Test results file exists"
+            echo "  - Total size: $(wc -c < test-results/results.json) bytes"
+            
+            # Use more specific patterns for counting
+            test_count=$(grep -o '"type":"test"' test-results/results.json | wc -l)
+            failed_count=$(grep -o '"status":"failed"' test-results/results.json | wc -l)
+            passed_count=$(grep -o '"status":"passed"' test-results/results.json | wc -l)
+            
+            echo "  - Tests found: $test_count"
+            echo "  - Passed: $passed_count"
+            echo "  - Failed: $failed_count"
+          else
+            echo "⚠ No test-results/results.json found"
+          fi
+          
           echo ""
-          echo "=== Coverage directory structure ==="
-          ls -la coverage/ 2>/dev/null || echo "No coverage directory"
+          echo "=== 📊 Allure Results Directory ==="
+          if [ -d "allure-results" ]; then
+            result_files=$(find allure-results -type f | wc -l)
+            echo "✓ allure-results directory exists with $result_files files"
+            ls -lh allure-results/ | head -10
+          else
+            echo "⚠ No allure-results directory found"
+          fi
+          
           echo ""
-          echo "=== E2E raw coverage files ==="
-          ls -la coverage/e2e-raw/ 2>/dev/null || echo "No e2e-raw directory"
+          echo "=== 📈 Coverage Directory ==="
+          ls -la coverage/ 2>/dev/null | head -10 || echo "No coverage directory"
+          
           echo ""
-          echo "=== File count in e2e-raw ==="
-          find coverage/e2e-raw -type f 2>/dev/null | wc -l
+          echo "=== 🎬 E2E Raw Coverage Files ==="
+          if [ -d "coverage/e2e-raw" ]; then
+            file_count=$(find coverage/e2e-raw -type f | wc -l)
+            echo "✓ Found $file_count coverage files"
+            du -sh coverage/e2e-raw/
+          else
+            echo "⚠ No e2e-raw directory"
+          fi
+          
           echo ""
-          echo "=== Sample coverage file (first 100 lines) ==="
-          find coverage/e2e-raw -type f -print -quit | head -1 | xargs cat 2>/dev/null | head -100 || echo "No coverage files found"
+          echo "=== 🎞️ Playwright Artifacts ==="
+          [ -d "test-results" ] && echo "✓ test-results exists ($(find test-results -type f | wc -l) files)" || echo "⚠ test-results missing"
+          [ -d "playwright-report" ] && echo "✓ playwright-report exists" || echo "⚠ playwright-report missing"
+
       - name: Upload frontend E2E raw coverage (early)
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -111,10 +168,58 @@ jobs:
         if: always()
         working-directory: frontend
         run: |
-          if [ -d "allure-results" ] && [ "$(ls -A allure-results)" ]; then
-            npx allure generate allure-results --clean -o allure-report
+          echo "=== Checking for allure-results ==="
+          if [ -d "allure-results" ]; then
+            result_count=$(ls -A allure-results 2>/dev/null | wc -l)
+            echo "✓ Found allure-results directory with $result_count items"
           else
-            echo "No allure-results found, skipping Allure report generation"
+            echo "⚠ No allure-results directory found"
+            mkdir -p allure-results
+          fi
+          
+          # Generate Allure report if results exist
+          if [ -d "allure-results" ] && [ "$(ls -A allure-results 2>/dev/null)" ]; then
+            echo "✓ Generating Allure report from results..."
+            npx allure generate allure-results --clean -o allure-report
+            
+            # Verify report was generated
+            if [ -f "allure-report/index.html" ]; then
+              echo "✓ Allure report generated successfully"
+            else
+              echo "⚠ Allure report generation command may have failed"
+              mkdir -p allure-report
+              echo "<h1>Allure Report Generation Failed</h1><p>The 'npx allure generate' command did not produce expected output. Please check the workflow logs.</p>" > allure-report/index.html
+            fi
+          else
+            echo "⚠ No allure-results found, creating placeholder report..."
+            mkdir -p allure-report
+            cat > allure-report/index.html << 'PLACEHOLDER'
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Allure Report - No Results</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .warning { background-color: #fff3cd; padding: 15px; border: 1px solid #ffc107; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="warning">
+        <h1>⚠️ Allure Report - No Test Results Available</h1>
+        <p>The E2E test execution may have failed before generating results.</p>
+        <p>Please check the workflow logs for more details.</p>
+    </div>
+</body>
+</html>
+PLACEHOLDER
+          fi
+          
+          echo "=== Allure report verification ==="
+          if [ -f "allure-report/index.html" ]; then
+            echo "✓ Allure report index.html exists ($(wc -c < allure-report/index.html) bytes)"
+          else
+            echo "✗ Allure report index.html not found"
           fi
 
       - name: Generate frontend coverage report
@@ -276,17 +381,57 @@ jobs:
           retention-days: 5
 
       - name: Print container logs on failure
-        if: failure()
+        if: always()
         working-directory: infra
         run: |
-          echo "=== Moto logs ==="
-          docker compose -f docker-compose.ci.yml logs moto || true
-          echo "=== MySQL logs ==="
-          docker compose -f docker-compose.ci.yml logs mysql || true
-          echo "=== Spring Boot logs ==="
-          docker compose -f docker-compose.ci.yml logs springboot || true
-          echo "=== Frontend logs ==="
-          docker compose -f docker-compose.ci.yml logs frontend || true
+          echo "=== 🐛 Checking for errors and collecting logs ==="
+          
+          # Check if any service failed
+          if docker compose -f docker-compose.ci.yml ps --services --filter "status=exited" 2>/dev/null | grep -q .; then
+            echo "⚠️ Some services exited unexpectedly:"
+            docker compose -f docker-compose.ci.yml ps --services --filter "status=exited"
+          else
+            echo "✓ All services still running or properly stopped"
+          fi
+          
+          echo ""
+          echo "=== 📝 Service Logs ==="
+          
+          echo ""
+          echo "--- Moto (AWS Mock) Logs ---"
+          docker compose -f docker-compose.ci.yml logs moto 2>/dev/null | tail -50 || echo "No moto logs available"
+          
+          echo ""
+          echo "--- MySQL Logs (last 30 lines) ---"
+          docker compose -f docker-compose.ci.yml logs mysql 2>/dev/null | tail -30 || echo "No MySQL logs available"
+          
+          echo ""
+          echo "--- Spring Boot Logs (last 50 lines) ---"
+          docker compose -f docker-compose.ci.yml logs springboot 2>/dev/null | tail -50 || echo "No Spring Boot logs available"
+          
+          echo ""
+          echo "--- Frontend Logs (last 30 lines) ---"
+          docker compose -f docker-compose.ci.yml logs frontend 2>/dev/null | tail -30 || echo "No frontend logs available"
+          
+          echo ""
+          echo "=== 🔗 Service Health Check ==="
+          docker compose -f docker-compose.ci.yml ps || echo "Could not get service status"
+
+      - name: Report E2E test success
+        if: always() && env.E2E_EXIT_CODE == '0'
+        run: |
+          echo "=== E2E Test Result Check ==="
+          echo "✓ E2E tests passed"
+
+      - name: Report E2E test failure and fail job
+        if: always() && env.E2E_EXIT_CODE != '' && env.E2E_EXIT_CODE != '0'
+        run: |
+          echo "=== E2E Test Result Check ==="
+          echo "✗ E2E tests failed"
+          echo ""
+          echo "Note: All Allure reports and coverage reports have been generated."
+          echo "Please check the workflow artifacts and GitHub Pages for details."
+          exit 1
 
       - name: Stop Docker Compose services
         if: always()
