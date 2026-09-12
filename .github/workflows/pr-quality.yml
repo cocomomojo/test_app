@@ -38,7 +38,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -62,7 +62,7 @@ jobs:
 
       - name: Upload frontend coverage artifacts
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: frontend-unit-coverage
           path: |
@@ -80,7 +80,7 @@ jobs:
 
       - name: Upload backend test artifacts
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: backend-unit-reports
           path: |
@@ -187,7 +187,7 @@ jobs:
 
       - name: Setup Node.js
         if: steps.health_check.outcome == 'success'
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -229,7 +229,7 @@ jobs:
 
       - name: Upload frontend E2E coverage
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: e2e-coverage
           path: frontend/coverage/e2e-report
@@ -248,7 +248,7 @@ jobs:
 
       - name: Upload backend E2E coverage
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: backend-e2e-coverage
           path: backend/build/reports/jacoco/jacocoE2EReport/html
