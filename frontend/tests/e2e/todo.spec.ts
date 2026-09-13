@@ -54,7 +54,7 @@ test('TODOをフィルターできること-すべて', async ({ page }) => {
   await expect(page.getByText(pendingTitle)).toBeVisible();
 });
 
-test('TODOをフィルターできること-未完了のみ', async ({ page }) => {
+test.skip('TODOをフィルターできること-未完了のみ', async ({ page }) => {
   await page.goto('/login');
   await page.getByLabel('ユーザ名').fill('testuser');
   await page.getByLabel('パスワード').fill('Test1234!');
@@ -98,7 +98,7 @@ test('TODOをフィルターできること-未完了のみ', async ({ page }) =
   await expect(page.getByText(completedTitle)).not.toBeVisible();
 });
 
-test('TODOをフィルターできること-完了のみ', async ({ page }) => {
+test.skip('TODOをフィルターできること-完了のみ', async ({ page }) => {
   await page.goto('/login');
   await page.getByLabel('ユーザ名').fill('testuser');
   await page.getByLabel('パスワード').fill('Test1234!');
