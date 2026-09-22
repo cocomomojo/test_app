@@ -51,7 +51,9 @@ describe('TodoList', () => {
     fetchTodos.mockResolvedValue({
       data: [{ id: 1, title: 'Task', done: false }]
     });
-    updateTodo.mockResolvedValue({});
+    updateTodo.mockResolvedValue({
+      data: { id: 1, title: 'Task', done: true }
+    });
 
     const wrapper = mount(TodoList);
     await flushPromises();
@@ -278,7 +280,9 @@ describe('TodoList', () => {
     fetchTodos.mockResolvedValue({
       data: [{ id: 1, title: 'Task', done: false }]
     });
-    updateTodo.mockResolvedValue({});
+    updateTodo.mockResolvedValue({
+      data: { id: 1, title: 'Task', done: true }
+    });
 
     const wrapper = mount(TodoList);
     await flushPromises();
