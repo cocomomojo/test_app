@@ -37,7 +37,7 @@ jobs:
           echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
 
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@bde367913adeb3132f0a171594c88a17f4b7d08c
+        uses: github/gh-aw/actions/setup@c35393777e5604a63721d09512263b1383301d4f
         with:
           destination: /opt/gh-aw/actions
 
