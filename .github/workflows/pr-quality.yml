@@ -20,21 +20,32 @@ jobs:
       backend_status: ${{ steps.final_status.outputs.backend_status }}
 
     steps:
-      - name: Validate PR context
+      - name: Validate context and determine ref
         id: pr_context
         env:
           HEAD_REF: ${{ github.head_ref }}
+          GITHUB_REF: ${{ github.ref }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          if [ -z "$HEAD_REF" ]; then
-            echo "❌ Unexpected: PR context not available (head_ref is empty)"
-            exit 1
+          # PR イベント時は head_ref、workflow_dispatch 時は ref を使用
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            if [ -z "$HEAD_REF" ]; then
+              echo "❌ Error: PR context not available (head_ref is empty)"
+              exit 1
+            fi
+            REF="$HEAD_REF"
+          else
+            # workflow_dispatch の場合、ユーザーが選択したブランチを使用
+            REF="$GITHUB_REF"
+            REF=${REF#refs/heads/}  # refs/heads/ プレフィックスを削除
           fi
-          echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+          echo "✓ Using branch: $REF"
 
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.head_ref || github.ref }}
+          ref: ${{ steps.pr_context.outputs.ref }}
           fetch-depth: 0
 
       - name: Setup Node.js
@@ -113,21 +124,32 @@ jobs:
       MYSQL_ROOT_PASSWORD: root
 
     steps:
-      - name: Validate PR context
+      - name: Validate context and determine ref
         id: pr_context
         env:
           HEAD_REF: ${{ github.head_ref }}
+          GITHUB_REF: ${{ github.ref }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          if [ -z "$HEAD_REF" ]; then
-            echo "❌ Unexpected: PR context not available (head_ref is empty)"
-            exit 1
+          # PR イベント時は head_ref、workflow_dispatch 時は ref を使用
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            if [ -z "$HEAD_REF" ]; then
+              echo "❌ Error: PR context not available (head_ref is empty)"
+              exit 1
+            fi
+            REF="$HEAD_REF"
+          else
+            # workflow_dispatch の場合、ユーザーが選択したブランチを使用
+            REF="$GITHUB_REF"
+            REF=${REF#refs/heads/}  # refs/heads/ プレフィックスを削除
           fi
-          echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+          echo "✓ Using branch: $REF"
 
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.head_ref || github.ref }}
+          ref: ${{ steps.pr_context.outputs.ref }}
           fetch-depth: 0
 
       - name: Setup Java
