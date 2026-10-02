@@ -4,34 +4,24 @@ updates:
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
+      day: 1
       time: "09:00"
       timezone: "Asia/Tokyo"
     open-pull-requests-limit: 3
     groups:
-      # すべてのプロダクション依存関係を1つのPRにまとめる
+      # すべてのプロダクション依存関係（マイナー・パッチのみ）を1つのPRにまとめる
       production-dependencies:
         dependency-type: "production"
         update-types:
           - "minor"
           - "patch"
-      # すべての開発依存関係を1つのPRにまとめる
+      # すべての開発依存関係（マイナー・パッチのみ）を1つのPRにまとめる
       development-dependencies:
         dependency-type: "development"
         update-types:
           - "minor"
           - "patch"
-      # メジャーアップデートもグループ化（プロダクション）
-      production-major:
-        dependency-type: "production"
-        update-types:
-          - "major"
-      # メジャーアップデートもグループ化（開発）
-      development-major:
-        dependency-type: "development"
-        update-types:
-          - "major"
     labels:
       - "dependencies"
       - "frontend"
@@ -47,13 +37,13 @@ updates:
   - package-ecosystem: "gradle"
     directory: "/backend"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
+      day: 1
       time: "09:00"
       timezone: "Asia/Tokyo"
     open-pull-requests-limit: 3
     groups:
-      # Spring Boot関連を1つにまとめる
+      # Spring Boot関連（マイナー・パッチのみ）を1つにまとめる
       spring-boot:
         patterns:
           - "org.springframework.boot:*"
@@ -61,14 +51,14 @@ updates:
         update-types:
           - "minor"
           - "patch"
-      # AWS SDK関連を1つにまとめる
+      # AWS SDK関連（マイナー・パッチのみ）を1つにまとめる
       aws-sdk:
         patterns:
           - "software.amazon.awssdk:*"
         update-types:
           - "minor"
           - "patch"
-      # その他のマイナー/パッチアップデートをまとめる
+      # その他のマイナー/パッチアップデートをまとめる（メジャーバージョンアップは除外）
       other-dependencies:
         patterns:
           - "*"
@@ -79,12 +69,6 @@ updates:
         update-types:
           - "minor"
           - "patch"
-      # メジャーアップデート用グループ
-      major-updates:
-        patterns:
-          - "*"
-        update-types:
-          - "major"
     labels:
       - "dependencies"
       - "backend"
@@ -96,25 +80,19 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
+      day: 1
       time: "09:00"
       timezone: "Asia/Tokyo"
     open-pull-requests-limit: 2
     groups:
-      # すべてのGitHub Actionsアップデートを1つのPRにまとめる
+      # すべてのGitHub Actionsアップデート（マイナー・パッチのみ）を1つのPRにまとめる
       github-actions-dependencies:
         patterns:
           - "*"
         update-types:
           - "minor"
           - "patch"
-      # メジャーアップデート用
-      github-actions-major:
-        patterns:
-          - "*"
-        update-types:
-          - "major"
     labels:
       - "dependencies"
       - "github-actions"
