@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   quality-checks:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     outputs:
@@ -104,7 +104,7 @@ jobs:
           fi
 
   e2e-tests:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     outputs:
@@ -306,7 +306,7 @@ jobs:
     needs: [quality-checks, e2e-tests]
     if: |
       always() &&
-      github.event_name == 'pull_request' &&
+      (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') &&
       needs.quality-checks.result != 'cancelled' &&
       needs.quality-checks.result != 'skipped' &&
       needs.e2e-tests.result != 'cancelled' &&
@@ -343,7 +343,7 @@ jobs:
     needs: [quality-checks, e2e-tests, add-pr-labels]
     if: |
       always() &&
-      github.event_name == 'pull_request'
+      (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
