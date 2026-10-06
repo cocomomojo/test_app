@@ -11,12 +11,14 @@ updates:
     open-pull-requests-limit: 3
     groups:
       # すべてのプロダクション依存関係（マイナー・パッチのみ）を1つのPRにまとめる
+      # 注意: メジャーバージョンアップは自動的に除外されます
       production-dependencies:
         dependency-type: "production"
         update-types:
           - "minor"
           - "patch"
       # すべての開発依存関係（マイナー・パッチのみ）を1つのPRにまとめる
+      # 注意: メジャーバージョンアップは自動的に除外されます
       development-dependencies:
         dependency-type: "development"
         update-types:
@@ -28,10 +30,6 @@ updates:
       - "automerge"
     reviewers:
       - "cocomomojo"
-    ignore:
-      - dependency-name: "vue-router"
-        update-types:
-          - "major"
 
   # Backend (Gradle)
   - package-ecosystem: "gradle"
@@ -44,6 +42,7 @@ updates:
     open-pull-requests-limit: 3
     groups:
       # Spring Boot関連（マイナー・パッチのみ）を1つにまとめる
+      # 注意: メジャーバージョンアップは自動的に除外されます
       spring-boot:
         patterns:
           - "org.springframework.boot:*"
@@ -52,13 +51,15 @@ updates:
           - "minor"
           - "patch"
       # AWS SDK関連（マイナー・パッチのみ）を1つにまとめる
+      # 注意: メジャーバージョンアップは自動的に除外されます
       aws-sdk:
         patterns:
           - "software.amazon.awssdk:*"
         update-types:
           - "minor"
           - "patch"
-      # その他のマイナー/パッチアップデートをまとめる（メジャーバージョンアップは除外）
+      # その他のマイナー/パッチアップデートをまとめる
+      # 注意: メジャーバージョンアップは自動的に除外されます
       other-dependencies:
         patterns:
           - "*"
@@ -87,6 +88,7 @@ updates:
     open-pull-requests-limit: 2
     groups:
       # すべてのGitHub Actionsアップデート（マイナー・パッチのみ）を1つのPRにまとめる
+      # 注意: メジャーバージョンアップは自動的に除外されます
       github-actions-dependencies:
         patterns:
           - "*"
