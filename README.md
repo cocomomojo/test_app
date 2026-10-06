@@ -716,6 +716,7 @@ GitHub リポジトリ → Settings → Secrets and variables → Actions → Ne
 - **トリガー:** `automerge` ラベル付与時
 - **実行内容:** Dependabot PR のテスト実行後、成功時に自動承認・マージ
 - **目的:** 依存関係更新の自動化
+- **注意:** Dependabot は**マイナーチェンジとパッチ更新のみ**に制限されています（メジャーバージョンアップは自動的に除外）。詳細は [DEPENDABOT_CONFIGURATION.md](./DEPENDABOT_CONFIGURATION.md) を参照してください。
 
 ---
 
