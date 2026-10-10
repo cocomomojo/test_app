@@ -1,0 +1,32 @@
+name: 操作マニュアル作成
+description: ユーザー向け/管理者向けマニュアル作成依頼
+title: "[MANUAL] "
+labels:
+  - documentation
+  - manual
+body:
+  - type: dropdown
+    id: manual-type
+    attributes:
+      label: マニュアル種別
+      options:
+        - ユーザー向け
+        - 管理者向け
+    validations:
+      required: true
+  - type: input
+    id: target-feature
+    attributes:
+      label: 対象機能
+      placeholder: 例) TODO管理
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: 受け入れ条件
+      placeholder: |
+        - [ ] 手順が初心者に分かりやすい
+        - [ ] スクリーンショットが適切
+    validations:
+      required: true

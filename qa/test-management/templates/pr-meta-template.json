@@ -1,0 +1,11 @@
+{
+  "pr": "{{PR_NUMBER}}",
+  "title": "{{PR_TITLE}}",
+  "url": "{{PR_URL}}",
+  "e2eCount": 0,
+  "manualCount": 0,
+  "integrationCount": 0,
+  "generatedSpec": "frontend/tests/e2e/generated/pr-{{PR_NUMBER}}-{{SLUG}}.spec.ts",
+  "generatedPlan": "qa/test-management/pr/PR-{{PR_NUMBER}}-test-plan.md",
+  "updatedAt": "{{ISO_TIMESTAMP}}"
+}

@@ -1,0 +1,65 @@
+name: エラー解析
+description: エラー調査・再現・修正依頼
+title: "[ERROR] "
+labels:
+  - bug
+  - error-analysis
+body:
+  - type: dropdown
+    id: error-type
+    attributes:
+      label: エラー種別
+      options:
+        - フロントエンド
+        - バックエンド
+        - パフォーマンス
+    validations:
+      required: true
+  - type: dropdown
+    id: bug-pattern
+    attributes:
+      label: 不具合パターン（任意）
+      description: わかる場合のみ選択してください。未選択なら triage workflow が補完します。
+      options:
+        - 未選択
+        - frontend-ui-text
+        - frontend-unit-test
+        - backend
+        - ci-config
+        - e2e-environment
+        - docs-manual
+  - type: dropdown
+    id: severity
+    attributes:
+      label: 重要度（任意）
+      description: わかる場合のみ選択してください。未選択なら triage workflow が補完します。
+      options:
+        - 未選択
+        - low
+        - medium
+        - high
+        - critical
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 再現手順
+      placeholder: |
+        1. 〜
+        2. 〜
+        3. 〜
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: エラーメッセージ・ログ
+      placeholder: スタックトレースやログを貼り付け
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: 受け入れ条件
+      placeholder: |
+        - [ ] 根本原因の特定
+        - [ ] 修正案の提示
+    validations:
+      required: true

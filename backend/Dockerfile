@@ -1,0 +1,14 @@
+FROM eclipse-temurin:17-jdk AS builder
+WORKDIR /app
+COPY . .
+RUN ./gradlew clean build -x test
+
+FROM eclipse-temurin:17-jre
+WORKDIR /app
+COPY --from=builder /app/build/libs/*.jar app.jar
+
+# Create directories for JaCoCo files
+RUN mkdir -p /app/jacoco /app/jacoco-output
+
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]

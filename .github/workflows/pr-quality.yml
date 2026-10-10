@@ -1,0 +1,450 @@
+---
+name: PR Quality Checks
+
+"on":
+  pull_request:
+    types: [opened, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  quality-checks:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    outputs:
+      frontend_status: ${{ steps.final_status.outputs.frontend_status }}
+      backend_status: ${{ steps.final_status.outputs.backend_status }}
+
+    steps:
+      - name: Validate context and determine ref
+        id: pr_context
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          GITHUB_REF: ${{ github.ref }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          # PR イベント時は head_ref、workflow_dispatch 時は ref を使用
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            if [ -z "$HEAD_REF" ]; then
+              echo "❌ Error: PR context not available (head_ref is empty)"
+              exit 1
+            fi
+            REF="$HEAD_REF"
+          else
+            # workflow_dispatch の場合、ユーザーが選択したブランチを使用
+            REF="$GITHUB_REF"
+            REF=${REF#refs/heads/}  # refs/heads/ プレフィックスを削除
+          fi
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+          echo "✓ Using branch: $REF"
+
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.pr_context.outputs.ref }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run frontend unit tests
+        id: frontend_unit
+        continue-on-error: true
+        working-directory: frontend
+        run: npm run test:unit
+
+      - name: Upload frontend coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-unit-coverage
+          path: |
+            frontend/coverage/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Run backend unit tests
+        id: backend_unit
+        continue-on-error: true
+        working-directory: backend
+        run: |
+          chmod +x gradlew
+          ./gradlew test jacocoTestReport
+
+      - name: Upload backend test artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-unit-reports
+          path: |
+            backend/build/reports/tests/test/
+            backend/build/reports/jacoco/test/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Finalize quality status
+        id: final_status
+        run: |
+          FRONTEND_STATUS='${{ steps.frontend_unit.outcome }}'
+          BACKEND_STATUS='${{ steps.backend_unit.outcome }}'
+
+          echo "frontend_status=${FRONTEND_STATUS}" >> "$GITHUB_OUTPUT"
+          echo "backend_status=${BACKEND_STATUS}" >> "$GITHUB_OUTPUT"
+
+          if [ "$FRONTEND_STATUS" = 'failure' ] || [ "$BACKEND_STATUS" = 'failure' ]; then
+            echo 'One or more quality checks failed.' >&2
+            exit 1
+          fi
+
+  e2e-tests:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    outputs:
+      e2e_status: ${{ steps.e2e_final_status.outputs.e2e_status }}
+    env:
+      MYSQL_ROOT_PASSWORD: root
+
+    steps:
+      - name: Validate context and determine ref
+        id: pr_context
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          GITHUB_REF: ${{ github.ref }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          # PR イベント時は head_ref、workflow_dispatch 時は ref を使用
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            if [ -z "$HEAD_REF" ]; then
+              echo "❌ Error: PR context not available (head_ref is empty)"
+              exit 1
+            fi
+            REF="$HEAD_REF"
+          else
+            # workflow_dispatch の場合、ユーザーが選択したブランチを使用
+            REF="$GITHUB_REF"
+            REF=${REF#refs/heads/}  # refs/heads/ プレフィックスを削除
+          fi
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+          echo "✓ Using branch: $REF"
+
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.pr_context.outputs.ref }}
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Extract JaCoCo agent from Gradle
+        id: jacoco_extract
+        continue-on-error: true
+        working-directory: backend
+        run: |
+          chmod +x gradlew
+          ./gradlew copyJacocoAgent
+          mkdir -p ../infra/jacoco ../infra/jacoco-output
+          cp build/jacoco/jacocoagent.jar ../infra/jacoco/jacocoagent.jar
+
+      - name: Start Docker Compose services
+        id: docker_start
+        continue-on-error: true
+        working-directory: infra
+        run: docker compose -f docker-compose.ci.yml up -d
+
+      - name: Wait for services to be healthy
+        id: health_check
+        continue-on-error: true
+        working-directory: infra
+        timeout-minutes: 5
+        run: |
+          echo "Waiting for MySQL..."
+          for i in $(seq 1 30); do
+            docker compose -f docker-compose.ci.yml exec -T mysql \
+              mysqladmin ping -h localhost -uroot -p"${MYSQL_ROOT_PASSWORD}" \
+              2>/dev/null && break
+            [ "$i" -eq 30 ] && { echo "MySQL failed"; exit 1; }
+            sleep 3
+          done
+
+          echo "Waiting for Spring Boot..."
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:8080/actuator/health > /dev/null && \
+              { echo "Spring Boot ready"; break; }
+            [ "$i" -eq 60 ] && \
+              { docker compose -f docker-compose.ci.yml logs springboot; exit 1; }
+            sleep 3
+          done
+
+          echo "Waiting for Frontend..."
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8081 > /dev/null && \
+              { echo "Frontend ready"; break; }
+            [ "$i" -eq 30 ] && \
+              { docker compose -f docker-compose.ci.yml logs frontend; exit 1; }
+            sleep 2
+          done
+
+      - name: Setup Node.js
+        if: steps.health_check.outcome == 'success'
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Node dependencies
+        if: steps.health_check.outcome == 'success'
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright browsers
+        if: steps.health_check.outcome == 'success'
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright E2E tests (with JS coverage)
+        id: e2e_run
+        if: steps.health_check.outcome == 'success'
+        continue-on-error: true
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:8081
+        run: npm run test:e2e
+
+      - name: Generate frontend coverage report
+        if: always()
+        working-directory: frontend
+        run: |
+          if [ -d "coverage/e2e-raw" ] && [ "$(ls -A coverage/e2e-raw)" ]; then
+            echo "✓ Found coverage files, generating report..."
+            sed -i "s|\"/app/|\"$(pwd)/|g" coverage/e2e-raw/*.json 2>/dev/null || true
+            npm run coverage:report
+          else
+            echo "✗ No frontend coverage data found"
+            mkdir -p coverage/e2e-report
+            echo "<h1>No frontend coverage data available</h1>" \
+              > coverage/e2e-report/index.html
+          fi
+
+      - name: Upload frontend E2E coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-coverage
+          path: frontend/coverage/e2e-report
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Generate backend E2E coverage report
+        if: always()
+        working-directory: backend
+        run: |
+          if [ -f "../infra/jacoco-output/jacoco.exec" ]; then
+            ./gradlew jacocoE2EReport
+          else
+            echo "No jacoco.exec found, skipping E2E coverage report"
+          fi
+
+      - name: Upload backend E2E coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-e2e-coverage
+          path: backend/build/reports/jacoco/jacocoE2EReport/html
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Finalize E2E test status
+        id: e2e_final_status
+        env:
+          DOCKER_STATUS: ${{ steps.docker_start.outcome }}
+          HEALTH_STATUS: ${{ steps.health_check.outcome }}
+          E2E_OUTCOME: ${{ steps.e2e_run.outcome }}
+        run: |
+          # If docker or health check failed, report failure
+          if [ "$DOCKER_STATUS" = "failure" ] || [ "$HEALTH_STATUS" = "failure" ]; then
+            echo "e2e_status=failure" >> "$GITHUB_OUTPUT"
+          else
+            # Otherwise, use E2E test outcome (or skipped if empty)
+            E2E_STATUS="${E2E_OUTCOME}"
+            [ -z "$E2E_STATUS" ] && E2E_STATUS="skipped"
+            echo "e2e_status=${E2E_STATUS}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Stop Docker Compose services
+        if: always()
+        working-directory: infra
+        run: docker compose -f docker-compose.ci.yml down -v
+
+      - name: Trigger E2E analysis if failed
+        if: |
+          steps.e2e_run.outcome == 'failure' ||
+          steps.docker_start.outcome == 'failure' ||
+          steps.health_check.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // E2E失敗時に自動分析をdispatch
+            core.info('E2E tests failed. Triggering e2e-failure-analysis...');
+            try {
+              await github.rest.actions.createWorkflowDispatch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'e2e-failure-analysis.yml',
+                ref: context.ref,
+                inputs: {
+                  run_id: context.runId.toString()
+                }
+              });
+              core.notice('✅ E2E failure analysis workflow dispatched');
+            } catch (error) {
+              core.warning(`Failed to dispatch e2e-failure-analysis: ${error.message}`);
+            }
+
+  add-pr-labels:
+    needs: [quality-checks, e2e-tests]
+    if: |
+      always() &&
+      (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') &&
+      needs.quality-checks.result != 'cancelled' &&
+      needs.quality-checks.result != 'skipped' &&
+      needs.e2e-tests.result != 'cancelled' &&
+      needs.e2e-tests.result != 'skipped' &&
+      needs.e2e-tests.result == 'failure'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Add bug-analysis-needed label if E2E failed
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request?.number;
+            if (!prNumber) {
+              core.info('⚠️ PR number not available. Skipping label addition.');
+              return;
+            }
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                labels: ['bug-analysis-needed']
+              });
+              core.info('✅ Added bug-analysis-needed label');
+            } catch (error) {
+              core.warning(`Failed to add label: ${error.message}`);
+            }
+
+  report-to-pr:
+    needs: [quality-checks, e2e-tests, add-pr-labels]
+    if: |
+      always() &&
+      (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Comment PR with quality results
+        uses: actions/github-script@v7
+        env:
+          FRONTEND_STATUS: >-
+            ${{ needs.quality-checks.outputs.frontend_status || 'unknown' }}
+          BACKEND_STATUS: >-
+            ${{ needs.quality-checks.outputs.backend_status || 'unknown' }}
+          E2E_STATUS: >-
+            ${{ needs.e2e-tests.outputs.e2e_status || 'unknown' }}
+          RUN_URL: >-
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const marker = '<!-- pr-quality-checks -->';
+            const prNumber = context.payload.pull_request?.number;
+            
+            if (!prNumber) {
+              core.info('⚠️ PR number not available. Skipping PR comment.');
+              return;
+            }
+
+            const icon = (status) => {
+              switch (status) {
+                case 'success': return '✅ success';
+                case 'failure': return '❌ failure';
+                case 'skipped': return '⏭️ skipped';
+                default: return `ℹ️ ${status || 'unknown'}`;
+              }
+            };
+
+            const e2eStatus = process.env.E2E_STATUS.trim();
+            const e2eSection = e2eStatus === 'failure'
+              ? `- E2E Tests with Coverage: ${icon(e2eStatus)}\n` +
+                `  ⚠️ **E2E テストが失敗しました。** ` +
+                `詳細分析が自動で実行されています。\n` +
+                `  📊 [Workflow Run: ${process.env.RUN_URL.trim()}](${process.env.RUN_URL.trim()})`
+              : `- E2E Tests with Coverage: ${icon(e2eStatus)}`;
+
+            const body = [
+              marker,
+              '### 🔎 PR Quality Checks',
+              '',
+              `- Frontend Unit Tests: ${icon(process.env.FRONTEND_STATUS.trim())}`,
+              `- Backend Unit Tests: ${icon(process.env.BACKEND_STATUS.trim())}`,
+              e2eSection,
+            ].join('\n');
+
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                per_page: 100,
+              }
+            );
+
+            const existing = comments.find(
+              (comment) => (comment.body || '').includes(marker)
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+            }

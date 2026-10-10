@@ -1,0 +1,46 @@
+# -------------------------
+# Node / Vue
+# -------------------------
+node_modules/
+dist/
+.vite/
+*.log
+coverage/
+
+# Playwright
+test-results/
+playwright-report/
+allure-results/
+.playwright/
+
+# -------------------------
+# Java / Spring Boot
+# -------------------------
+target/
+build/
+.gradle/
+out/
+
+# JaCoCo E2E output (generated at runtime)
+infra/jacoco/
+infra/jacoco-output/
+gh-pages-coverage/
+
+# -------------------------
+# Docker
+# -------------------------
+*.pid
+
+# -------------------------
+# OS / Editor
+# -------------------------
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+
+# -------------------------
+# Other
+# -------------------------
+Todo.md
+todo2.md

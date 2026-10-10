@@ -1,0 +1,24 @@
+services:
+  devcontainer:
+    image: mcr.microsoft.com/devcontainers/java:1-21-bookworm
+    volumes:
+      - ../:/workspace:cached
+      - ~/.gitconfig:/home/vscode/.gitconfig:ro
+    environment:
+      - SPRING_PROFILES_ACTIVE=local
+    command: sleep infinity
+    depends_on:
+      - mysql
+      - moto
+    networks:
+      - default
+
+  # Override backend service: don't auto-start in devcontainer (run manually)
+  backend:
+    profiles:
+      - donotstart
+
+  # Override frontend service: don't auto-start in devcontainer (run manually)
+  frontend:
+    profiles:
+      - donotstart
