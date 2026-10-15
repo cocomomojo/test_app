@@ -11,19 +11,25 @@ updates:
     open-pull-requests-limit: 3
     groups:
       # すべてのプロダクション依存関係（マイナー・パッチのみ）を1つのPRにまとめる
-      # 注意: メジャーバージョンアップは自動的に除外されます
       production-dependencies:
         dependency-type: "production"
         update-types:
           - "minor"
           - "patch"
+      # メジャーバージョンアップは明示的に除外（PRを生成しない）
+      production-major:
+        dependency-type: "production"
+        update-types: []
       # すべての開発依存関係（マイナー・パッチのみ）を1つのPRにまとめる
-      # 注意: メジャーバージョンアップは自動的に除外されます
       development-dependencies:
         dependency-type: "development"
         update-types:
           - "minor"
           - "patch"
+      # メジャーバージョンアップは明示的に除外（PRを生成しない）
+      development-major:
+        dependency-type: "development"
+        update-types: []
     labels:
       - "dependencies"
       - "frontend"
@@ -42,7 +48,6 @@ updates:
     open-pull-requests-limit: 3
     groups:
       # Spring Boot関連（マイナー・パッチのみ）を1つにまとめる
-      # 注意: メジャーバージョンアップは自動的に除外されます
       spring-boot:
         patterns:
           - "org.springframework.boot:*"
@@ -50,16 +55,25 @@ updates:
         update-types:
           - "minor"
           - "patch"
+      # Spring Boot関連のメジャーバージョンアップは除外
+      spring-boot-major:
+        patterns:
+          - "org.springframework.boot:*"
+          - "org.springframework:*"
+        update-types: []
       # AWS SDK関連（マイナー・パッチのみ）を1つにまとめる
-      # 注意: メジャーバージョンアップは自動的に除外されます
       aws-sdk:
         patterns:
           - "software.amazon.awssdk:*"
         update-types:
           - "minor"
           - "patch"
+      # AWS SDK関連のメジャーバージョンアップは除外
+      aws-sdk-major:
+        patterns:
+          - "software.amazon.awssdk:*"
+        update-types: []
       # その他のマイナー/パッチアップデートをまとめる
-      # 注意: メジャーバージョンアップは自動的に除外されます
       other-dependencies:
         patterns:
           - "*"
@@ -70,6 +84,15 @@ updates:
         update-types:
           - "minor"
           - "patch"
+      # その他のメジャーバージョンアップは除外
+      other-major:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "org.springframework.boot:*"
+          - "org.springframework:*"
+          - "software.amazon.awssdk:*"
+        update-types: []
     labels:
       - "dependencies"
       - "backend"
@@ -88,13 +111,17 @@ updates:
     open-pull-requests-limit: 2
     groups:
       # すべてのGitHub Actionsアップデート（マイナー・パッチのみ）を1つのPRにまとめる
-      # 注意: メジャーバージョンアップは自動的に除外されます
       github-actions-dependencies:
         patterns:
           - "*"
         update-types:
           - "minor"
           - "patch"
+      # GitHub Actionsのメジャーバージョンアップは除外
+      github-actions-major:
+        patterns:
+          - "*"
+        update-types: []
     labels:
       - "dependencies"
       - "github-actions"
