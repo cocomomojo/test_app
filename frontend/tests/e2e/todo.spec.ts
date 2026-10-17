@@ -1,5 +1,29 @@
 import { test, expect } from './fixtures/coverage-fixture';
 
+/**
+ * TODO: Implement status-based TODO filtering
+ * 
+ * Tests 9 and 10 (filter-pending/completed) are currently skipped due to timeout failures.
+ * Issue: TimeoutError while waiting for PUT response during checkbox updates in status-based filter tests
+ * Root cause: Status-based filtering feature appears partially unimplemented or has a bug
+ * 
+ * Evidence:
+ * - Test 8 (filter-all): PASSES with 1.2s (same checkbox logic)
+ * - Test 9 (filter-pending): FAILS with 11.1s timeout
+ * - Test 10 (filter-completed): FAILS with 11.1s timeout
+ * - Tests 11-13 (other filters): PASS (1.7s-1.3s)
+ * 
+ * Pattern: Only status-based filtering tests fail during checkbox update
+ * 
+ * Next steps: 
+ * 1. Investigate test environment database connection pooling
+ * 2. Check if test data accumulation causes performance degradation
+ * 3. Review backend request handling for TODO updates
+ * 4. Implement proper test cleanup/teardown between tests
+ * 
+ * Reference: Issue #282
+ */
+
 test('TODOで登録できること', async ({ page }) => {
   await page.goto('/login');
   await page.getByLabel('ユーザ名').fill('testuser');
@@ -55,13 +79,7 @@ test('TODOをフィルターできること-すべて', async ({ page }) => {
   await expect(page.getByText(pendingTitle)).toBeVisible();
 });
 
-// TODO: Implement status-based TODO filtering
-// Issue: This test fails with TimeoutError when waiting for PUT response during checkbox update
-// Root cause: Status-based filtering feature (pending/completed) appears unimplemented or buggy
-// Evidence: Test 8 (filter-all) passes, but tests 9 & 10 (filter-pending/completed) timeout
-// Impact: Blocks CI/CD pipeline when run
-// Solution: Skip until feature is properly implemented
-// Related: Issue #282
+// See top-level TODO comment explaining why this test is skipped
 test.skip('TODOをフィルターできること-未完了のみ', async ({ page }) => {
   await page.goto('/login');
   await page.getByLabel('ユーザ名').fill('testuser');
@@ -107,13 +125,7 @@ test.skip('TODOをフィルターできること-未完了のみ', async ({ page
   await expect(page.getByText(completedTitle)).not.toBeVisible();
 });
 
-// TODO: Implement status-based TODO filtering
-// Issue: This test fails with TimeoutError when waiting for PUT response during checkbox update
-// Root cause: Status-based filtering feature (pending/completed) appears unimplemented or buggy
-// Evidence: Test 8 (filter-all) passes, but tests 9 & 10 (filter-pending/completed) timeout
-// Impact: Blocks CI/CD pipeline when run
-// Solution: Skip until feature is properly implemented
-// Related: Issue #282
+// See top-level TODO comment explaining why this test is skipped
 test.skip('TODOをフィルターできること-完了のみ', async ({ page }) => {
   await page.goto('/login');
   await page.getByLabel('ユーザ名').fill('testuser');
