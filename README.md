@@ -479,228 +479,67 @@ graph TD
 
 **合計:** 約 4-5 分
 
-### 🔄 開発サイクルとワークフローの全体像
+#### E2E Failure Analysis（自動実行・失敗検出時）
 
-このセクションでは、開発の各フェーズで使用されるワークフローと、AI/人の役割を視覚的に説明します。
+| ステップ | 所要時間 | 説明 |
+|---------|---------|------|
+| 1️⃣ Checkout | ~5秒 | コードの取得 |
+| 2️⃣ Download Artifacts | ~10秒 | ワークフローアーティファクトをダウンロード |
+| 3️⃣ Extract Failure Info | ~5秒 | 失敗ログから情報を抽出 |
+| 4️⃣ Format Issue | ~5秒 | Issue テンプレートを生成 |
+| 5️⃣ Check Existing Issues | ~10秒 | 既に作成済みの Issue がないか確認 |
+| 6️⃣ Create or Update Issue | ~10秒 | Issue を作成または既存 Issue にコメント追加 |
 
-#### 📊 開発サイクル全体図
+**トリガー条件:**
+- E2E テスト（`e2e.yml`）が **失敗** したときのみ自動実行
+- 成功時は実行されない
+- main、develop ブランチのみ対象
 
-```mermaid
-graph TB
-    subgraph "🧑‍💻 日常開発"
-        DEV[コード作成・修正] --> PR[PR作成]
-        PR --> PR_QUALITY[PR Quality Checks<br/>🤖 自動実行]
-        PR --> PR_TEST_PLAN[PR Test Plan Assets<br/>🤖 自動実行]
-    end
+**合計:** 約 1-2 分（E2E 失敗時）
 
-    subgraph "🧪 テスト実行"
-        E2E_MANUAL[👤 E2E Tests 手動実行] --> E2E_RUN[E2E Tests with Coverage]
-        E2E_RUN -->|成功| PAGES[GitHub Pages<br/>📊 レポート公開]
-        E2E_RUN -->|失敗| E2E_ANALYSIS[E2E Failure Analysis<br/>🤖 自動分析]
-    end
-
-    subgraph "🐛 バグ修正フロー（AI支援）"
-        E2E_ANALYSIS --> ISSUE_CREATE[Issue 自動作成]
-        MANUAL_ISSUE[👤 手動 Issue 作成] --> ISSUE_CREATE
-        ISSUE_CREATE --> TRIAGE[Issue Triage<br/>🤖 自動分類]
-        TRIAGE -->|ai-fixable| FIX_BRIEF[Issue to Fix Brief<br/>🤖 修正案生成]
-        FIX_BRIEF -->|pilot対象| AUTO_FIX[Issue to Auto Fix PR<br/>🤖 Draft PR作成]
-        FIX_BRIEF -->|pilot対象外| HUMAN_FIX[👤 人による修正]
-        AUTO_FIX --> REVIEW[👤 PR レビュー]
-        HUMAN_FIX --> REVIEW
-    end
-
-    subgraph "📦 依存関係管理"
-        DEPENDABOT[Dependabot PR] --> LABEL[👤 automerge<br/>ラベル付与]
-        LABEL --> AUTO_MERGE[Dependabot Auto-merge<br/>🤖 自動テスト・マージ]
-    end
-
-    REVIEW --> MERGE[👤 マージ]
-    AUTO_MERGE --> MERGE
-    MERGE --> DEV
-```
-
-**凡例:**
-- 🤖 = AI が自動実行
-- 👤 = 人が実行・判断
-
-#### 📋 ワークフロー一覧と用途
-
-このリポジトリでは以下の GitHub Actions ワークフローを使用しています：
-
-| ワークフロー | トリガー | 用途 | 実行時間 | 自動/手動 |
-|------------|---------|------|---------|----------|
-| **E2E Tests with Coverage** | 手動実行のみ | E2E テスト実行とカバレッジレポート生成。main ブランチでは GitHub Pages へデプロイ | ~3分 | 👤 手動 |
-| **PR Quality Checks** | PR作成・更新時 | フロントエンド・バックエンドのユニットテスト実行と品質チェック | ~5分 | 🤖 自動 |
-| **PR Test Plan Assets** | PR作成・更新時 | PR 用のテスト計画とPlaywright雛形を自動生成 | ~2分 | 🤖 自動 |
-| **Issue Triage** | Issue作成・編集時 | Issue を自動分類し、バグパターンと深刻度をラベル付け | ~1分 | 🤖 自動 |
-| **Issue to Fix Brief** | `ai-fixable` ラベル付与時 | Issue から修正案を生成し、PR ドラフトを作成 | ~3分 | 🤖 自動 |
-| **Issue to Auto Fix PR** | 手動実行（またはFix Brief後の自動dispatch） | 対象Issue（frontend-ui-text、low/medium）の自動修正とDraft PR作成 | ~5分 | 🤖 自動 |
-| **E2E Failure Analysis** | E2E テスト失敗時 | 失敗ログを AI で分析し、Issue を自動作成 | ~3分 | 🤖 自動 |
-| **Dependabot Auto-merge** | Dependabot PR作成時 | `automerge` ラベル付き Dependabot PR の自動テスト・承認・マージ | ~5分 | 🤖 自動 |
-
-#### 🎯 開発フェーズ別ワークフロー利用マトリックス
-
-| フェーズ | ワークフロー | 実行者 | 実行タイミング |
-|---------|------------|--------|---------------|
-| **コード開発** | PR Quality Checks | 🤖 | PR作成・更新時に自動 |
-| **コード開発** | PR Test Plan Assets | 🤖 | PR作成・更新時に自動 |
-| **テスト実行** | E2E Tests with Coverage | 👤 | 手動実行（必要時） |
-| **バグ発見** | E2E Failure Analysis | 🤖 | E2Eテスト失敗時に自動 |
-| **バグ報告** | Issue Triage | 🤖 | Issue作成時に自動 |
-| **修正計画** | Issue to Fix Brief | 🤖 | ai-fixableラベル付与時に自動 |
-| **自動修正（Pilot）** | Issue to Auto Fix PR | 🤖 | pilot対象の場合に自動dispatch |
-| **依存関係更新** | Dependabot Auto-merge | 🤖 | automergeラベル付与時に自動 |
-
-#### 💡 主要ワークフローの使い方
-
-##### 1. E2E テストの実行（手動）
-
-```mermaid
-sequenceDiagram
-    participant 👤 as 開発者
-    participant 🔄 as GitHub Actions
-    participant 📊 as GitHub Pages
-
-    👤->>🔄: Actions タブで "Run workflow"
-    🔄->>🔄: Docker ビルド
-    🔄->>🔄: E2E テスト実行
-    alt テスト成功 & main ブランチ
-        🔄->>📊: レポート公開
-    else テスト失敗
-        🔄->>🔄: E2E Failure Analysis 起動
-    end
-    🔄-->>👤: 完了通知
-```
-
-**実行手順:**
-1. GitHub リポジトリの **Actions** タブを開く
-2. 左側から **E2E Tests with Coverage** を選択
-3. 右上の **Run workflow** ボタンをクリック
-4. ブランチを選択して実行
-
-##### 2. Issue から自動修正 PR までのフロー（AI支援）
-
-```mermaid
-sequenceDiagram
-    participant 👤 as 開発者/E2E
-    participant 🤖T as Issue Triage
-    participant 🤖F as Fix Brief
-    participant 🤖A as Auto Fix PR
-    participant 👤R as レビュアー
-
-    alt E2E失敗
-        Note over 👤: E2E Failure Analysis が<br/>Issue を自動作成
-    else 手動報告
-        👤->>🤖T: Issue 作成
-    end
-    
-    🤖T->>🤖T: バグパターン・深刻度を分類
-    🤖T->>🤖T: ai-fixable ラベル付与
-    🤖T->>🤖F: 自動 dispatch
-    🤖F->>🤖F: 修正案・PR draft 生成
-    
-    alt pilot 対象（frontend-ui-text × low/medium）
-        🤖F->>🤖A: 自動 dispatch
-        🤖A->>🤖A: コード修正を実行
-        🤖A->>🤖A: テスト実行
-        🤖A->>👤R: Draft PR 作成
-        👤R->>👤R: レビュー・調整
-    else pilot 対象外
-        🤖F-->>👤: artifact 確認
-        👤->>👤: 手動で修正
-    end
-```
-
-**ステップ詳細:**
-
-1. **Issue 作成**
-   - E2E テスト失敗時: `E2E Failure Analysis` が自動作成
-   - または手動で Issue を作成
-
-2. **自動トリアージ** (🤖 `Issue Triage`)
-   - バグパターンを分類: `frontend-ui-text`, `backend`, `ci-config` など
-   - 深刻度を判定: `low`, `medium`, `high`, `critical`
-   - AI修正可能かを判定して `ai-fixable` ラベルを付与
-
-3. **修正案生成** (🤖 `Issue to Fix Brief`)
-   - `ai-fixable` ラベルが付与されると自動実行
-   - 修正案（Fix Brief）と PR ドラフトを生成
-   - Artifact としてダウンロード可能
-
-4. **自動修正PR作成（Pilot）** (🤖 `Issue to Auto Fix PR`)
-   - 条件: `frontend-ui-text` × `low`/`medium`
-   - Copilot がコード修正を実行
-   - テストを実行して検証
-   - Draft PR を自動作成
-   - **必須:** `AUTO_FIX_GITHUB_TOKEN` シークレット
-
-5. **レビューとマージ** (👤 人)
-   - Draft PR の内容を確認
-   - 必要に応じて調整
-   - レビュー・承認してマージ
-
-##### 3. Dependabot PR の自動マージ
-
-```mermaid
-sequenceDiagram
-    participant 🤖D as Dependabot
-    participant 👤 as 開発者
-    participant 🤖M as Auto-merge
-
-    🤖D->>👤: PR 作成
-    👤->>👤: PR 内容確認
-    👤->>🤖D: automerge ラベル付与
-    🤖D->>🤖M: ワークフロー起動
-    🤖M->>🤖M: テスト実行
-    alt テスト成功
-        🤖M->>🤖M: 自動承認
-        🤖M->>🤖M: 自動マージ
-    else テスト失敗
-        🤖M-->>👤: 失敗通知（マージしない）
-    end
-```
-
-**実行手順:**
-1. Dependabot が PR を作成
-2. PR の内容を確認
-3. 問題なければ `automerge` ラベルを手動で付与
-4. ワークフローが自動実行されテスト・マージ
+**重要:** E2E Failure Analysis ワークフローの実行には以下が必要です：
+- Issue 作成権限（自動的に `GITHUB_TOKEN` で実行）
+- 既存 Issue への検索・コメント権限
 
 ---
 
-### 🔑 ワークフロー前提条件
+### 🔄 ワークフロー構成と依存関係
 
-#### 必須シークレット
-
-| シークレット名 | 用途 | 必要なワークフロー |
-|--------------|------|-------------------|
-| `COPILOT_GITHUB_TOKEN` | GitHub Copilot CLI の認証 | E2E Failure Analysis<br/>Issue to Auto Fix PR |
-| `AUTO_FIX_GITHUB_TOKEN` | Auto Fix PR 作成時の認証 | Issue to Auto Fix PR |
-| `GITHUB_TOKEN` | 標準の GitHub API アクセス | すべて（自動提供） |
-
-#### シークレットの設定方法
+#### ワークフロー自動化チェーン
 
 ```
-GitHub リポジトリ → Settings → Secrets and variables → Actions → New repository secret
+PR作成・更新
+    ↓
+PR Quality Checks（自動実行）
+    ├─ Frontend Unit Tests
+    ├─ Backend Unit Tests
+    └─ E2E Tests（実行可能）
+        └─ E2E Failure Analysis（失敗時のみ）
+           ├─ 失敗ログ分析
+           └─ Issue 自動作成 ✓
+
+E2E手動実行
+    ↓
+E2E Tests with Coverage（手動実行）
+    ├─ Full E2E Tests
+    ├─ Allure Report
+    ├─ Coverage Reports
+    └─ GitHub Pages Deploy（main のみ）
+        └─ E2E Failure Analysis（失敗時のみ）
+           └─ Issue 自動作成 ✓
+
+Dependabot PR
+    ↓
+automerge ラベル付与
+    ↓
+Dependabot Auto-merge
+    ├─ テスト実行
+    └─ 成功時に自動マージ
 ```
 
-1. **COPILOT_GITHUB_TOKEN** の作成
-   - GitHub Copilot CLI に必要
-   - [設定方法のドキュメント](https://github.github.com/gh-aw/reference/engines/#github-copilot-default)
+### 🔄 ワークフロー構成
 
-2. **AUTO_FIX_GITHUB_TOKEN** の作成（オプション）
-   - 自動修正 PR 作成に必要
-   - Personal Access Token (PAT) を作成
-   - 必要な権限: `repo` (full control)
-
-**注意:** `AUTO_FIX_GITHUB_TOKEN` が未設定の場合、`Issue to Auto Fix PR` は修正案生成まで実行されますが、PR は作成されません。
-
----
-
-### 🔄 ワークフロー構成（簡潔版）
-
-このプロジェクトは以下の **3つのコアワークフロー** で構成されています：
+このプロジェクトは以下の **4つのコアワークフロー** で構成されています：
 
 #### 1️⃣ **PR Quality Checks** (`pr-quality.yml`)
 - **トリガー:** PR 作成・更新時
@@ -712,7 +551,13 @@ GitHub リポジトリ → Settings → Secrets and variables → Actions → Ne
 - **実行内容:** Playwright による E2E テスト実行、Allure レポート生成、GitHub Pages へデプロイ
 - **目的:** エンドツーエンドテストの検証とレポート
 
-#### 3️⃣ **Dependabot Auto-merge** (`dependabot-auto-merge.yml`)
+#### 3️⃣ **E2E Failure Analysis** (`e2e-failure-analysis.yml`)
+- **トリガー:** E2E テスト失敗時に自動実行
+- **実行内容:** 失敗ログを分析し、問題を自動検出し Issue を作成
+- **目的:** E2E テスト失敗の自動検知・レポート化、開発チームへの早期通知
+- **連携:** Issue 作成時に `bug,e2e` ラベルを付与
+
+#### 4️⃣ **Dependabot Auto-merge** (`dependabot-auto-merge.yml`)
 - **トリガー:** `automerge` ラベル付与時
 - **実行内容:** Dependabot PR のテスト実行後、成功時に自動承認・マージ
 - **目的:** 依存関係更新の自動化

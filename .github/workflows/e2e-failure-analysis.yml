@@ -1,0 +1,258 @@
+name: E2E Failure Analysis
+
+"on":
+  workflow_run:
+    workflows: ["E2E Tests with Coverage"]
+    types: [completed]
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+jobs:
+  analyze-failure:
+    if: github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      - name: Download E2E workflow artifacts
+        uses: actions/download-artifact@9c46844353d40b3b16de9e0db00e6a08166cb7a2 # v4.1.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+          path: artifacts
+
+      - name: Extract failure information
+        id: extract-info
+        run: |
+          set +e
+          
+          echo "=== E2E Failure Analysis ===" 
+          echo ""
+          
+          # Initialize variables
+          FAILURE_TYPE="unknown"
+          FAILED_TESTS=""
+          SERVICE_ERRORS=""
+          TEST_LOGS=""
+          PLAYWRIGHT_ERROR=""
+          ALLURE_STATUS=""
+          
+          # Check for Playwright test results
+          if [ -d "artifacts/playwright-test-results" ]; then
+            echo "✓ Found playwright test results"
+            FAILURE_TYPE="playwright-test-failure"
+            
+            # Try to extract failed test info
+            if [ -f "artifacts/playwright-test-results/results.json" ]; then
+              FAILED_TESTS=$(grep -o '"title":"[^"]*"' artifacts/playwright-test-results/results.json | grep -v "passing" | head -5 || echo "Unable to parse test names")
+            fi
+          fi
+          
+          # Check for test reports
+          if [ -d "artifacts/test-reports" ]; then
+            echo "✓ Found test reports"
+            if [ -f "artifacts/test-reports/allure/index.html" ]; then
+              ALLURE_STATUS="Allure report generated"
+            fi
+          fi
+          
+          # Check for E2E raw coverage (indicates tests may have run partially)
+          if [ -d "artifacts/e2e-raw-coverage-early" ]; then
+            echo "✓ Found E2E raw coverage data"
+          fi
+          
+          # Try to determine failure reason
+          echo ""
+          echo "=== Failure Analysis ==="
+          
+          if [ -z "$FAILED_TESTS" ] && [ "$FAILURE_TYPE" = "playwright-test-failure" ]; then
+            SERVICE_ERRORS="Playwright tests failed - unable to parse specific test failures"
+            echo "Unable to determine specific failed tests"
+          elif [ "$FAILURE_TYPE" = "unknown" ]; then
+            SERVICE_ERRORS="E2E workflow failed - Check workflow logs for details"
+            echo "Failure reason could not be automatically determined"
+          fi
+          
+          echo ""
+          echo "=== Extracted Information ==="
+          echo "FAILURE_TYPE: $FAILURE_TYPE"
+          echo "FAILED_TESTS: $FAILED_TESTS"
+          echo "SERVICE_ERRORS: $SERVICE_ERRORS"
+          
+          # Export to GitHub output
+          {
+            echo "failure_type=$FAILURE_TYPE"
+            echo "failed_tests=$FAILED_TESTS"
+            echo "service_errors=$SERVICE_ERRORS"
+            echo "workflow_run_id=${{ github.event.workflow_run.id }}"
+            echo "workflow_run_url=${{ github.event.workflow_run.html_url }}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Format failure summary for Issue
+        id: format-issue
+        run: |
+          FAILURE_TYPE="${{ steps.extract-info.outputs.failure_type }}"
+          FAILED_TESTS="${{ steps.extract-info.outputs.failed_tests }}"
+          SERVICE_ERRORS="${{ steps.extract-info.outputs.service_errors }}"
+          WORKFLOW_URL="${{ steps.extract-info.outputs.workflow_run_url }}"
+          
+          # Create issue title based on failure type
+          ISSUE_TITLE="[E2E Failure] E2E テスト実行失敗"
+          
+          # Create detailed issue body
+          read -r -d '' ISSUE_BODY << 'EOF' || true
+          ## E2E テスト実行失敗レポート
+          
+          E2E テスト実行時に失敗が検出されました。
+          
+          ### 🔴 失敗概要
+          - **失敗タイプ:** $FAILURE_TYPE
+          - **ワークフロー実行:** $WORKFLOW_URL
+          - **検出時刻:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          
+          ### 📋 失敗の詳細
+          
+          $SERVICE_ERRORS
+          
+          ### 🔍 失敗したテスト
+          
+          $FAILED_TESTS
+          
+          ### 🛠️ 対応方法
+          
+          1. **ワークフロー実行ログを確認**
+             - 上記の「ワークフロー実行」リンクからログを確認してください
+             - `Run Playwright E2E tests` ステップのログを最初に確認
+          
+          2. **Playwright テスト結果を確認**
+             - アーティファクト `playwright-test-results` に詳細情報があります
+             - `test-results/results.json` に全テスト結果が格納されています
+          
+          3. **サービス状態を確認**
+             - ログから MySQL、Spring Boot、Frontend サービスの起動状態を確認
+             - タイムアウトやコネクション拒否がないか確認
+          
+          4. **Allure レポートを確認**
+             - テストレポートアーティファクトに Allure レポートがあります
+             - GitHub Pages の [E2E テストレポート](https://cocomomojo.github.io/test_app/allure/) も確認
+          
+          ### 📊 アーティファクト
+          
+          - `playwright-test-results` - Playwright テスト実行結果
+          - `test-reports` - Allure レポート、カバレッジレポート
+          - `e2e-raw-coverage` - E2E 生カバレッジデータ
+          
+          ---
+          **自動生成:** E2E Failure Analysis ワークフロー
+          EOF
+          
+          # Export issue content (using multiline output)
+          {
+            echo "issue_title=$ISSUE_TITLE"
+            echo "issue_body<<EOFBODY"
+            echo "$ISSUE_BODY"
+            echo "EOFBODY"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check if similar issue already exists
+        id: check-existing-issue
+        run: |
+          # Search for recent open E2E failure issues
+          SIMILAR_ISSUES=$(gh issue list \
+            --label "bug,e2e" \
+            --state open \
+            --search "E2E テスト実行失敗" \
+            --json number,title,updatedAt \
+            --limit 5 2>/dev/null || echo "")
+          
+          if [ -n "$SIMILAR_ISSUES" ]; then
+            echo "found_similar=true"
+            echo "similar_issues=$SIMILAR_ISSUES"
+            echo "similar_issues<<EOFISSUES" >> "$GITHUB_OUTPUT"
+            echo "$SIMILAR_ISSUES" >> "$GITHUB_OUTPUT"
+            echo "EOFISSUES" >> "$GITHUB_OUTPUT"
+          else
+            echo "found_similar=false"
+            echo "similar_issues=" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create or update Issue
+        id: create-issue
+        run: |
+          FOUND_SIMILAR="${{ steps.check-existing-issue.outputs.found_similar }}"
+          ISSUE_TITLE="${{ steps.format-issue.outputs.issue_title }}"
+          ISSUE_BODY="${{ steps.format-issue.outputs.issue_body }}"
+          WORKFLOW_URL="${{ steps.extract-info.outputs.workflow_run_url }}"
+          
+          if [ "$FOUND_SIMILAR" = "true" ]; then
+            echo "✓ Found similar open issue. Adding comment instead of creating new issue."
+            
+            # Get the most recent similar issue number
+            ISSUE_NUM=$(gh issue list \
+              --label "bug,e2e" \
+              --state open \
+              --search "E2E テスト実行失敗" \
+              --json number \
+              --limit 1 \
+              --sort updated \
+              --order desc 2>/dev/null | grep -o '"number":[0-9]*' | head -1 | grep -o '[0-9]*' || echo "")
+            
+            if [ -n "$ISSUE_NUM" ]; then
+              # Add comment to existing issue
+              gh issue comment "$ISSUE_NUM" << 'COMMENT'
+          ## 🔄 追加の失敗検出
+          
+          別の E2E テスト実行でも失敗が検出されました。
+          
+          - **ワークフロー実行:** $WORKFLOW_URL
+          - **検出時刻:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          
+          詳細は上記のワークフロー実行ログを確認してください。
+          COMMENT
+              echo "issue_number=$ISSUE_NUM" >> "$GITHUB_OUTPUT"
+              echo "action=comment"
+            fi
+          else
+            echo "✓ Creating new Issue for E2E test failure..."
+            
+            # Create new issue
+            ISSUE_URL=$(gh issue create \
+              --title "$ISSUE_TITLE" \
+              --label "bug,e2e" \
+              --body "$ISSUE_BODY" 2>&1)
+            
+            ISSUE_NUM=$(echo "$ISSUE_URL" | grep -o 'issues/[0-9]*' | grep -o '[0-9]*' || echo "")
+            
+            if [ -n "$ISSUE_NUM" ]; then
+              echo "✓ Issue created: #$ISSUE_NUM"
+              echo "issue_number=$ISSUE_NUM" >> "$GITHUB_OUTPUT"
+              echo "action=create"
+              echo "issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
+            else
+              echo "✗ Failed to create issue"
+              echo "action=failed"
+            fi
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Report summary
+        if: always()
+        run: |
+          echo "=== E2E Failure Analysis Complete ==="
+          echo ""
+          echo "✓ Failure Analysis: ${{ steps.extract-info.outputs.failure_type }}"
+          echo "✓ Issue Action: ${{ steps.create-issue.outputs.action }}"
+          echo "✓ Issue Number: #${{ steps.create-issue.outputs.issue_number }}"
+          echo ""
+          echo "📊 Check the created/updated Issue for details."
+          echo "🔗 Workflow Run: ${{ steps.extract-info.outputs.workflow_run_url }}"
