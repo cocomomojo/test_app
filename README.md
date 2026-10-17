@@ -479,9 +479,67 @@ graph TD
 
 **合計:** 約 4-5 分
 
+#### E2E Failure Analysis（自動実行・失敗検出時）
+
+| ステップ | 所要時間 | 説明 |
+|---------|---------|------|
+| 1️⃣ Checkout | ~5秒 | コードの取得 |
+| 2️⃣ Download Artifacts | ~10秒 | ワークフローアーティファクトをダウンロード |
+| 3️⃣ Extract Failure Info | ~5秒 | 失敗ログから情報を抽出 |
+| 4️⃣ Format Issue | ~5秒 | Issue テンプレートを生成 |
+| 5️⃣ Check Existing Issues | ~10秒 | 既に作成済みの Issue がないか確認 |
+| 6️⃣ Create or Update Issue | ~10秒 | Issue を作成または既存 Issue にコメント追加 |
+
+**トリガー条件:**
+- E2E テスト（`e2e.yml`）が **失敗** したときのみ自動実行
+- 成功時は実行されない
+- main、develop ブランチのみ対象
+
+**合計:** 約 1-2 分（E2E 失敗時）
+
+**重要:** E2E Failure Analysis ワークフローの実行には以下が必要です：
+- Issue 作成権限（自動的に `GITHUB_TOKEN` で実行）
+- 既存 Issue への検索・コメント権限
+
+---
+
+### 🔄 ワークフロー構成と依存関係
+
+#### ワークフロー自動化チェーン
+
+```
+PR作成・更新
+    ↓
+PR Quality Checks（自動実行）
+    ├─ Frontend Unit Tests
+    ├─ Backend Unit Tests
+    └─ E2E Tests（実行可能）
+        └─ E2E Failure Analysis（失敗時のみ）
+           ├─ 失敗ログ分析
+           └─ Issue 自動作成 ✓
+
+E2E手動実行
+    ↓
+E2E Tests with Coverage（手動実行）
+    ├─ Full E2E Tests
+    ├─ Allure Report
+    ├─ Coverage Reports
+    └─ GitHub Pages Deploy（main のみ）
+        └─ E2E Failure Analysis（失敗時のみ）
+           └─ Issue 自動作成 ✓
+
+Dependabot PR
+    ↓
+automerge ラベル付与
+    ↓
+Dependabot Auto-merge
+    ├─ テスト実行
+    └─ 成功時に自動マージ
+```
+
 ### 🔄 ワークフロー構成
 
-このプロジェクトは以下の **3つのコアワークフロー** で構成されています：
+このプロジェクトは以下の **4つのコアワークフロー** で構成されています：
 
 #### 1️⃣ **PR Quality Checks** (`pr-quality.yml`)
 - **トリガー:** PR 作成・更新時
@@ -493,7 +551,13 @@ graph TD
 - **実行内容:** Playwright による E2E テスト実行、Allure レポート生成、GitHub Pages へデプロイ
 - **目的:** エンドツーエンドテストの検証とレポート
 
-#### 3️⃣ **Dependabot Auto-merge** (`dependabot-auto-merge.yml`)
+#### 3️⃣ **E2E Failure Analysis** (`e2e-failure-analysis.yml`)
+- **トリガー:** E2E テスト失敗時に自動実行
+- **実行内容:** 失敗ログを分析し、問題を自動検出し Issue を作成
+- **目的:** E2E テスト失敗の自動検知・レポート化、開発チームへの早期通知
+- **連携:** Issue 作成時に `bug,e2e` ラベルを付与
+
+#### 4️⃣ **Dependabot Auto-merge** (`dependabot-auto-merge.yml`)
 - **トリガー:** `automerge` ラベル付与時
 - **実行内容:** Dependabot PR のテスト実行後、成功時に自動承認・マージ
 - **目的:** 依存関係更新の自動化
