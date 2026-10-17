@@ -188,11 +188,6 @@ jobs:
       - name: Create or update Issue
         id: create-issue
         run: |
-          FOUND_SIMILAR="${{ steps.check-existing-issue.outputs.found_similar }}"
-          ISSUE_TITLE="${{ steps.format-issue.outputs.issue_title }}"
-          ISSUE_BODY="${{ steps.format-issue.outputs.issue_body }}"
-          WORKFLOW_URL="${{ steps.extract-info.outputs.workflow_run_url }}"
-          
           if [ "$FOUND_SIMILAR" = "true" ]; then
             echo "✓ Found similar open issue. Adding comment instead of creating new issue."
             
@@ -244,6 +239,10 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FOUND_SIMILAR: ${{ steps.check-existing-issue.outputs.found_similar }}
+          ISSUE_TITLE: ${{ steps.format-issue.outputs.issue_title }}
+          ISSUE_BODY: ${{ steps.format-issue.outputs.issue_body }}
+          WORKFLOW_URL: ${{ steps.extract-info.outputs.workflow_run_url }}
 
       - name: Report summary
         if: always()
