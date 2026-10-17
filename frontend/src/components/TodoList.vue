@@ -276,8 +276,8 @@ const applyFilters = async (filters) => {
   const res = await searchTodos(
     filters.priority,
     filters.status,
-    filters.dueDateTo,
-    filters.dueDateFrom
+    filters.dueDateFrom,
+    filters.dueDateTo
   );
   todos.value = res.data;
 };

@@ -390,7 +390,7 @@ describe('TodoList', () => {
 
     await flushPromises();
 
-    expect(searchTodos).toHaveBeenCalledWith('HIGH', null, '2024-12-31', null);
+    expect(searchTodos).toHaveBeenCalledWith('HIGH', null, null, '2024-12-31');
   });
 
   it('displays overdue todos with highlight', async () => {
