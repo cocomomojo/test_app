@@ -22,7 +22,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
       - name: Download E2E workflow artifacts
-        uses: actions/download-artifact@9c46844353d40b3b16de9e0db00e6a08166cb7a2 # v4.1.1
+        uses: actions/download-artifact@v4.1.1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
