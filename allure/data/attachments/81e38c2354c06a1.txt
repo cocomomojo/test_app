@@ -1,0 +1,1 @@
+📊 Saved istanbul coverage to /home/runner/work/test_app/test_app/frontend/coverage/e2e-raw/coverage-1792227115513-u5ia0p8.json
