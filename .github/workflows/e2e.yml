@@ -61,7 +61,7 @@ jobs:
           done
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -158,7 +158,7 @@ jobs:
 
       - name: Upload frontend E2E raw coverage (early)
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@v4
         with:
           name: e2e-raw-coverage-early
           path: frontend/coverage/e2e-raw
@@ -347,7 +347,7 @@ jobs:
 
       - name: Upload test reports artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@v4
         with:
           name: test-reports
           path: gh-pages/
@@ -355,7 +355,7 @@ jobs:
 
       - name: Upload frontend E2E raw coverage
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@v4
         with:
           name: e2e-raw-coverage
           path: frontend/coverage/e2e-raw
@@ -373,7 +373,7 @@ jobs:
 
       - name: Upload Playwright test results on failure
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@v4
         with:
           name: playwright-test-results
           path: frontend/test-results/

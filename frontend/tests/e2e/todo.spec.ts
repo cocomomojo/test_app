@@ -34,12 +34,13 @@ test('TODOをフィルターできること-すべて', async ({ page }) => {
   const checkbox = page.locator('input[type="checkbox"]').first();
   
   // チェックボックス操作の PUT リクエスト完了を待機
-  const updateResponse = page.waitForResponse(resp => 
-    resp.url().includes('/todo') && resp.request().method() === 'PUT' && resp.status() === 200
-  );
-  
-  await checkbox.check();
-  await updateResponse;
+  // Promise.all で非同期操作を並行実行し、レスポンスをキャッチ
+  await Promise.all([
+    page.waitForResponse(resp => 
+      resp.url().includes('/todo') && resp.request().method() === 'PUT' && resp.status() === 200
+    ),
+    checkbox.check()
+  ]);
 
   await page.getByLabel('新しい TODO を入力').fill(pendingTitle);
   await page.getByRole('button', { name: '追加' }).click();
@@ -75,12 +76,13 @@ test('TODOをフィルターできること-未完了のみ', async ({ page }) =
   const checkbox = page.locator('input[type="checkbox"]').first();
   
   // チェックボックス操作の PUT リクエスト完了を待機
-  const updateResponse = page.waitForResponse(resp => 
-    resp.url().includes('/todo') && resp.request().method() === 'PUT' && resp.status() === 200
-  );
-  
-  await checkbox.check();
-  await updateResponse;
+  // Promise.all で非同期操作を並行実行し、レスポンスをキャッチ
+  await Promise.all([
+    page.waitForResponse(resp => 
+      resp.url().includes('/todo') && resp.request().method() === 'PUT' && resp.status() === 200
+    ),
+    checkbox.check()
+  ]);
 
   // Create a pending TODO
   await page.getByLabel('新しい TODO を入力').fill(pendingTitle);
@@ -117,12 +119,13 @@ test('TODOをフィルターできること-完了のみ', async ({ page }) => {
   const checkbox = page.locator('input[type="checkbox"]').first();
   
   // チェックボックス操作の PUT リクエスト完了を待機
-  const updateResponse = page.waitForResponse(resp => 
-    resp.url().includes('/todo') && resp.request().method() === 'PUT' && resp.status() === 200
-  );
-  
-  await checkbox.check();
-  await updateResponse;
+  // Promise.all で非同期操作を並行実行し、レスポンスをキャッチ
+  await Promise.all([
+    page.waitForResponse(resp => 
+      resp.url().includes('/todo') && resp.request().method() === 'PUT' && resp.status() === 200
+    ),
+    checkbox.check()
+  ]);
 
   await page.getByLabel('新しい TODO を入力').fill(pendingTitle);
   await page.getByRole('button', { name: '追加' }).click();
