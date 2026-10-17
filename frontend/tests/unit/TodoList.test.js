@@ -384,8 +384,8 @@ describe('TodoList', () => {
     await filterPanel.vm.$emit('apply-filters', {
       priority: 'HIGH',
       status: null,
-      dueDateFrom: null,
-      dueDateTo: '2024-12-31'
+      dueDateFrom: '2024-12-31',
+      dueDateTo: null
     });
 
     await flushPromises();
