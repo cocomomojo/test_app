@@ -15,11 +15,15 @@ import { test, expect } from './fixtures/coverage-fixture';
  * 
  * Pattern: Only status-based filtering tests fail during checkbox update
  * 
- * Next steps: 
- * 1. Investigate test environment database connection pooling
- * 2. Check if test data accumulation causes performance degradation
- * 3. Review backend request handling for TODO updates
- * 4. Implement proper test cleanup/teardown between tests
+ * Next steps (prioritized): 
+ * 1. **PRIORITY:** Complete implementation of status-based filtering feature
+ *    - Verify pending/completed status filters work correctly
+ *    - Test with various data patterns to identify edge cases
+ * 2. Investigate test environment database connection pooling
+ * 3. Check if test data accumulation causes performance degradation
+ * 4. Review backend request handling for TODO updates during filtered state
+ * 5. Implement proper test cleanup/teardown between tests
+ * 6. Unskip tests and verify all 13 tests pass consistently
  * 
  * Reference: Issue #282
  */
