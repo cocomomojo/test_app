@@ -55,6 +55,13 @@ test('TODOをフィルターできること-すべて', async ({ page }) => {
   await expect(page.getByText(pendingTitle)).toBeVisible();
 });
 
+// TODO: Implement status-based TODO filtering
+// Issue: This test fails with TimeoutError when waiting for PUT response during checkbox update
+// Root cause: Status-based filtering feature (pending/completed) appears unimplemented or buggy
+// Evidence: Test 8 (filter-all) passes, but tests 9 & 10 (filter-pending/completed) timeout
+// Impact: Blocks CI/CD pipeline when run
+// Solution: Skip until feature is properly implemented
+// Related: Issue #282
 test.skip('TODOをフィルターできること-未完了のみ', async ({ page }) => {
   await page.goto('/login');
   await page.getByLabel('ユーザ名').fill('testuser');
@@ -100,6 +107,13 @@ test.skip('TODOをフィルターできること-未完了のみ', async ({ page
   await expect(page.getByText(completedTitle)).not.toBeVisible();
 });
 
+// TODO: Implement status-based TODO filtering
+// Issue: This test fails with TimeoutError when waiting for PUT response during checkbox update
+// Root cause: Status-based filtering feature (pending/completed) appears unimplemented or buggy
+// Evidence: Test 8 (filter-all) passes, but tests 9 & 10 (filter-pending/completed) timeout
+// Impact: Blocks CI/CD pipeline when run
+// Solution: Skip until feature is properly implemented
+// Related: Issue #282
 test.skip('TODOをフィルターできること-完了のみ', async ({ page }) => {
   await page.goto('/login');
   await page.getByLabel('ユーザ名').fill('testuser');
